@@ -3,120 +3,62 @@
 Clone of [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) (MIT) — backend agent harness for **Aio**.
 
 ## What this is
-- `hermes-agent/` — upstream source, cloned 2026-06-13. Reference + place Aio calls into via API/MCP.
-- Runs as **one Hermes profile + process per customer** (own `state.db`, `.env`, memory, curated skills). A single dev profile "aio" is used for local bring-up; production spawns a profile-per-customer (see Integration decisions). Profiles live under the **isolated `aio` profile root**, never the default `~/.hermes/`.
+- `hermes-agent/` — upstream source, pinned to commit `4373e802`. Reference + API boundary for Aio.
+- Runs as **one Hermes process per customer** (own profile, port, `state.db`, `.env`). Dev profile = "aio".
+- Profiles live under `Aio_harness/aio-home/` — never `~/.hermes/` (Himeko's profile).
 
 ## Hard rules
-- **Do not touch `~/.hermes/` (default profile = Himeko)**. Aio profiles are separate, no shared state.
-- **Do not modify `hermes-agent/` source** (Phase 1 = wrap via API/config, **no core edits**). Audited 2026-06-14: every locked decision sits at the config/env/API boundary, incl. HITL (native approval system). See [[decisions-log]] core-edit audit.
-- Aio (`../Aio`, Next.js) is the UI/product. This harness is the brain it calls into — keep them decoupled (API/MCP boundary, not direct imports).
+- **Never touch `~/.hermes/`** — that's Himeko's profile. All Aio profiles are under `aio-home/`.
+- **No core edits to `hermes-agent/` source** — Phase 1 = API/config boundary only.
+- Aio (Next.js) ↔ Hermes = API boundary only, no direct imports.
 
-## Status
-- 2026-06-13: repo cloned. 2026-06-14: 48-question integration grill **complete** — all decisions locked.
-- 2026-06-15: **Build Order Step 1 (Hermes single-profile dev bring-up) DONE.**
-  - Python env: `uv venv` + `uv pip install -e .` — venv at `hermes-agent/.venv` (Python 3.11.15). `python3.12-venv` apt package not needed (uv self-provisions).
-  - Isolated profile root: `Aio_harness/aio-home/` (sibling to `hermes-agent/`, NOT `~/.hermes/`). Profile "aio" at `Aio_harness/aio-home/profiles/aio/`.
-  - Toolsets narrowed from default (`--no-skills` fresh profile) toward Q12/Q12b curated set via `hermes tools disable terminal x_search moa video video_gen homeassistant spotify yuanbao messaging computer_use` — leaving `web, browser, file, code_execution, cronjob, image_gen, clarify, todo, memory, skills, session_search, vision, tts, delegation` enabled. **Note**: `clarify/todo/memory/skills/session_search/vision/tts/delegation` are beyond Q12's literal list (kept as agent-loop essentials) — flagged for review, not yet trimmed further.
-  - Dev `.env` written at `aio-home/profiles/aio/.env`: `OPENROUTER_API_KEY` placeholder (real key per Q41 → Supabase Vault, not available), `API_SERVER_KEY` (random, generated), `TERMINAL_ENV=local`.
-  - **BLOCKER (needs Q7 re-grill)**: Q7 specifies `TERMINAL_ENV=vercel_sandbox` for per-task ephemeral isolation. This value **does not exist** in hermes-agent — `tools/terminal_tool.py` only accepts `local, docker, singularity, modal, daytona, ssh`, and `tools/environments/` has no vercel backend. `execute_code` (code_execution toolset) shares this same backend via `_get_or_create_env()`. Dev profile runs `TERMINAL_ENV=local` (not the prod isolation target) until Q7 is corrected to a real value (likely `modal` or `daytona` for cloud ephemeral sandboxes).
-  - Server: `hermes -p aio gateway run` (NOT `hermes gateway api_server` — that subcommand doesn't exist; api_server is a "platform" auto-enabled by `API_SERVER_KEY` presence and started via `gateway run`). Listens on `http://127.0.0.1:8642` (default `DEFAULT_PORT` in `api_server.py`, override via `API_SERVER_PORT`).
-  - **Verified**: `POST /v1/chat/completions` with `Authorization: Bearer <API_SERVER_KEY>`, `X-Hermes-Session-Id`, `X-Hermes-Session-Key` headers → HTTP 200, valid SSE stream (`chat.completion.chunk` + `[DONE]`). Full conversation-loop scaffolding runs (session creation, credential pool, agent turn context); fails only at the OpenRouter call with `401 User not found` (placeholder key — expected). `approval.request`/`approval.responded` gateway-protocol events confirmed present in `gateway/platforms/api_server.py` (lines ~3753, 3761, 4053, 4058) — HITL wiring reachable via this API path.
-  - **Next (Build Order Step 2 — Aio gateway core)**: build the Aio-side Next.js route that proxies to `/v1/chat/completions` via Vercel AI SDK, forwarding `X-Hermes-Session-Id`/`X-Hermes-Session-Key`; obtain a real OpenRouter key (even a personal dev key) to verify actual model responses end-to-end; resolve the Q7 `TERMINAL_ENV` blocker before any sandboxed code-execution testing.
-- 2026-06-15: **Build Order Step 2 (Aio gateway core, dev/single-profile) DONE** — code complete, partially E2E-tested.
-  - `Aio/src/app/api/chat/route.ts`: authenticated proxy route, `useChat` → Hermes `/v1/chat/completions` SSE → AI SDK UI Message Stream. `Aio/supabase/migrations/0001_hermes_registry.sql`: `hermes_registry` + `hermes_threads` schema (BUILD_SPEC §6), not yet applied (no live Supabase project). `(app)/app/page.tsx` now a working `useChat` chat UI. `npm run typecheck`/`build` pass.
-  - **Model-availability blocker RESOLVED (2026-06-15)**: both Gemini ids (`google/gemini-2.0-flash-001`, `google/gemini-flash-1.5`) are fully delisted/unavailable for this OpenRouter key (404 "No endpoints found", not a data-policy issue). `mistralai/mistral-small-3.1-24b-instruct` confirmed blocked by the account's data-policy filter (openrouter.ai/settings/privacy) — 404 "No endpoints available matching your guardrail restrictions and data policy". `openai/gpt-4o-mini` is **inconsistent**: passes direct curl (200, provider Azure) but fails through the Hermes gateway with the same data-policy 404 — OpenRouter's endpoint routing for this model is non-deterministic per request. `GET /api/v1/key` confirms account is paid (`is_free_tier: false`, `limit: 2`, `~$1.95` remaining) — not a balance issue.
-  - **Working model**: `meta-llama/llama-3.1-8b-instruct` (DeepInfra) — confirmed via direct curl AND live `hermes -p aio gateway run` E2E. `config.yaml` `model.default` updated to `meta-llama/llama-3.1-8b-instruct`. **First real model text response confirmed through the gateway**: `/v1/chat/completions` SSE → `chat.completion.chunk` with actual content (`"OK"`), `finish_reason: stop`.
-  - **HARD-RULE INCIDENT — ROOT-CAUSED AND FIXED (2026-06-15)**: the stray `~/.hermes/ACKNOWLEDGMENT` write traced to two compounding gaps, both config/env-level (no source edits):
-    1. `config.yaml` `terminal.cwd: .` is a recognized sentinel (`_TERMINAL_CWD_SENTINELS` in `tools/file_tools.py`) — contributes nothing. With no terminal command yet run in a fresh session, `_resolve_base_dir()` (file_tools.py) falls back to `os.getcwd()` (the hermes **process's launch-time cwd**), not the profile dir, for relative-path writes.
-    2. `~`-prefixed write paths go through `Path(filepath).expanduser()` (file_tools.py:205), which reads the Python process's own `$HOME` env var — `get_subprocess_home()`/`HERMES_HOME` profile scoping (hermes_constants.py) explicitly does NOT touch the process's own `$HOME`, only subprocess envs. So any `~/...` path an agent writes resolves to the real OS home (`/home/swegon`), landing in `~/.hermes/` regardless of `-p aio`.
-    - **Fix applied (config + launch env only)**:
-      - `aio-home/profiles/aio/config.yaml`: `terminal.cwd` changed from `.` to absolute `/home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/aio-home/profiles/aio/workspace` — anchors relative `write_file` paths inside the profile.
-      - Launch command now exports `HOME=<aio-home>/profiles/aio/home` (the pre-existing per-profile home dir from `hermes profile create`) alongside `HERMES_HOME=<aio-home>` (required for `-p aio` to resolve under the Docker/custom-deployment branch of `get_default_hermes_root()` — `_get_profiles_root()` is anchored to `$HOME/.hermes` otherwise and won't find "aio"). Full launch: `HERMES_HOME=<aio-home> HOME=<aio-home>/profiles/aio/home hermes -p aio gateway run --replace`.
-    - **Verified E2E (2026-06-15)**: ran the gateway with the fix, sent two `/v1/chat/completions` requests forcing `write_file` calls — (a) relative path `PATHFIX_TEST.txt` → landed in `aio-home/profiles/aio/workspace/` ✓; (b) explicit `~/TILDE_TEST.txt` → landed in `aio-home/profiles/aio/home/TILDE_TEST.txt` ✓. `~/.hermes/` entry count unchanged (44) before and after — zero stray writes. Test artifacts cleaned up, test gateway stopped via `hermes -p aio gateway stop`.
-    - **Going forward**: any script/process that launches `hermes -p aio ...` MUST export both `HERMES_HOME=<repo>/Aio_harness/aio-home` and `HOME=<repo>/Aio_harness/aio-home/profiles/aio/home`. Document this in the eventual orchestrator spawn code (Build Order Step 3).
-  - **Supabase project provisioned (2026-06-15)**: live project at `https://xeuvoaedwdmuhxdcoxcx.supabase.co`. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable key `sb_publishable_ZlZ...`) written to `Aio/.env.local` (gitignored).
-  - **Migration `0001_hermes_registry.sql` APPLIED (2026-06-15)**: `SUPABASE_ACCESS_TOKEN` (personal access token) provided → `npx supabase link --project-ref xeuvoaedwdmuhxdcoxcx` succeeded (management-API auth, no DB password needed) → `npx supabase db push` applied cleanly. `npx supabase migration list` confirms Local 0001 == Remote 0001. Verified via Management API SQL query: `hermes_registry` and `hermes_threads` both exist in `public` schema with `rowsecurity = true`. `db diff` itself failed (needs local Docker shadow DB, unrelated to remote state) — not a concern.
-- 2026-06-15: **Daytona wired into the "aio" dev profile (Q7 resolved) — E2E PASS.**
-  - `aio-home/profiles/aio/.env`: `DAYTONA_API_KEY=dtn_72416e8a...` added (gitignored, confirmed via `git check-ignore`).
-  - `aio-home/profiles/aio/config.yaml`: `terminal.backend` changed `local` → `daytona`; `daytona_image: nikolaik/python-nodejs:python3.11-nodejs20` kept.
-  - **E2E**: launched `HERMES_HOME=<repo>/Aio_harness/aio-home HOME=<repo>/Aio_harness/aio-home/profiles/aio/home hermes -p aio gateway run --replace`, sent `/v1/chat/completions` asking the agent to run `print(2+2)` via `execute_code`. First attempt hit `ImportError: cannot import name 'Proxy' from 'websockets.uri'` inside `daytona/_sync/code_interpreter.py` — transient: the `daytona`/`websockets` packages were mid-(re)install in the venv at that exact moment (standalone `python -c "from daytona import Daytona"` worked fine immediately after). **Restarting the gateway (no code/config change) fixed it** — second run: `hermes.tool.progress` events for `execute_code` (running → completed), Daytona env created (log: "Daytona: requested disk (50GB) exceeds platform limit (10GB). Capping to 10GB." — informational, not fatal), final model output correctly states the result `4`. Q7 (`TERMINAL_ENV=daytona`) is now the working sandbox backend for the dev profile.
-  - `~/.hermes/` entry count unchanged (44) before/after — no stray writes, hard rule intact.
-  - If this `Proxy` ImportError recurs: it's a venv package-state race, not a code/config bug — stop (`hermes -p aio gateway stop`) and relaunch the gateway. If persistent, `uv pip install -e .` (in `hermes-agent/`) to resettle `daytona`/`websockets` versions.
+## Dev environment
+```bash
+cd hermes-agent
+uv venv && uv pip install -e .   # Python 3.11, venv at hermes-agent/.venv
+```
 
-- 2026-06-15: **Build Order Step 3a (registry-backed routing for the single dev profile) DONE** — `Aio/src/app/api/chat/route.ts` now:
-  1. authenticates via `getUser()` (user-session Supabase client),
-  2. looks up `hermes_registry` by `customer_id = user.id` using a new **service-role client** (`Aio/src/lib/supabase/service.ts`, `SUPABASE_SERVICE_ROLE_KEY` from `Aio/.env.local`, bypasses RLS),
-  3. if no row exists, **seeds one** pointing at the existing dev "aio" profile (`port 8642`, `endpoint http://127.0.0.1:8642`, `api_server_key_ref: "env:HERMES_DEV_API_SERVER_KEY"`, `commit_pin` = current `hermes-agent` HEAD `4373e802a1b90150b131b459c52e84ada2e70d06`, `normalized_email` via Q30 strip-dots/+tag),
-  4. proxies to `endpoint` from the registry row instead of a hardcoded constant.
-  - `npm run typecheck` and `npm run build` both pass.
-  - **NOT done (Step 3b, BUILD_SPEC §4 + §5 + Q39)**: dynamic profile spawn/idle-kill(~60m)/respawn, health-check, crash-reconcile on orchestrator startup, multi-profile support (every customer currently routes to the SAME dev "aio" process — port/profile_name/normalized_email columns are `unique`, so a **second distinct user signing up will hit a unique-constraint error on insert**, this is a known step-3a limitation, not yet handled), per-thread `X-Hermes-Session-Id` via `hermes_threads` (currently still a per-browser cookie, not registry-linked), real Vault-backed `api_server_key_ref` resolution (Q41) — `api_server_key_ref` is currently a literal dev sentinel string `"env:HERMES_DEV_API_SERVER_KEY"`, resolved by reading that env var directly in `route.ts`.
-  - **Next (Build Order Step 3b)**: implement the 7-step lazy provisioning flow (BUILD_SPEC §4) as a real orchestrator — spawn-on-demand Hermes processes per customer, port allocation, idle-kill/respawn, registry status updates, crash reconciliation; then wire `hermes_threads` for per-thread session ids; then real Vault secret resolution.
+## Launch (dev profile)
+```bash
+HERMES_HOME=/home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/aio-home \
+HOME=/home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/aio-home/profiles/aio/home \
+hermes -p aio gateway run --replace
+```
+Both env vars are **required**: `HERMES_HOME` anchors profile resolution; `HOME` sandboxes `~/...` file writes inside the profile.
 
-- 2026-06-15: **Build Order Step 3b (dynamic provisioning orchestrator) IMPLEMENTED + E2E VERIFIED — Step 3 (orchestrator) functionally complete for Phase 1.**
-  - Migration `0002_hermes_registry_multitenant.sql` applied to remote (`xeuvoaedwdmuhxdcoxcx`) — verified live schema via PostgREST OpenAPI spec: `profile_name`/`port`/`endpoint`/`api_server_key_ref`/`commit_pin` are now nullable, `pid` (integer) + `last_active_at` (timestamptz, default now()) added to `hermes_registry`, `thread_id` (text, default `gen_random_uuid()`) added to `hermes_threads` with unique `(customer_id, thread_id)` index.
-  - **Bug found + fixed during E2E**: `hermes profile create <name> --no-skills` does NOT generate `config.yaml` (or any of `profile.yaml`/`auth.json`/`auth.lock`/`state.db`/etc) for the new profile — only the bare dir skeleton (`workspace/`, `skills/`, `home/`, `logs/`, `memories/`, `plans/`, `sessions/`, `skins/`, `cron/`, `SOUL.md`, `.no-bundled-skills`). `copyCuratedCatalog` previously assumed a target `config.yaml` existed and tried to read-merge into it — always threw `ENOENT`. **Fix** (`Aio/src/lib/hermes/provision.ts`): the new profile's `config.yaml` is now the dev "aio" profile's `config.yaml` **wholesale** (full clone, not a partial key merge), with only `terminal.cwd` overridden to the new profile's `workspace/` path. This is the correct interpretation of Q12b's "curated catalog" placeholder anyway — entire config is the catalog until a standalone master catalog exists.
-  - **Full E2E PASS** (test customer = throwaway Supabase auth user, deleted after): `ensureRegistryRow` → `provisionAndStart` ran all 7 steps cleanly — `hermes profile create cust_<hash> --no-skills --no-alias`, config.yaml clone + terminal.cwd fix, `.env` write (fresh `API_SERVER_KEY`, shared dev `OPENROUTER_API_KEY`/`DAYTONA_API_KEY`, `TERMINAL_ENV=daytona`), port 8650 allocated (first in `PROVISION_PORT_RANGE`), `hermes -p cust_<hash> gateway run --replace` spawned with `HERMES_HOME`/`HOME` correctly profile-scoped, registry row → `running` with real `pid`, health-check `/health` passed. `POST /v1/chat/completions` against `http://127.0.0.1:8650` returned a real streamed `meta-llama/llama-3.1-8b-instruct` response (`model: "cust_<hash>"` in chunks) — profile fully serving.
-  - **Idle-kill PASS**: `last_active_at` forced to epoch → `idleKillSweep` sent SIGTERM to the tracked pid, process confirmed dead, registry row → `idle` with `pid: null`.
-  - **Respawn PASS**: re-ran `provisionAndStart` on the `idle` row — profile dir + `.env` (incl. `API_SERVER_KEY`) reused, same port 8650 (free again), new pid, health-check passed again.
-  - **Crash-reconcile PASS**: `kill -9` the respawned process out-of-band → `reconcileCrashedProcesses` detected dead pid on a `running` row → flipped to `failed`. (Minor: doesn't null `pid` on the `failed` row — cosmetic, doesn't block respawn since port-availability is the gating check, not pid.)
-  - **Cleanup verified**: test registry/thread rows deleted, test profile dir `aio-home/profiles/cust_<hash>/` removed, test Supabase auth user deleted, `~/.hermes/` entry count unchanged at 44 throughout (before/after every spawn).
-  - **Step 3 (orchestrator) — Phase 1 status**: lazy provisioning, port allocation, spawn with correct env isolation, registry-row lifecycle (`provisioned → running → idle → failed`, respawn), idle-kill sweep, crash-reconcile are all implemented and E2E-verified. Step 3a's per-step limitations are now resolved (multi-tenant unique-constraint issue fixed by 0002; per-thread `X-Hermes-Session-Id` now via `hermes_threads.thread_id` + cookie). **Remaining known gaps (not blockers for Step 4, tracked as follow-ups)**:
-    1. Q41 Vault wiring — `api_server_key_ref` is still `inline:<key>` (raw key in gitignored `.env`, not Vault-backed); per-customer OpenRouter/Daytona keys with spend ceilings still share the dev profile's keys.
-    2. `hermes-supervisor.ts` (idle-kill + crash-reconcile loop) is a manual side-process (`npm run hermes:supervisor`) — not wired into `npm run dev` or any process manager yet; must be started separately for the sweep/reconcile to actually run in dev.
-    3. In-flight-task check for idle-kill (BUILD_SPEC §13 open item, state.db scan) not implemented — idle-kill could theoretically interrupt a long-running task past the 60min mark. Documented as accepted Phase-1 risk.
-    4. `reconcileCrashedProcesses` doesn't clear `pid` on `failed` rows (cosmetic).
-  - **Step 4 (Billing) can proceed** — registry has `credit_balance`/`plan_tier`/`free_grant_used` columns already (from 0001), orchestrator is stable enough to build billing/usage-metering on top of.
+Supervisor (idle-kill + crash-reconcile) — start separately:
+```bash
+cd Aio && npm run hermes:supervisor
+```
 
-- 2026-06-15: **Build Order Step 4 (Billing) IMPLEMENTED — typecheck/build/lint all pass.** Helicone (Q24) confirmed SKIPPED for Phase 1; substitute = OpenRouter `/api/v1/key` usage-delta (before/after a task) for cost settlement.
-  - **Credit unit convention**: 1 credit = $0.001 raw OpenRouter model cost (pre-markup). All conversions in `Aio/src/lib/hermes/pricing.ts` (`creditsForUsd`/`usdForCredits`).
-  - **`Aio/src/lib/hermes/pricing.ts`** (new) — single source of truth for tiers. `TIERS.starter/pro/business`: $9/$19/$99 monthly anchors (FINAL, confirmed 2026-06-15), `monthlyCredits` 6000/14000/80000, models `anthropic/claude-haiku-4.5` / `anthropic/claude-sonnet-4.5` / `anthropic/claude-opus-4.1`, markups 1.5/1.4/1.3, per-tier caps (`maxIterations` 40/70/90, `creditBudget` 800/2500/8000, `wallClockTimeoutMs` 5/10/20 min). `FREE_TRIAL_CREDITS = 1500`. All $ amounts and model IDs marked 🔢 tunable — change here only, no redeploy needed beyond restart. `estimateTaskCreditCost(tier)` = rough pre-task ceiling = `maxIterations × 4000 tok × tier model list price × markup`, converted to credits.
-  - **`Aio/src/lib/hermes/billing.ts`** (new) — `checkCreditBalance`, `reserveCredits`/`adjustCredits`/`refundTask`/`settleTask` (all via new `hermes_adjust_credit_balance` RPC — atomic, avoids read-modify-write races), `grantFreeTrialIfNeeded`, `fetchOpenRouterKeyUsage` (GET `/api/v1/key`, 5s timeout), `actualCostCreditsFromUsageDelta(before, after, reserved, planTier)` applies the tier's markup to the raw USD delta.
-  - **`Aio/supabase/migrations/0003_hermes_billing.sql`** (new) — adds `hermes_adjust_credit_balance(p_customer_id uuid, p_delta numeric) returns numeric`, security-definer, revoked from anon/authenticated (service-role only). **NOT YET APPLIED to remote** — needs `SUPABASE_ACCESS_TOKEN` (same pattern as 0001/0002: `npx supabase link --project-ref xeuvoaedwdmuhxdcoxcx && npx supabase db push`). Until applied, `reserveCredits`/`adjustCredits`/`settleTask`/`refundTask`/`grantFreeTrialIfNeeded` will fail at runtime (RPC not found) — **this blocks Step 4 from working live**, apply migration 0003 before testing billing E2E.
-  - **`Aio/src/app/api/chat/route.ts`** — wired in:
-    1. Pre-task credit check (`checkCreditBalance`) → 402 `insufficient_credits` if balance < estimate.
-    2. Speculative reservation (`reserveCredits`) before proxying.
-    3. Wall-clock timeout via `AbortController` (`tierConfig(planTier).caps.wallClockTimeoutMs`).
-    4. Mid-stream budget cutoff (item 2b — Q17b interim): every 15s, checks OpenRouter usage delta against `min(creditBudget, estimate) × BUDGET_EXCEEDED_MARGIN (1.5)`; if exceeded, aborts stream and writes an `error` UI part ("Budget exceeded... continue?"). **Gap**: this is NOT full HITL pause-resume (would need hermes-agent core integration) — it's a hard cutoff at the gateway. Documented as the Phase-1 interim for Q17b.
-    5. Settlement (`finally` block): success → `settleTask` (OpenRouter usage-delta actual cost, capped at reserved estimate, refunds the difference); failure/timeout/budget-exceeded/abort → `refundTask` (Q29 full refund of the reservation).
-  - **`Aio/src/lib/hermes/provision.ts`** — new `applyTierConfig(profileName, planTier)`, called on every `provisionAndStart` (fresh + respawn): writes `agent.max_turns = caps.maxIterations` and `model.default = tierConfig.model` into the profile's `config.yaml`. Confirmed `agent.max_turns` (config.yaml, default 90) maps directly to the Python `Agent.max_iterations` attribute (`agent/agent_init.py`) — pure config, satisfies item 2a with no core edit.
-  - **`Aio/src/lib/hermes/registry.ts`** — `ensureRegistryRow` now calls `grantFreeTrialIfNeeded` on first-ever insert (Q22). Ties into the existing `normalized_email` unique constraint (Q30 Sybil dedup) — a `+tag`/dotted-variant signup of the same Gmail collides on insert and never reaches the grant.
-  - **`Aio/src/lib/billing/payment-provider.ts`** (new) — `PaymentProvider` interface (`createCheckoutSession`, `handleWebhook`), `DevNoopPaymentProvider` (checkout → `/api/dev/add-credits`, dev-only), `getPaymentProvider()`. Real `PaddlePaymentProvider` is a TODO pending credentials.
-  - **`Aio/src/app/api/dev/add-credits/route.ts`** (new) — dev-only (404 in production) GET route; adds credits directly to `credit_balance` (and optionally sets `plan_tier`) for the signed-in user, for exercising the credit-flow UI without a real payment provider.
-  - **What the USER needs to provide/do to finish billing**:
-    1. **Apply migration 0003** — provide `SUPABASE_ACCESS_TOKEN` (same as before) so `hermes_adjust_credit_balance` RPC exists on the remote DB. Without this, every credit-balance mutation throws.
-    2. **Paddle (primary) or Lemon Squeezy (fallback) account** — per Q40 (Merchant of Record, VND payout via Wise). Need: API key, webhook signing secret, confirm Vietnam seller onboarding (Q40 action item — Paddle/LS both support MoR for VN sellers but onboarding/KYC must be done by the user). Once available: implement `PaddlePaymentProvider` in `payment-provider.ts` (env vars `PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`), wire a `/api/billing/webhook` route calling `handleWebhook()`, and replace `getPaymentProvider()`'s `DevNoopPaymentProvider` return.
-    3. ✅ **Final pricing anchors confirmed**: $9/$19/$99 + model-per-tier in `pricing.ts` (model IDs still 🔢 swappable, one-file edit, no redeploy required beyond restart).
-    4. Per-customer OpenRouter keys (Q41/Vault, still a Step-3 follow-up, not Step-4-blocking) — until wired, `fetchOpenRouterKeyUsage` reads the shared dev profile key, so settlement cost-deltas reflect aggregate usage across all customers sharing that key, not per-customer. Acceptable for Phase-1 dev; must be resolved before multi-customer production billing is accurate.
+## Gotchas
+- **`hermes gateway api_server` doesn't exist** — use `hermes -p aio gateway run`. `api_server` is auto-enabled by `API_SERVER_KEY` presence.
+- **`~/` paths expand to real OS home** unless `HOME` is overridden at launch. Any agent writing `~/foo` lands in `/home/swegon/` if `HOME` isn't set to the profile home. Always launch with `HOME=<profile>/home`.
+- **`terminal.cwd: .`** in config.yaml resolves to process cwd at runtime (not profile dir). Set it to the absolute workspace path.
+- **Daytona `Proxy` ImportError** — transient venv package-state race. Fix: stop + relaunch gateway (no code change needed). If persistent: `uv pip install -e .` in `hermes-agent/`.
+- **`TERMINAL_ENV=daytona`** is the working sandbox backend (Q7 resolved). Not `vercel_sandbox` — that backend doesn't exist in hermes-agent.
+- **Migration 0003** (`hermes_adjust_credit_balance` RPC) must be applied before billing works: `npx supabase link --project-ref xeuvoaedwdmuhxdcoxcx && npx supabase db push`.
 
-## Integration decisions (locked via grill 2026-06-13 → 2026-06-14)
-Full build-ready spec: **`../Sweg_brain/1_PARA_EXECUTION/Projects/Aio_Hermes_Integration/BUILD_SPEC.md`**. Summary:
-- **Multi-tenant**: **profile-per-customer = one Hermes `api_server` process per customer**, own port (Q8/Q9). NOT a single shared profile. (Supersedes the original single-profile + Session-Key isolation idea — Session-Key scopes Honcho long-term memory only, not transcript continuity.)
-- **API**: Aio → Hermes `/v1/chat/completions` (streaming SSE) via Vercel AI SDK, with **`X-Hermes-Session-Id`** per thread (transcript continuity) + **`X-Hermes-Session-Key`** per customer (Honcho long-term memory). HITL/approvals over the **gateway protocol** (native `approval.request`/`approval.respond`). (Q10/Q28)
-- **Isolation/exec**: every task runs in an **ephemeral Vercel Sandbox** (`TERMINAL_ENV=vercel_sandbox`), destroyed per task (Q7).
-- **Model provider**: OpenRouter, **per-customer key with hard spend ceiling** (Q3/Q15).
-- **Skills**: profile created **`--no-skills`**, then **curated minimal set** copied from an Aio master catalog (browser operator, wide/deep research, execute_code, file output, cronjob, optional image_generate) — Q12/Q12b. (Supersedes bundled-full-skills — caused `hermes update` drift + unsafe surface.)
-- **MCP**: curated, audited servers attached to all profiles (Q27).
-- **Version**: pin Hermes to a hard commit; staged manual updates only (Q26).
-- **Secrets**: Supabase Vault = canonical; ephemeral `.env` written at spawn, wiped on teardown (Q41).
-- **Provisioning**: lazy — sign-up = Supabase row; 7 provision steps run on first task; orchestrator handles spawn/idle-kill(~60m)/respawn/registry (Q13/Q14).
-- **Deploy**: local profile = **dev only**. Customer processes run on **Render (managed PaaS)** once the first paying customer exists (Q38/Q4). Container-per-customer at scale (Q35).
+## Build status
+- ✅ Step 1: Single-profile dev bring-up (hermes process, E2E verified)
+- ✅ Step 2: Aio gateway proxy route (`/v1/runs` SSE via Vercel AI SDK)
+- ✅ Step 3: Dynamic provisioning orchestrator (lazy spawn, idle-kill, crash-reconcile, multi-tenant)
+- ✅ Step 4: Billing (credit reserve/settle/refund, OpenRouter usage-delta, tier caps)
+- ✅ FE-3/4: Workspace UI + HITL approval cards
+- ⏳ Next: Paddle payment provider, per-customer OpenRouter keys (Q41 Vault), supervisor in dev process
 
-- 2026-06-15: **FE-3 (Workspace UI, frontend-side) DONE** — code complete, `npm run check` passes.
-  - `Aio/src/app/api/chat/route.ts` now also detects `event: hermes.tool.progress` SSE events (the real wire format from `_write_sse_chat_completion`) and forwards them as `data-hermes-activity` UI message parts (reconciled by `toolCallId`). Existing billing/timeout/text-delta logic untouched.
-  - New `Aio/src/lib/hermes/chat-types.ts` (shared `HermesActivityData`/`HermesUIMessage`/`MascotEmotion` types), `Aio/src/components/app/Mascot.tsx` (6-emotion placeholder mascot), `Aio/src/components/app/ActivityStream.tsx` (icon-led activity rows). `(app)/app/page.tsx` rebuilt as 2-pane workspace.
-  - **Confirmed gap for FE-4 (HITL)**: `approval.request` is only emitted on `/v1/runs`, not `/v1/chat/completions`. FE-4 needs a transport decision (switch to `/v1/runs`, or extend `api_server.py`'s chat-completions SSE path — the latter requires sign-off since it touches hermes-agent source).
+## Integration decisions (locked)
+Full spec: `../Sweg_brain/1_PARA_EXECUTION/Projects/Aio_Hermes_Integration/BUILD_SPEC.md`
 
-- 2026-06-15: **FE-4 (HITL) DONE** — code complete, `npm run check` passes (lint/typecheck/build all green, exit 0).
-  - **Transport switch**: `Aio/src/app/api/chat/route.ts` now proxies `POST /v1/runs` (start, 202 → `{run_id}`) + `GET /v1/runs/{run_id}/events` (SSE, plain `data: {json}` lines, `event` field in payload, no `event:` SSE line) instead of `/v1/chat/completions`. `input` = last user message text, `conversation_history` = prior turns, `session_id` = per-thread Hermes session (replaces the `X-Hermes-Session-Id` header — `/v1/runs` has no header equivalent, session_id goes in the POST body). `X-Hermes-Session-Key: <userId>` still sent as a header on the `/v1/runs` start request for Honcho long-term memory.
-  - **Event mapping**: `message.delta` → `text-start`/`text-delta`/`text-end`; `tool.started`/`tool.completed` → `data-hermes-activity` (toolCallId synthesized as `${tool}:${timestamp}`, reconciled via a per-tool-name running-stack since `/v1/runs` has no stable wire id, unlike `hermes.tool.progress`'s `toolCallId`); `reasoning.available` → new `data-hermes-reasoning`; `approval.request`/`approval.responded` → new `data-hermes-approval` (`kind: "request"` / `kind: "resolved"`); `run.completed`/`run.failed`/`run.cancelled` → no-op (stream closes naturally).
-  - **All existing billing/credit logic preserved**: pre-task credit check, speculative reservation, wall-clock timeout (`AbortController`), mid-stream budget cutoff (15s interval, OpenRouter usage-delta), settlement/refund in `finally` — unchanged in behavior, only re-anchored to the new event loop.
-  - New `Aio/src/lib/hermes/request-context.ts` — factored shared auth/provisioning/session/api-key resolution (`resolveHermesRequestContext()`) out of `chat/route.ts`, used by both `chat/route.ts` and the new `Aio/src/app/api/chat/approval/route.ts`.
-  - New `Aio/src/app/api/chat/approval/route.ts` — proxies `POST /v1/runs/{run_id}/approval` (body `{runId, choice}` → hermes `{choice}`). No billing involvement.
-  - `Aio/src/lib/hermes/chat-types.ts` — added `HermesApprovalData` (`kind: "request"|"resolved"`), `HermesReasoningData`, `HermesRunData`; extended `HermesUIMessage` data-part map with `hermes-approval`/`hermes-reasoning`/`hermes-run`.
-  - New `Aio/src/components/app/ApprovalCard.tsx` — renders command/description + Approve(`once`)/Deny buttons; only `once`/`deny` exposed (session/always scopes deferred to a future settings surface).
-  - `Aio/src/app/(app)/app/page.tsx` — tracks `pendingApproval` state from `data-hermes-approval` parts, renders `ApprovalCard` in the sidebar above the activity stream, mascot shows `needs-approval` 🙋 while pending. POSTs to `/api/chat/approval` on click.
-  - **Verified**: `npm run check` (lint+typecheck+build) exit 0. **NOT verified**: live SSE round-trip against a running `/v1/runs` Hermes profile — the event shapes (`tool`/`preview`/`pattern_key`/`choices` etc.) are taken from `gateway/platforms/api_server.py` source reading, not from an observed live stream. If field names differ on the wire, `route.ts`'s `HermesRunEvent` interface and the switch cases are the first place to check.
+Key decisions:
+- Multi-tenant: profile-per-customer, own port (8642 dev, 8650+ provisioned)
+- API: `/v1/runs` SSE + `session_id` in body, `X-Hermes-Session-Key: userId` header
+- Skills: `--no-skills` + curated catalog copied from dev "aio" profile config
+- Sandbox: `TERMINAL_ENV=daytona` (dev) → Render/container-per-customer (prod)
+- Secrets: Supabase Vault canonical; `.env` written at spawn
+- Pricing: $9/$19/$99, defined in `Aio/src/lib/hermes/pricing.ts`
+- Payments: Paddle (primary), `DevNoopPaymentProvider` active until credentials wired
 
-## Strategy (locked)
-Phase 1: wrap Hermes as-is (profile-per-customer) with Aio UI on top, ship fast — no core edits.
-Phase 2 (later, based on real usage): selectively port portable pieces (prompts, skill defs, tool schemas, memory format) into Aio's own stack if/when needed. Not a rewrite mandate.
+## Strategy
+Phase 1: wrap Hermes as-is, ship fast — no core edits.
+Phase 2: selectively port pieces into Aio's own stack based on real usage.
