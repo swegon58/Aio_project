@@ -1,0 +1,37 @@
+# === hermes-agent: tracked as git submodule ===
+# (don't ignore — .gitmodules points to NousResearch/hermes-agent)
+
+# === Runtime / secrets ===
+aio-home/logs/
+aio-home/profiles/aio/logs/
+aio-home/profiles/aio/.env
+aio-home/profiles/aio/state.db
+aio-home/profiles/aio/state.db-wal
+aio-home/profiles/aio/state.db-shm
+aio-home/profiles/aio/home/
+aio-home/profiles/aio/workspace/
+aio-home/profiles/aio/sessions/
+aio-home/profiles/aio/response_store.db
+aio-home/profiles/aio/response_store.db-shm
+aio-home/profiles/aio/response_store.db-wal
+aio-home/profiles/aio/gateway.lock
+aio-home/profiles/aio/gateway.pid
+aio-home/profiles/aio/gateway_state.json
+aio-home/profiles/aio/cron/.tick.lock
+aio-home/profiles/aio/models_dev_cache.json
+aio-home/profiles/aio/auth.lock
+aio-home/profiles/aio/.skills_prompt_snapshot.json
+aio-home/profiles/aio/memories/MEMORY.md.lock
+aio-home/kanban.db.init.lock
+
+# === Python / Node ===
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+node_modules/
+.npm/
+
+# === OS ===
+.DS_Store
+Thumbs.db
