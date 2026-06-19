@@ -45,6 +45,8 @@ cd Aio && npm run hermes:supervisor
 - ✅ Step 3: Dynamic provisioning orchestrator (lazy spawn, idle-kill, crash-reconcile, multi-tenant)
 - ✅ Step 4: Billing (credit reserve/settle/refund, OpenRouter usage-delta, tier caps)
 - ✅ FE-3/4: Workspace UI + HITL approval cards
+- ✅ Honcho memory enabled for profile "aio" (`honcho-ai` installed, `memory.provider: honcho` in profile config, `HONCHO_API_KEY` in profile `.env`, gateway restarted + doctor-verified)
+- ⏳ In progress: UI feature batches (Connections, Activity/Kanban+Memory, Image gallery, Credential manager, Usage/guardrail/compression badge) on branch `ui-mockup-port` — merge to master gated on explicit user approval
 - ⏳ Next: Paddle payment provider, per-customer OpenRouter keys (Q41 Vault), supervisor in dev process
 
 ## Integration decisions (locked)

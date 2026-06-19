@@ -1,0 +1,493 @@
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T01:00:06Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    07:05   0:00 [kthreadd]
+root         828  0.2  0.0      0     0 ?        S    07:05   0:08  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22604 13772 ?        Ss   07:05   0:01 /sbin/init splash
+swegon      1324  0.0  0.0  21100 12488 ?        Ss   07:05   0:01 /usr/lib/systemd/systemd --user
+swegon     41849  4.8  0.5 606996 191176 ?       RN   07:59   0:02  \_ /home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/hermes-agent/.venv/bin/python3 .venv/bin/hermes -p aio gateway run -v
+swegon     42857  0.0  0.0  18128  2236 ?        SNs  08:00   0:00      \_ timeout 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 41849 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+swegon     42858  0.0  0.0  19776  3748 ?        SN   08:00   0:00          \_ bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 41849 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+swegon     42860  0.0  0.0  23580  4900 ?        RN   08:00   0:00              \_ ps auxf --sort=-pcpu
+swegon     42861  0.0  0.0  18136  2192 ?        SN   08:00   0:00              \_ head -60
+--- pstree of self ---
+hermes,41849,swegon .venv/bin/hermes -p aio gateway run -v
+  `-timeout,42857 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 41849 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,42858 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 41849 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,42864 -40
+          `-pstree,42863 -plau 41849
+--- /proc/loadavg ---
+1.57 1.01 0.73 2/1919 42865
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T01:09:43Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    07:05   0:00 [kthreadd]
+root         828  0.2  0.0      0     0 ?        S    07:05   0:09  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22604 13772 ?        Ss   07:05   0:01 /sbin/init splash
+swegon      1324  0.0  0.0  21100 12496 ?        Ss   07:05   0:02 /usr/lib/systemd/systemd --user
+swegon      1515  3.0  0.4 1407804 157860 ?      SNsl 07:05   1:58  \_ /home/swegon/.local/bin/node server/index.js
+swegon      4272  2.7  2.1 51768580 699308 ?     SLsl 07:05   1:45  \_ /opt/google/chrome/chrome
+swegon      4999  0.5  0.4 50866964 148964 ?     Sl   07:05   0:23      \_ /opt/google/chrome/chrome --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=none --render-node-override=/dev/dri/renderD129 --crashpad-handler-pid=4580 --enable-crash-reporter=, --change-stack-guard-on-fork=enable --shared-files=v8_context_snapshot_data:100 --metrics-shmem-handle=4,i,4427913105400835392,15076823581140010300,524288 --field-trial-handle=3,i,15033074027703730469,4884459264567715336,262144 --disable-features=EyeDropper --variations-seed-version=20260614-030035.778000-production --pseudonymization-salt-handle=7,i,16506051516504543811,2733654650966265021,4 --trace-process-track-uuid=3190708989122997041
+--- pstree of self ---
+hermes,46533,swegon .venv/bin/hermes -p aio gateway run
+  `-timeout,48975 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 46533 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,48976 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 46533 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,48982 -40
+          `-pstree,48981 -plau 46533
+--- /proc/loadavg ---
+1.13 0.85 0.74 3/1952 48983
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T01:10:22Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    07:05   0:00 [kthreadd]
+root         828  0.2  0.0      0     0 ?        S    07:05   0:10  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22604 13772 ?        Ss   07:05   0:01 /sbin/init splash
+swegon      1324  0.0  0.0  21100 12496 ?        Ss   07:05   0:02 /usr/lib/systemd/systemd --user
+swegon     49177  5.7  0.5 592928 163636 ?       RNs  08:09   0:01  \_ /home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/hermes-agent/.venv/bin/python3 .venv/bin/hermes -p aio gateway run
+swegon     49534  0.0  0.0  18128  2236 ?        SNs  08:10   0:00      \_ timeout 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 49177 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+swegon     49535  0.0  0.0  19776  3788 ?        SN   08:10   0:00          \_ bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 49177 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+swegon     49537  0.0  0.0  23580  4916 ?        RN   08:10   0:00              \_ ps auxf --sort=-pcpu
+swegon     49538  0.0  0.0  18136  2196 ?        SN   08:10   0:00              \_ head -60
+--- pstree of self ---
+hermes,49177,swegon .venv/bin/hermes -p aio gateway run
+  `-timeout,49534 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 49177 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,49535 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 49177 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,49541 -40
+          `-pstree,49540 -plau 49177
+--- /proc/loadavg ---
+0.70 0.77 0.72 2/1946 49542
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T01:22:39Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    07:05   0:00 [kthreadd]
+root         828  0.2  0.0      0     0 ?        S    07:05   0:11  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22604 13772 ?        Ss   07:05   0:02 /sbin/init splash
+swegon      1324  0.0  0.0  21100 12496 ?        Ss   07:05   0:02 /usr/lib/systemd/systemd --user
+swegon      1515  3.9  0.4 1407404 158132 ?      SNsl 07:05   3:05  \_ /home/swegon/.local/bin/node server/index.js
+--- pstree of self ---
+hermes,58261,swegon /home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/hermes-agent/.venv/bin/hermes -p aio gateway run
+  `-timeout,59987 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 58261 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,59988 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 58261 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,59994 -40
+          `-pstree,59993 -plau 58261
+--- /proc/loadavg ---
+0.76 0.74 0.67 2/1952 59995
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T02:03:13Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    07:05   0:00 [kthreadd]
+root         828  0.2  0.0      0     0 ?        S    07:05   0:15  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22604 13772 ?        Ss   07:05   0:02 /sbin/init splash
+swegon      1324  0.0  0.0  21100 12496 ?        Ss   07:05   0:03 /usr/lib/systemd/systemd --user
+swegon      1515  3.3  0.4 1406992 157892 ?      SNsl 07:05   3:55  \_ /home/swegon/.local/bin/node server/index.js
+--- pstree of self ---
+hermes,60466,swegon /home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/hermes-agent/.venv/bin/hermes -p aio gateway run
+  `-timeout,71748 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 60466 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,71749 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 60466 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,71755 -40
+          `-pstree,71754 -plau 60466
+--- /proc/loadavg ---
+0.49 0.26 0.20 2/1900 71756
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T02:03:48Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    07:05   0:00 [kthreadd]
+root         828  0.2  0.0      0     0 ?        S    07:05   0:15  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22604 13772 ?        Ss   07:05   0:02 /sbin/init splash
+swegon      1324  0.0  0.0  21100 12496 ?        Ss   07:05   0:03 /usr/lib/systemd/systemd --user
+swegon      1515  3.4  0.4 1407556 158456 ?      SNsl 07:05   4:03  \_ /home/swegon/.local/bin/node server/index.js
+--- pstree of self ---
+hermes,71619,swegon hermes-agent/.venv/bin/hermes -p aio gateway run --replace
+  `-timeout,72914 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 71619 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,72915 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 71619 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,72921 -40
+          `-pstree,72920 -plau 71619
+--- /proc/loadavg ---
+0.40 0.26 0.21 2/1899 72922
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T02:04:23Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    07:05   0:00 [kthreadd]
+root         828  0.2  0.0      0     0 ?        S    07:05   0:15  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22604 13772 ?        Ss   07:05   0:02 /sbin/init splash
+swegon      1324  0.0  0.0  21100 12496 ?        Ss   07:05   0:04 /usr/lib/systemd/systemd --user
+swegon      1515  3.5  0.4 1408104 159004 ?      SNsl 07:05   4:10  \_ /home/swegon/.local/bin/node server/index.js
+--- pstree of self ---
+hermes,72786,swegon hermes-agent/.venv/bin/hermes -p aio gateway run --replace
+  |-timeout,73608 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 72786 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |   `-bash,73609 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 72786 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |       |-head,73615 -40
+  |       `-pstree,73614 -plau 72786
+  `-{hermes},73027
+--- /proc/loadavg ---
+0.46 0.30 0.22 1/1879 73616
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T02:12:53Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    07:05   0:00 [kthreadd]
+root         828  0.1  0.0      0     0 ?        S    07:05   0:15  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22604 13772 ?        Ss   07:05   0:02 /sbin/init splash
+swegon      1324  0.0  0.0  21188 12508 ?        Ss   07:05   0:04 /usr/lib/systemd/systemd --user
+swegon      1515  4.4  0.5 1408304 163968 ?      SNsl 07:05   5:39  \_ /home/swegon/.local/bin/node server/index.js
+--- pstree of self ---
+hermes,81916,swegon /home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/hermes-agent/.venv/bin/hermes -p aio gateway run --replace
+  |-timeout,84029 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 81916 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |   `-bash,84030 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 81916 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |       |-head,84036 -40
+  |       `-pstree,84035 -plau 81916
+  |-{hermes},82508
+  `-{hermes},83393
+--- /proc/loadavg ---
+0.53 0.43 0.31 1/1892 84037
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T05:08:31Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    07:05   0:00 [kthreadd]
+root         828  0.1  0.0      0     0 ?        S    07:05   0:27  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22604 13772 ?        Ss   07:05   0:04 /sbin/init splash
+swegon    127306  0.8  0.6 2619048 196700 ?      SNl  12:04   0:02 cosmic-term
+swegon    127345  0.0  0.0  21096  5696 pts/1    SNs  12:04   0:00  \_ /bin/bash
+swegon    127356  0.0  0.0  24324  5248 pts/1    SN+  12:04   0:00      \_ tmux attach -t pom-pom
+--- pstree of self ---
+hermes,130940,swegon hermes-agent/.venv/bin/hermes -p aio gateway run --replace
+  `-timeout,132349 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 130940 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,132350 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 130940 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,132356 -40
+          `-pstree,132355 -plau 130940
+--- /proc/loadavg ---
+1.22 0.93 0.66 3/1941 132359
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T05:09:37Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    07:05   0:00 [kthreadd]
+root         828  0.1  0.0      0     0 ?        S    07:05   0:27  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22604 13772 ?        Ss   07:05   0:04 /sbin/init splash
+swegon    127306  0.7  0.6 2619048 196704 ?      SNl  12:04   0:02 cosmic-term
+swegon    127345  0.0  0.0  21096  5696 pts/1    SNs  12:04   0:00  \_ /bin/bash
+swegon    127356  0.0  0.0  24324  5248 pts/1    SN+  12:04   0:00      \_ tmux attach -t pom-pom
+--- pstree of self ---
+hermes,132402,swegon hermes-agent/.venv/bin/hermes -p aio gateway run --replace
+  |-timeout,133178 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 132402 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |   `-bash,133179 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 132402 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |       |-head,133184 -40
+  |       `-pstree,133183 -plau 132402
+  |-{hermes},132406
+  |-{hermes},132407
+  |-{hermes},132410
+  |-{hermes},132497
+  |-{hermes},132641
+  `-{hermes},132675
+--- /proc/loadavg ---
+0.87 0.90 0.66 2/1949 133185
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T10:34:19Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    07:05   0:00 [kthreadd]
+root         828  0.1  0.0      0     0 ?        S    07:05   0:59  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22604 13772 ?        Ss   07:05   0:08 /sbin/init splash
+root        1320  0.1  0.1 2973188 57368 ?       SNsl 07:05   0:40 /usr/bin/containerd
+--- pstree of self ---
+--- /proc/loadavg ---
+0.60 0.58 0.64 1/1952 261023
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-15T17:46:03Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    00:17   0:00 [kthreadd]
+swegon     52014 24.2  0.1  60012 32932 ?        S    00:46   0:00  \_ /usr/bin/python3 /usr/share/apport/apport -p4101 -s6 -c0 -d1 -P4101 -u1000 -g1000 -F3 -- !usr!libexec!xdg-desktop-portal-cosmic
+swegon     52345  0.0  0.0      0     0 ?        Z    00:46   0:00      \_ [gdbus] <defunct>
+root           1  0.1  0.0  22592 13804 ?        Rs   00:17   0:02 /sbin/init splash
+root       52479  100  0.0   5224  3552 ?        R    00:46   0:00 /usr/sbin/plymouthd --mode=shutdown --attach-to-session
+--- pstree of self ---
+hermes,23551,swegon /home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/hermes-agent/.venv/bin/hermes -p aio gateway run --replace
+  |-timeout,52503 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 23551 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |   `-bash,52510 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 23551 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |       |-head,52602 -40
+  |       `-pstree,52600 -plau 23551
+  |-{hermes},23558
+  |-{hermes},23559
+  |-{hermes},23591
+  |-{hermes},24859
+  `-{hermes},32278
+--- /proc/loadavg ---
+0.17 1.29 1.46 11/809 52641
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-16T13:08:14Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    18:41   0:00 [kthreadd]
+root         810  0.2  0.0      0     0 ?        S    18:41   0:12  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22608 13780 ?        Ss   18:41   0:03 /sbin/init splash
+swegon     11669  0.8  0.6 2622660 199048 ?      SNl  18:45   0:44 cosmic-term
+swegon     11689  0.0  0.0  21096  5640 pts/1    SNs  18:45   0:00  \_ /bin/bash
+swegon     11952  0.0  0.0  24324  5268 pts/1    SN+  18:45   0:00      \_ tmux attach -t pom-pom
+--- pstree of self ---
+hermes,75297,swegon /home/swegon/.hermes/hermes-agent/venv/bin/hermes -p aio gateway run --replace
+  `-timeout,91330 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 75297 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,91331 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 75297 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,91337 -40
+          `-pstree,91336 -plau 75297
+--- /proc/loadavg ---
+0.81 1.01 0.72 2/2628 91338
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-16T18:11:42Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    Jun16   0:00 [kthreadd]
+swegon    419047 21.0  0.1  60012 33068 ?        S    01:11   0:00  \_ /usr/bin/python3 /usr/share/apport/apport -p397348 -s6 -c0 -d1 -P397348 -u1000 -g1000 -F3 -- !usr!libexec!xdg-desktop-portal-cosmic
+swegon    419267  0.0  0.0      0     0 ?        Z    01:11   0:00      \_ [gdbus] <defunct>
+root           1  0.0  0.0  22608 13788 ?        Ss   Jun16   0:12 /sbin/init splash
+swegon    383691 48.1  0.0      0     0 ?        ZNl  00:57   6:43 [lean-ctx] <defunct>
+--- pstree of self ---
+hermes,91326,swegon /home/swegon/.hermes/hermes-agent/venv/bin/hermes -p aio gateway run --replace
+  `-timeout,419534 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 91326 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,419535 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 91326 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,419556 -40
+          `-pstree,419555 -plau 91326
+--- /proc/loadavg ---
+0.79 1.14 1.09 6/835 419598
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-17T13:01:07Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    18:47   0:00 [kthreadd]
+root         854  0.2  0.0      0     0 ?        S    18:47   0:08  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22600 13840 ?        Ss   18:47   0:01 /sbin/init splash
+swegon     13647  0.4  0.6 2624100 194464 ?      SNl  19:11   0:14 cosmic-term
+swegon     13667  0.0  0.0  21096  5700 pts/3    SNs+ 19:11   0:00  \_ /bin/bash
+--- pstree of self ---
+hermes,21279,swegon /home/swegon/.hermes/hermes-agent/venv/bin/hermes -p aio gateway run --replace
+  `-timeout,24781 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 21279 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,24782 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 21279 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,24787 -40
+          `-pstree,24786 -plau 21279
+--- /proc/loadavg ---
+0.48 0.40 0.28 2/2331 24789
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-17T13:48:46Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    18:47   0:00 [kthreadd]
+swegon     37209 47.9  0.3 149916 122680 ?       R    20:48   0:02  \_ /usr/bin/python3 /usr/share/apport/apport -p5978 -s5 -c0 -d1 -P5978 -u1000 -g1000 -F3 -- !usr!share!antigravity!antigravity
+root           1  0.0  0.0  22600 13840 ?        Ss   18:47   0:02 /sbin/init splash
+root       37372 16.4  0.1 128316 33620 ?        Sl   20:48   0:00 /usr/sbin/plymouthd --mode=reboot --attach-to-session
+--- pstree of self ---
+hermes,24757,swegon /home/swegon/.hermes/hermes-agent/venv/bin/hermes -p aio gateway run --replace
+  `-timeout,37721 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 24757 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,37722 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 24757 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,37728 -40
+          `-pstree,37727 -plau 24757
+--- /proc/loadavg ---
+0.77 0.36 0.22 4/453 37730
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-17T18:08:39Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    Jun17   0:00 [kthreadd]
+root         776  0.3  0.0      0     0 ?        S    Jun17   0:18  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22720 13824 ?        Ss   Jun17   0:02 /sbin/init splash
+swegon      7486  0.7  0.6 2631872 204316 ?      SNl  Jun17   0:43 cosmic-term
+swegon      7525  0.0  0.0  21096  5660 pts/1    SNs  Jun17   0:00  \_ /bin/bash
+swegon     26038  0.0  0.0  24324  5316 pts/1    SN+  00:36   0:00      \_ tmux attach -t pom-pom
+--- pstree of self ---
+hermes,41653,swegon /home/swegon/.hermes/hermes-agent/venv/bin/hermes -p aio gateway run --replace
+  `-timeout,44893 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 41653 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,44894 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 41653 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,44900 -40
+          `-pstree,44899 -plau 41653
+--- /proc/loadavg ---
+0.60 0.32 0.31 2/1967 44901
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-17T22:15:53Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    Jun17   0:00 [kthreadd]
+root         776  0.1  0.0      0     0 ?        S    Jun17   0:33  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22720 13824 ?        Ss   Jun17   0:04 /sbin/init splash
+swegon      7486  0.8  0.6 2632008 203540 ?      SNl  Jun17   3:03 cosmic-term
+swegon      7525  0.0  0.0  21096  5660 pts/1    SNs  Jun17   0:00  \_ /bin/bash
+swegon     26038  0.0  0.0  24324  5316 pts/1    SN+  00:36   0:00      \_ tmux attach -t pom-pom
+--- pstree of self ---
+hermes,44880,swegon /home/swegon/.hermes/hermes-agent/venv/bin/hermes -p aio gateway run --replace
+  `-timeout,115836 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 44880 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+      `-bash,115838 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 44880 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+          |-head,115844 -40
+          `-pstree,115843 -plau 44880
+--- /proc/loadavg ---
+0.71 0.33 0.21 3/1924 115845
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-18T03:00:21Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    Jun17   0:00 [kthreadd]
+root         776  0.1  0.0      0     0 ?        S    Jun17   0:53  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22720 13824 ?        Ss   Jun17   0:08 /sbin/init splash
+swegon    221100  1.4  0.7 1460075516 246160 ?   SNsl 09:33   0:23 /opt/Vibeyard/vibeyard
+swegon    223849  1.4  1.3 74415276 415216 pts/2 SNsl+ 09:35   0:21  \_ /home/swegon/.local/bin/claude Regarding the <div> element at http://192.168.1.15:3000/app [viewport: 1969×1027 – Responsive] (selector: 'div:nth-of-type(2) > div:nth-of-type(3) > main > div:nth-of-type(3) > div > form > div:nth-of-type(1)'): dòng chữ và các button trong đây phải align --permission-mode plan
+swegon    224060  0.0  0.2 1342872 93056 pts/2   SNl+ 09:35   0:00      \_ npm exec @upstash/context7-mcp
+swegon    224661  0.0  0.0   2808  1916 pts/2    SN+  09:35   0:00          \_ sh -c context7-mcp
+swegon    224666  0.0  0.2 22078200 83448 pts/2  SNl+ 09:35   0:00              \_ node /home/swegon/.npm/_npx/eea2bd7412d4593b/node_modules/.bin/context7-mcp
+--- pstree of self ---
+hermes,115827,swegon /home/swegon/.hermes/hermes-agent/venv/bin/hermes -p aio gateway run --replace
+  |-timeout,261599 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 115827 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |   `-bash,261600 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 115827 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |       |-head,261606 -40
+  |       `-pstree,261605 -plau 115827
+  |-{hermes},191347
+  |-{hermes},219865
+  |-{hermes},220576
+  |-{hermes},249836
+  |-{hermes},250190
+  |-{hermes},250531
+  `-{hermes},256907
+--- /proc/loadavg ---
+1.82 1.57 1.21 3/2228 261607
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-18T03:07:15Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    Jun17   0:00 [kthreadd]
+root         776  0.1  0.0      0     0 ?        S    Jun17   0:54  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22720 13824 ?        Ss   Jun17   0:08 /sbin/init splash
+swegon    221100  1.2  0.7 1460075516 245856 ?   SNsl 09:33   0:25 /opt/Vibeyard/vibeyard
+swegon    223849  1.2  1.2 74415276 411944 pts/2 SNsl+ 09:35   0:23  \_ /home/swegon/.local/bin/claude Regarding the <div> element at http://192.168.1.15:3000/app [viewport: 1969×1027 – Responsive] (selector: 'div:nth-of-type(2) > div:nth-of-type(3) > main > div:nth-of-type(3) > div > form > div:nth-of-type(1)'): dòng chữ và các button trong đây phải align --permission-mode plan
+swegon    224060  0.0  0.2 1342872 93056 pts/2   SNl+ 09:35   0:00      \_ npm exec @upstash/context7-mcp
+swegon    224661  0.0  0.0   2808  1916 pts/2    SN+  09:35   0:00          \_ sh -c context7-mcp
+swegon    224666  0.0  0.2 22078200 83448 pts/2  SNl+ 09:35   0:00              \_ node /home/swegon/.npm/_npx/eea2bd7412d4593b/node_modules/.bin/context7-mcp
+--- pstree of self ---
+hermes,261593,swegon /home/swegon/.hermes/hermes-agent/venv/bin/hermes -p aio gateway restart
+  |-timeout,271716 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 261593 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |   `-bash,271717 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 261593 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |       |-head,271723 -40
+  |       `-pstree,271722 -plau 261593
+  `-{hermes},268650
+--- /proc/loadavg ---
+0.46 0.66 0.89 2/2248 271724
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-18T11:49:08Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    Jun17   0:00 [kthreadd]
+root         776  0.1  0.0      0     0 ?        S    Jun17   1:59  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22720 13728 ?        Ss   Jun17   0:14 /sbin/init splash
+swegon    852252  4.3  0.6 2619676 197868 ?      SNl  18:47   0:04 cosmic-term
+swegon    852295  0.0  0.0  21096  5740 pts/1    SNs+ 18:47   0:00  \_ /bin/bash
+--- pstree of self ---
+hermes,271708,swegon /home/swegon/.hermes/hermes-agent/venv/bin/hermes -p aio gateway restart
+  |-timeout,855111 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 271708 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |   `-bash,855112 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 271708 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |       |-head,855172 -40
+  |       `-pstree,855171 -plau 271708
+  |-{hermes},299263
+  |-{hermes},302934
+  |-{hermes},328288
+  |-{hermes},328719
+  |-{hermes},329817
+  |-{hermes},377092
+  |-{hermes},379121
+  |-{hermes},380505
+  |-{hermes},380715
+  |-{hermes},571651
+  |-{hermes},589404
+  |-{hermes},603818
+  |-{hermes},604327
+  `-{hermes},609478
+--- /proc/loadavg ---
+0.75 0.68 0.94 5/2414 855199
+--- recent dmesg (oom/killed) ---
+=== end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-18T15:38:38Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    Jun17   0:00 [kthreadd]
+root         776  0.1  0.0      0     0 ?        S    Jun17   2:21  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22720 13728 ?        Ss   Jun17   0:16 /sbin/init splash
+swegon    912021  0.6  0.6 2621044 196256 ?      SNl  21:48   0:20 cosmic-term
+swegon    912060  0.0  0.0  21096  5696 pts/1    SNs  21:48   0:00  \_ /bin/bash
+swegon    912121  0.0  0.0  24324  5320 pts/1    SN+  21:48   0:00      \_ tmux attach -t pom-pom
+--- pstree of self ---
+hermes,919888,swegon /home/swegon/.hermes/hermes-agent/venv/bin/hermes -p aio gateway run --replace
+  |-timeout,962447 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 919888 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |   `-bash,962448 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 919888 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |       |-head,962454 -40
+  |       `-pstree,962453 -plau 919888
+  |-{hermes},942969
+  `-{hermes},957915
+--- /proc/loadavg ---
+0.78 0.57 0.51 2/2448 962455
+--- recent dmesg (oom/killed) ---
+=== end ===
