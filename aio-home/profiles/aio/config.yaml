@@ -1,11 +1,7 @@
 model:
-  # TEMP test override 2026-06-18 — was base_url https://openrouter.ai/api/v1,
-  # default anthropic/claude-sonnet-4.5. Revert before real usage/deploy.
-  # provider must be explicit "lmstudio" — without it, hermes infers provider
-  # from "qwen/" model-id namespace and routes to OpenRouter's hosted Qwen instead.
-  provider: lmstudio
-  base_url: http://localhost:1234/v1
-  default: qwen/qwen3.5-9b
+  provider: openrouter
+  base_url: https://openrouter.ai/api/v1
+  default: anthropic/claude-sonnet-4.5
 
 memory:
   provider: honcho

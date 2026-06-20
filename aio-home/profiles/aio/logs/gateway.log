@@ -5736,3 +5736,18 @@ telegram.error.InvalidToken: The token `sdsds` was rejected by the server.
 2026-06-20 00:45:45,044 INFO gateway.run: Gateway stopped (total teardown 0.01s)
 2026-06-20 00:45:45,045 INFO gateway.run: Cron ticker stopped
 2026-06-20 00:45:45,045 INFO gateway.run: Exiting with code 1 (signal-initiated shutdown without restart request) so systemd Restart=on-failure can revive the gateway.
+2026-06-20 23:28:45,689 INFO gateway.run: Starting Hermes Gateway...
+2026-06-20 23:28:45,689 INFO gateway.run: Session storage: /home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/aio-home/profiles/aio/sessions
+2026-06-20 23:28:45,694 INFO gateway.run: Agent budget: max_iterations=90 (agent.max_turns from config.yaml, or HERMES_MAX_ITERATIONS from .env, or default 90)
+2026-06-20 23:28:45,695 INFO gateway.run: Secret redaction: ENABLED (tool output, logs, and chat responses are scrubbed before delivery)
+2026-06-20 23:28:45,695 INFO gateway.run: Active profile: aio
+2026-06-20 23:28:45,698 WARNING gateway.run: No user allowlists configured. All unauthorized users will be denied. Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access, or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).
+2026-06-20 23:28:45,699 INFO gateway.run: Previous gateway exited cleanly — skipping session suspension
+2026-06-20 23:28:45,712 INFO gateway.run: Connecting to api_server...
+2026-06-20 23:28:45,716 INFO gateway.platforms.api_server: [Api_Server] API server listening on http://127.0.0.1:8642 (model: aio)
+2026-06-20 23:28:45,718 INFO gateway.run: ✓ api_server connected
+2026-06-20 23:28:45,719 INFO gateway.run: Gateway running with 1 platform(s)
+2026-06-20 23:28:45,720 INFO gateway.run: Channel directory built: 0 target(s)
+2026-06-20 23:28:46,722 INFO gateway.run: Press Ctrl+C to stop
+2026-06-20 23:28:46,723 INFO gateway.run: Cron ticker started (interval=60s)
+2026-06-20 23:28:51,732 INFO gateway.run: kanban dispatcher: embedded in gateway (interval=60.0s)
