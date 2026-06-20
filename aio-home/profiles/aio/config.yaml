@@ -9,3 +9,12 @@ model:
 
 memory:
   provider: honcho
+
+# api_server's default toolset (hermes-api-server) excludes "clarify" since
+# it's normally an interactive-UI-only tool — Aio's Plan mode needs it for
+# the ask-user plan-confirmation step (route.ts PLAN_MODE_INSTRUCTIONS), so
+# add it explicitly alongside the platform's normal toolset.
+platform_toolsets:
+  api_server:
+    - hermes-api-server
+    - clarify

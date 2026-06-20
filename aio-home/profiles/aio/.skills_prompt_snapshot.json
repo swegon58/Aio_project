@@ -226,8 +226,12 @@
       6883
     ],
     "productivity/user-identification-management/SKILL.md": [
-      1781798813410844387,
+      1781836289641891335,
       2983
+    ],
+    "productivity/weather-retrieval/SKILL.md": [
+      1781890189372684197,
+      3378
     ],
     "research/arxiv/SKILL.md": [
       1781700485412043250,
@@ -236,6 +240,10 @@
     "research/blogwatcher/SKILL.md": [
       1781700485412102470,
       5111
+    ],
+    "research/competitive-intelligence/SKILL.md": [
+      1781886199733498340,
+      2637
     ],
     "research/llm-wiki/SKILL.md": [
       1781700485412102470,
@@ -1318,6 +1326,19 @@
       }
     },
     {
+      "skill_name": "weather-retrieval",
+      "category": "productivity",
+      "frontmatter_name": "weather-retrieval",
+      "description": "Retrieve current weather data, climate info, and geograph...",
+      "platforms": [],
+      "conditions": {
+        "fallback_for_toolsets": [],
+        "requires_toolsets": [],
+        "fallback_for_tools": [],
+        "requires_tools": []
+      }
+    },
+    {
       "skill_name": "arxiv",
       "category": "research",
       "frontmatter_name": "arxiv",
@@ -1344,6 +1365,19 @@
         "macos",
         "windows"
       ],
+      "conditions": {
+        "fallback_for_toolsets": [],
+        "requires_toolsets": [],
+        "fallback_for_tools": [],
+        "requires_tools": []
+      }
+    },
+    {
+      "skill_name": "competitive-intelligence",
+      "category": "research",
+      "frontmatter_name": "competitive-intelligence",
+      "description": "Research competitors, pricing plans, and market analysis ...",
+      "platforms": [],
       "conditions": {
         "fallback_for_toolsets": [],
         "requires_toolsets": [],

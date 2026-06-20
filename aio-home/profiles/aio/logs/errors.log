@@ -4564,3 +4564,104 @@ telegram.error.InvalidToken: The token `sdsds` was rejected by the server.
 2026-06-18 23:15:04,675 WARNING [dev-session-afb62b0a-580f-4360-a472-759517bb664a] agent.conversation_loop: API call failed (attempt 1/3) error_type=BadRequestError thread=asyncio_2:131459411076800 provider=lmstudio base_url=http://localhost:1234/v1 model=qwen/qwen3.5-9b summary=HTTP 400: Failed to load model "qwen/qwen3.5-9b". Error: Error loading model.
 2026-06-18 23:15:04,685 ERROR [dev-session-afb62b0a-580f-4360-a472-759517bb664a] agent.conversation_loop: Non-retryable client error: Error code: 400 - {'error': {'message': 'Failed to load model "qwen/qwen3.5-9b". Error: Error loading model.', 'type': 'invalid_request_error', 'param': 'model', 'code': None}}
 2026-06-19 00:21:34,025 WARNING gateway.run: Shutdown context: signal=SIGTERM under_systemd=yes parent_pid=1325 parent_name=systemd loadavg_1m=1.68 parent_cmdline='/usr/lib/systemd/systemd --user'
+2026-06-19 10:32:24,299 WARNING gateway.run: Stale systemd unit detected: user@1000.service has TimeoutStopSec=90s but drain_timeout=180s (expected >=210s). systemd may SIGKILL the gateway mid-drain. Run `hermes gateway service install --replace` to regenerate the unit, or shorten agent.restart_drain_timeout.
+2026-06-19 10:32:24,308 WARNING gateway.run: No user allowlists configured. All unauthorized users will be denied. Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access, or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).
+2026-06-19 11:59:48,791 WARNING gateway.run: Shutdown context: signal=SIGTERM under_systemd=yes parent_pid=73832 parent_name=bash loadavg_1m=0.75 parent_cmdline="/bin/bash -c source /home/swegon/.claude/shell-snapshots/snapshot-bash-1781839720654-5nv4lk.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && eval 'cd ~/AI_Agent/AI_Autonomous_Project/Aio_harness && rm -f aio-home/profiles/aio/gateway.lock && HERMES_HOME=$(pwd)/aio-home nohup /home/s"
+2026-06-19 11:59:51,772 WARNING gateway.run: Stale systemd unit detected: user@1000.service has TimeoutStopSec=90s but drain_timeout=180s (expected >=210s). systemd may SIGKILL the gateway mid-drain. Run `hermes gateway service install --replace` to regenerate the unit, or shorten agent.restart_drain_timeout.
+2026-06-19 11:59:51,776 WARNING gateway.run: No user allowlists configured. All unauthorized users will be denied. Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access, or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).
+2026-06-19 12:01:31,905 WARNING gateway.run: Shutdown context: signal=SIGTERM under_systemd=yes parent_pid=1320 parent_name=systemd loadavg_1m=1.13 parent_cmdline='/usr/lib/systemd/systemd --user'
+2026-06-19 12:01:49,180 WARNING gateway.run: Stale systemd unit detected: user@1000.service has TimeoutStopSec=90s but drain_timeout=180s (expected >=210s). systemd may SIGKILL the gateway mid-drain. Run `hermes gateway service install --replace` to regenerate the unit, or shorten agent.restart_drain_timeout.
+2026-06-19 12:01:49,183 WARNING gateway.run: No user allowlists configured. All unauthorized users will be denied. Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access, or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).
+2026-06-19 12:22:33,886 WARNING [dev-session-a7bbc8c3-ea08-4eb5-8b22-2b1325adccf6] tools.environments.daytona: Daytona: requested disk (50GB) exceeds platform limit (10GB). Capping to 10GB.
+2026-06-19 12:23:32,375 WARNING gateway.run: Shutdown context: signal=SIGTERM under_systemd=yes parent_pid=1320 parent_name=systemd loadavg_1m=0.68 parent_cmdline='/usr/lib/systemd/systemd --user'
+2026-06-19 12:23:40,652 WARNING gateway.run: Shutdown context: signal=SIGTERM under_systemd=yes parent_pid=1320 parent_name=systemd loadavg_1m=0.62 parent_cmdline='/usr/lib/systemd/systemd --user'
+2026-06-19 12:23:52,402 WARNING gateway.run: Stale systemd unit detected: user@1000.service has TimeoutStopSec=90s but drain_timeout=180s (expected >=210s). systemd may SIGKILL the gateway mid-drain. Run `hermes gateway service install --replace` to regenerate the unit, or shorten agent.restart_drain_timeout.
+2026-06-19 12:23:52,406 WARNING gateway.run: No user allowlists configured. All unauthorized users will be denied. Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access, or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).
+2026-06-19 23:18:43,448 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] plugins.web.firecrawl.provider: Firecrawl search error: Unauthorized: Failed to search. Unauthorized: Invalid token - No additional error details provided.
+2026-06-19 23:18:43,450 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool web_search returned error (0.89s): {
+  "success": false,
+  "error": "Firecrawl search failed: Unauthorized: Failed to search. Unauthorized: Invalid token - No additional error details provided."
+}
+2026-06-19 23:18:45,464 WARNING tools.url_safety: Blocked request — DNS resolution failed for: www.auto-gpt.io
+2026-06-19 23:18:47,985 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] tools.web_tools: https://www.auto-gpt.io/pricing (no content to process)
+2026-06-19 23:18:47,985 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] tools.web_tools: https://www.claude.ai/pricing (no content to process)
+2026-06-19 23:18:47,985 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] tools.web_tools: https://www.zapier.com/botpricing/ (no content to process)
+2026-06-19 23:18:47,986 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] tools.web_tools: https://flowiseai.com/pricing (no content to process)
+2026-06-19 23:18:47,986 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool web_extract returned error (2.70s): {
+  "results": [
+    {
+      "url": "https://www.auto-gpt.io/pricing",
+      "title": "",
+      "content": "",
+      "error": "Blocked: URL targets a private or internal network address"
+    },
+    {
+
+2026-06-19 23:19:04,669 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool browser_navigate returned error (1.17s): {"success": false, "error": "Navigation failed: net::ERR_NAME_NOT_RESOLVED"}
+2026-06-19 23:19:12,927 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] plugins.web.firecrawl.provider: Firecrawl search error: Unauthorized: Failed to search. Unauthorized: Invalid token - No additional error details provided.
+2026-06-19 23:19:12,928 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool web_search returned error (0.73s): {
+  "success": false,
+  "error": "Firecrawl search failed: Unauthorized: Failed to search. Unauthorized: Invalid token - No additional error details provided."
+}
+2026-06-19 23:19:15,240 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool browser_navigate returned error (0.82s): {"success": false, "error": "Navigation failed: net::ERR_NAME_NOT_RESOLVED"}
+2026-06-19 23:19:31,325 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool browser_navigate returned error (1.27s): {"success": false, "error": "Navigation failed: net::ERR_NAME_NOT_RESOLVED"}
+2026-06-19 23:19:53,648 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool browser_navigate returned error (1.22s): {"success": false, "error": "Navigation failed: net::ERR_NAME_NOT_RESOLVED"}
+2026-06-19 23:20:53,667 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool skill_manage returned error (0.00s): {"success": false, "error": "SKILL.md must start with YAML frontmatter (---). See existing skills for format."}
+2026-06-19 23:21:22,830 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool skill_manage returned error (0.00s): {"success": false, "error": "File must be under one of: assets, references, scripts, templates. Got: 'research/competitive-intelligence/references/pricing-patterns.md'"}
+2026-06-19 23:21:41,648 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool skill_manage returned error (0.00s): {"success": false, "error": "File must be under one of: assets, references, scripts, templates. Got: '~/AI_Agent/AI_Autonomous_Project/Aio_harness/aio-home/profiles/aio/skills/research/competitive-int
+2026-06-19 23:21:59,156 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool skill_manage returned error (0.00s): {"success": false, "error": "Skill '' not found in active profile 'aio'. Use skills_list() to see available skills. Create it first with action='create'."}
+
+[Tool loop warning: same_tool_failure_warni
+2026-06-19 23:23:02,847 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool patch returned error (0.00s): {"error": "Background review denied non-whitelisted tool: patch. Only memory/skill tools are allowed."}
+2026-06-19 23:23:05,753 WARNING [dev-session-e0720e1f-7391-4a5a-930c-1a08e9467aee] agent.tool_executor: Tool skill_view returned error (0.02s): {"success": false, "error": "Skill '' not found.", "available_skills": ["dogfood", "yuanbao", "claude-code", "codex", "hermes-agent", "opencode", "architecture-diagram", "ascii-art", "ascii-video", "b
+2026-06-20 00:13:30,853 WARNING gateway.run: Shutdown context: signal=SIGTERM under_systemd=yes parent_pid=232685 parent_name=bash loadavg_1m=0.46 parent_cmdline='(unknown)'
+2026-06-20 00:14:03,399 WARNING gateway.run: Stale systemd unit detected: user@1000.service has TimeoutStopSec=90s but drain_timeout=180s (expected >=210s). systemd may SIGKILL the gateway mid-drain. Run `hermes gateway service install --replace` to regenerate the unit, or shorten agent.restart_drain_timeout.
+2026-06-20 00:14:03,403 WARNING gateway.run: No user allowlists configured. All unauthorized users will be denied. Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access, or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).
+2026-06-20 00:23:55,680 WARNING gateway.run: Shutdown context: signal=SIGTERM under_systemd=yes parent_pid=1320 parent_name=systemd loadavg_1m=1.08 parent_cmdline='/usr/lib/systemd/systemd --user'
+2026-06-20 00:24:11,845 WARNING gateway.run: Stale systemd unit detected: user@1000.service has TimeoutStopSec=90s but drain_timeout=180s (expected >=210s). systemd may SIGKILL the gateway mid-drain. Run `hermes gateway service install --replace` to regenerate the unit, or shorten agent.restart_drain_timeout.
+2026-06-20 00:24:11,849 WARNING gateway.run: No user allowlists configured. All unauthorized users will be denied. Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access, or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).
+2026-06-20 00:25:05,589 WARNING [test-tool-debug] plugins.web.firecrawl.provider: Firecrawl search error: Unauthorized: Failed to search. Unauthorized: Invalid token - No additional error details provided.
+2026-06-20 00:25:05,590 WARNING [test-tool-debug] agent.tool_executor: Tool web_search returned error (0.89s): {
+  "success": false,
+  "error": "Firecrawl search failed: Unauthorized: Failed to search. Unauthorized: Invalid token - No additional error details provided."
+}
+2026-06-20 00:25:07,713 WARNING [test-tool-debug] plugins.web.firecrawl.provider: Firecrawl search error: Unauthorized: Failed to search. Unauthorized: Invalid token - No additional error details provided.
+2026-06-20 00:25:07,714 WARNING [test-tool-debug] agent.tool_executor: Tool web_search returned error (0.84s): {
+  "success": false,
+  "error": "Firecrawl search failed: Unauthorized: Failed to search. Unauthorized: Invalid token - No additional error details provided."
+}
+2026-06-20 00:25:10,114 WARNING [test-tool-debug] tools.web_tools: https://weather.com/weather/today/l/Hanoi+VN (no content to process)
+2026-06-20 00:25:10,114 WARNING [test-tool-debug] agent.tool_executor: Tool web_extract returned error (0.74s): {
+  "results": [
+    {
+      "url": "https://weather.com/weather/today/l/Hanoi+VN",
+      "title": "",
+      "content": "",
+      "error": "Unauthorized: Failed to scrape. Unauthorized: Invalid token 
+2026-06-20 00:25:13,133 WARNING [test-tool-debug] tools.web_tools: https://weather.com/weather/today/l/10793362b4d84e5c9f7a7b8c:aec49c7c:2 (no content to process)
+2026-06-20 00:25:13,133 WARNING [test-tool-debug] agent.tool_executor: Tool web_extract returned error (0.77s): {
+  "results": [
+    {
+      "url": "https://weather.com/weather/today/l/10793362b4d84e5c9f7a7b8c:aec49c7c:2",
+      "title": "",
+      "content": "",
+      "error": "Unauthorized: Failed to scrape. U
+2026-06-20 00:26:01,589 WARNING [test-plan-debug3] agent.tool_executor: Tool clarify returned error (0.00s): {"error": "Clarify tool is not available in this execution context."}
+2026-06-20 00:26:20,004 WARNING plugins.memory.honcho.session: Honcho dialectic query failed: An unexpected error occurred
+2026-06-20 00:26:39,194 WARNING [test-tool-debug] agent.tool_executor: Tool skill_manage returned error (0.00s): {"success": false, "error": "Skill name is required."}
+2026-06-20 00:26:48,041 WARNING [test-plan-debug3] tools.environments.daytona: Daytona: requested disk (50GB) exceeds platform limit (10GB). Capping to 10GB.
+2026-06-20 00:26:54,790 WARNING [test-tool-debug] agent.tool_executor: Tool skill_manage returned error (0.00s): {"success": false, "error": "SKILL.md must start with YAML frontmatter (---). See existing skills for format."}
+2026-06-20 00:27:41,774 WARNING [test-tool-debug] agent.tool_executor: Tool skill_manage returned error (0.00s): {"success": false, "error": "Skill '' not found in active profile 'aio'. Use skills_list() to see available skills. Create it first with action='create'."}
+2026-06-20 00:28:05,902 WARNING [test-tool-debug] agent.tool_executor: Tool skill_manage returned error (0.00s): {"success": false, "error": "File must be under one of: assets, references, scripts, templates. Got: 'productivity/weather-retrieval/references/weather-url-patterns.md'"}
+2026-06-20 00:28:35,237 WARNING [test-tool-debug] agent.tool_executor: Tool skill_manage returned error (0.00s): {"success": false, "error": "Skill '' not found in active profile 'aio'. Use skills_list() to see available skills. Create it first with action='create'."}
+
+[Tool loop warning: repeated_exact_failure_
+2026-06-20 00:29:13,490 WARNING [test-tool-debug] agent.tool_executor: Tool patch returned error (0.00s): {"error": "Background review denied non-whitelisted tool: patch. Only memory/skill tools are allowed."}
+2026-06-20 00:37:19,433 WARNING gateway.run: Shutdown context: signal=SIGTERM under_systemd=yes parent_pid=1134613 parent_name=bash loadavg_1m=1.02 parent_cmdline='(unknown)'
+2026-06-20 00:37:28,160 WARNING gateway.run: Stale systemd unit detected: user@1000.service has TimeoutStopSec=90s but drain_timeout=180s (expected >=210s). systemd may SIGKILL the gateway mid-drain. Run `hermes gateway service install --replace` to regenerate the unit, or shorten agent.restart_drain_timeout.
+2026-06-20 00:37:28,169 WARNING gateway.run: No user allowlists configured. All unauthorized users will be denied. Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access, or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).
+2026-06-20 00:38:05,758 WARNING [plantest-001] agent.tool_executor: Tool clarify returned error (0.00s): {"error": "Clarify tool is not available in this execution context."}
+2026-06-20 00:42:49,384 WARNING gateway.run: Shutdown context: signal=SIGTERM under_systemd=yes parent_pid=1320 parent_name=systemd loadavg_1m=0.35 parent_cmdline='/usr/lib/systemd/systemd --user'
+2026-06-20 00:42:54,536 WARNING gateway.run: Stale systemd unit detected: user@1000.service has TimeoutStopSec=90s but drain_timeout=180s (expected >=210s). systemd may SIGKILL the gateway mid-drain. Run `hermes gateway service install --replace` to regenerate the unit, or shorten agent.restart_drain_timeout.
+2026-06-20 00:42:54,540 WARNING gateway.run: No user allowlists configured. All unauthorized users will be denied. Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access, or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).
+2026-06-20 00:45:45,029 WARNING gateway.run: Shutdown context: signal=SIGTERM under_systemd=yes parent_pid=1320 parent_name=systemd loadavg_1m=0.87 parent_cmdline='/usr/lib/systemd/systemd --user'
