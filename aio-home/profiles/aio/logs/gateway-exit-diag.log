@@ -130,3 +130,7 @@
 {"ts": "2026-06-19T17:45:45.047933+00:00", "tag": "gateway.exit_nonzero", "pid": 1182140, "python": "3.11.15", "platform": "linux"}
 {"ts": "2026-06-19T17:45:45.050180+00:00", "tag": "atexit.hook", "pid": 1182140, "python": "3.11.15", "platform": "linux", "sys_exc": "(None, None, None)"}
 {"ts": "2026-06-20T16:28:45.494082+00:00", "tag": "gateway.start", "pid": 127636, "python": "3.11.15", "platform": "linux", "replace": false, "argv": ["/home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/hermes-agent/hermes_cli/main.py", "gateway", "run"], "stdin_is_tty": false, "absorb_windows_console_controls": false}
+{"ts": "2026-06-20T16:33:33.955017+00:00", "tag": "asyncio.run.returned", "pid": 127636, "python": "3.11.15", "platform": "linux", "success": false}
+{"ts": "2026-06-20T16:33:33.955095+00:00", "tag": "gateway.exit_nonzero", "pid": 127636, "python": "3.11.15", "platform": "linux"}
+{"ts": "2026-06-20T16:33:33.955980+00:00", "tag": "atexit.hook", "pid": 127636, "python": "3.11.15", "platform": "linux", "sys_exc": "(None, None, None)"}
+{"ts": "2026-06-20T16:33:35.536034+00:00", "tag": "gateway.start", "pid": 132323, "python": "3.11.15", "platform": "linux", "replace": false, "argv": ["/home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/hermes-agent/hermes_cli/main.py", "gateway", "run"], "stdin_is_tty": false, "absorb_windows_console_controls": false}

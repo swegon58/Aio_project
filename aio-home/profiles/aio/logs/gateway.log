@@ -5751,3 +5751,32 @@ telegram.error.InvalidToken: The token `sdsds` was rejected by the server.
 2026-06-20 23:28:46,722 INFO gateway.run: Press Ctrl+C to stop
 2026-06-20 23:28:46,723 INFO gateway.run: Cron ticker started (interval=60s)
 2026-06-20 23:28:51,732 INFO gateway.run: kanban dispatcher: embedded in gateway (interval=60.0s)
+2026-06-20 23:33:33,943 INFO gateway.run: Received SIGTERM — initiating shutdown
+2026-06-20 23:33:33,943 WARNING gateway.run: Shutdown context: signal=SIGTERM under_systemd=yes parent_pid=1335 parent_name=systemd loadavg_1m=0.96 parent_cmdline='/usr/lib/systemd/systemd --user'
+2026-06-20 23:33:33,944 INFO gateway.run: Stopping gateway...
+2026-06-20 23:33:33,944 INFO gateway.run: Shutdown phase: notify_active_sessions done at +0.00s
+2026-06-20 23:33:33,947 INFO gateway.run: Shutdown phase: drain done at +0.00s (drain took 0.00s, timed_out=False, active_at_start=0, active_now=0)
+2026-06-20 23:33:33,948 INFO gateway.platforms.api_server: [Api_Server] API server stopped
+2026-06-20 23:33:33,949 INFO gateway.run: ✓ api_server disconnected (0.00s)
+2026-06-20 23:33:33,949 INFO gateway.run: Shutdown phase: all adapters disconnected at +0.00s
+2026-06-20 23:33:33,949 INFO gateway.run: Shutdown phase: final-cleanup tool kill done at +0.00s
+2026-06-20 23:33:33,952 INFO gateway.run: Shutdown phase: SessionDB close done at +0.01s
+2026-06-20 23:33:33,952 INFO gateway.run: Gateway stopped by an unexpected signal — persisting gateway_state=running so container_boot auto-starts on the next boot (issue #42675)
+2026-06-20 23:33:33,953 INFO gateway.run: Gateway stopped (total teardown 0.01s)
+2026-06-20 23:33:33,954 INFO gateway.run: Cron ticker stopped
+2026-06-20 23:33:33,954 INFO gateway.run: Exiting with code 1 (signal-initiated shutdown without restart request) so systemd Restart=on-failure can revive the gateway.
+2026-06-20 23:33:35,732 INFO gateway.run: Starting Hermes Gateway...
+2026-06-20 23:33:35,732 INFO gateway.run: Session storage: /home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/aio-home/profiles/aio/sessions
+2026-06-20 23:33:35,736 INFO gateway.run: Agent budget: max_iterations=90 (agent.max_turns from config.yaml, or HERMES_MAX_ITERATIONS from .env, or default 90)
+2026-06-20 23:33:35,736 INFO gateway.run: Secret redaction: ENABLED (tool output, logs, and chat responses are scrubbed before delivery)
+2026-06-20 23:33:35,737 INFO gateway.run: Active profile: aio
+2026-06-20 23:33:35,740 WARNING gateway.run: No user allowlists configured. All unauthorized users will be denied. Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access, or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).
+2026-06-20 23:33:35,741 INFO gateway.run: Previous gateway exited cleanly — skipping session suspension
+2026-06-20 23:33:35,755 INFO gateway.run: Connecting to api_server...
+2026-06-20 23:33:35,759 INFO gateway.platforms.api_server: [Api_Server] API server listening on http://127.0.0.1:8642 (model: aio)
+2026-06-20 23:33:35,760 INFO gateway.run: ✓ api_server connected
+2026-06-20 23:33:35,761 INFO gateway.run: Gateway running with 1 platform(s)
+2026-06-20 23:33:35,763 INFO gateway.run: Channel directory built: 0 target(s)
+2026-06-20 23:33:36,764 INFO gateway.run: Press Ctrl+C to stop
+2026-06-20 23:33:36,765 INFO gateway.run: Cron ticker started (interval=60s)
+2026-06-20 23:33:41,788 INFO gateway.run: kanban dispatcher: embedded in gateway (interval=60.0s)

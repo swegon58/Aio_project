@@ -835,3 +835,25 @@ hermes,1182140,swegon /home/swegon/.hermes/hermes-agent/venv/bin/hermes -p aio g
 0.87 1.01 1.18 9/596 1187211
 --- recent dmesg (oom/killed) ---
 === end ===
+=== shutdown diagnostic @ SIGTERM ===
+--- date ---
+2026-06-20T16:33:33Z
+--- ps auxf (top 60 by cpu) ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           2  0.0  0.0      0     0 ?        S    19:08   0:00 [kthreadd]
+root         814  0.2  0.0      0     0 ?        S    19:08   0:38  \_ [nvidia-modeset/kthread_q]
+root           1  0.0  0.0  22580 13804 ?        Ss   19:08   0:04 /sbin/init splash
+swegon    123421  2.0  0.6 2618992 195176 ?      SNl  23:25   0:10 cosmic-term
+swegon    123462  0.0  0.0  21096  5664 pts/3    SNs  23:25   0:00  \_ /bin/bash
+swegon    123469  0.0  0.0  24324  5332 pts/3    SN+  23:25   0:00      \_ tmux attach -t pom-pom
+--- pstree of self ---
+hermes,127636,swegon -m hermes_cli.main gateway run
+  |-timeout,132306 5 bash -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 127636 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |   `-bash,132307 -c echo '=== shutdown diagnostic @ SIGTERM ==='; echo '--- date ---'; date -u +%Y-%m-%dT%H:%M:%SZ; echo '--- ps auxf (top 60 by cpu) ---'; ps auxf --sort=-pcpu 2>/dev/null | head -60; echo '--- pstree of self ---'; pstree -plau 127636 2>/dev/null | head -40 || true; echo '--- /proc/loadavg ---'; cat /proc/loadavg 2>/dev/null || true; echo '--- recent dmesg (oom/killed) ---'; dmesg -T 2>/dev/null | tail -20 || journalctl --user -n 20 --no-pager 2>/dev/null | tail -20 || true; echo '=== end ==='
+  |       |-head,132313 -40
+  |       `-pstree,132312 -plau 127636
+  `-{hermes},128257
+--- /proc/loadavg ---
+0.96 1.15 1.34 2/2521 132314
+--- recent dmesg (oom/killed) ---
+=== end ===
