@@ -29,8 +29,18 @@ This isn't a drop-in proxy route like cron was. It needs:
    completions path) or run it as a parallel surface only for specific
    tools (e.g. gate `cronjob`/`computer_use`/destructive file ops, leave
    normal chat untouched).
-3. Confirms which toolsets actually request approval today (need to
-   check `tools/approval.py` call sites — not yet done).
+3. ~~Confirms which toolsets actually request approval today~~ — checked
+   `tools/approval.py` (2026-06-21): approval gating is scoped to
+   `terminal`/`execute_code` only, triggered by dangerous/sudo command-pattern
+   detection (`detect_dangerous_command`, `_check_sudo_stdin_guard`), not a
+   generic per-toolset hook. Confirmed against the desktop app's own
+   `APPROVAL_TOOLS = {'terminal', 'execute_code'}` (`apps/desktop/src/components/assistant-ui/tool-approval.tsx`),
+   which is a good reference for the inline-bar UX pattern (run/allow-session/always-allow-with-confirm/deny,
+   collapsible command preview) — but it talks to the desktop's own WS gateway
+   (`approval.respond`), not `/v1/runs`, so it's a UX reference only, not
+   wireable as-is. `cronjob`/`computer_use` do **not** currently request
+   approval at all — gating those would need new approval-hook call sites in
+   Hermes itself (out of scope for Phase 1's "wrap as-is, no core edits" rule).
 
 ## Status
 
