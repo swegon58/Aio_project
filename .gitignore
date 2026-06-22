@@ -1,6 +1,31 @@
 aio-home/profiles/aio/home/
-aio-home/profiles/aio/state.db
+aio-home/profiles/aio/state.db*
 
 aio-home/.env
 aio-home/profiles/aio/.env
 *.env
+
+# runtime/ephemeral profile state — never track, dirties every restart
+aio-home/profiles/aio/auth.json
+aio-home/profiles/aio/auth.lock
+aio-home/profiles/aio/gateway.lock
+aio-home/profiles/aio/gateway.pid
+aio-home/profiles/aio/gateway_state.json
+aio-home/profiles/aio/channel_directory.json
+aio-home/profiles/aio/.sync.lock
+aio-home/profiles/aio/.skills_prompt_snapshot.json
+aio-home/profiles/aio/cron/
+aio-home/profiles/aio/logs/
+aio-home/logs/
+aio-home/kanban.db
+aio-home/kanban.db.init.lock
+aio-home/cache/
+aio-home/profiles/aio/cache/
+aio-home/profiles/aio/sessions/
+aio-home/kanban/
+aio-home/profiles/aio-test/
+aio-home/profiles/aio/skills/.bundled_manifest
+aio-home/profiles/aio/skills/.curator_state
+aio-home/profiles/aio/skills/.usage.json
+aio-home/profiles/aio/skills/.usage.json.lock
+aio-home/skills/.bundled_manifest
