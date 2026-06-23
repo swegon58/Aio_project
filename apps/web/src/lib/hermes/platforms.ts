@@ -1,6 +1,6 @@
 // Canonical platform list for the "Connections" tab (Batch B).
 //
-// Source of truth: Aio_harness/hermes-agent/gateway/config.py
+// Source of truth: apps/harness/hermes-agent/gateway/config.py
 // `_token_env_names` (validate_and_sanitize_config) — the set of platforms
 // Hermes itself treats as gated by a single bot/access token env var.
 // Discord is plugin-registered (plugins/platforms/discord/plugin.yaml

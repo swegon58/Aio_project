@@ -1,6 +1,6 @@
 // In-process sliding-window abuse tracker for repeated prompt-injection
 // pattern hits (threat-patterns.ts). In-memory by design — Phase 1 runs a
-// single local Hermes/Next.js process (see Aio_harness/CLAUDE.md), so a
+// single local Hermes/Next.js process (see apps/harness/CLAUDE.md), so a
 // module-level Map persists for the process lifetime. Revisit with a
 // shared store (Redis/Supabase) before a multi-instance/serverless deploy.
 

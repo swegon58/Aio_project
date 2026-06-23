@@ -1,4 +1,4 @@
-/* Ported 1:1 from Aio_harness/ai_agent_webapp (Copy 2).html — scoped to /app route.
+/* Ported 1:1 from apps/harness/ai_agent_webapp (Copy 2).html — scoped to /app route.
    Variables and class names match the mockup verbatim so the rendered
    markup is visually identical. JS behaviors (fake chat, drag-and-drop)
    are NOT ported — only structure/visuals. */

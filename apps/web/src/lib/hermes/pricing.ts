@@ -45,7 +45,7 @@ export interface TierConfig {
   };
   /**
    * Hermes toolset IDs unlocked for this tier (locked via grill-me
-   * 2026-06-20, see Aio_harness/docs/decisions/tier-toolset-gating-grill.md).
+   * 2026-06-20, see apps/harness/docs/decisions/tier-toolset-gating-grill.md).
    * Written to the profile's `agent.disabled_toolsets` on every spawn by
    * `applyTierConfig()` — anything in ALL_GATEABLE_TOOLSETS but not listed
    * here gets disabled. `file`/`terminal` are not in this list because

@@ -4,12 +4,12 @@
 
 ## Status
 - Landing (Header/Banner/Hero) done. Current focus: `/app` build — chat UI, Settings modal (Credentials/Connections tabs), Activity tab (Kanban/Gallery), chat history persistence, mascot, auto-scroll + streaming bubble fixes.
-- Backend brain: `../Aio_harness/` (Hermes-agent clone, profile "aio") — see `Aio_harness/CLAUDE.md`. Phase 1 = wrap as-is via API, no core edits. Hermes wired live (chat streaming, Honcho memory, Daytona sandbox).
+- Backend brain: `../harness/` (Hermes-agent clone, profile "aio") — see `apps/harness/CLAUDE.md`. Phase 1 = wrap as-is via API, no core edits. Hermes wired live (chat streaming, Honcho memory, Daytona sandbox).
 - `src/lib/brand.config.ts` — Manus→Aio rebrand config (name, tagline, accent color #0081f2)
 - Default palette: keep Manus neutral black/white/gray; accent color is user-customizable (core personalization feature)
 - App icon/favicon: `public/seo/icon.png`, `apple-icon.png`, `favicon.ico`, `src/app/favicon.ico` — Aio robot-mascot logo (2026-06-18)
 - Branch `experiment/liquid-glass` merged → `master` 2026-06-18
-- Backend model provider: **LM Studio, permanent** (user directive 2026-06-22, not a temp test) — `qwen/qwen3.5-9b` local. Fixed 2026-06-22: Hermes was still silently routing to OpenRouter (dead key, 401 swallowed as empty response) because provider resolution reads `auth.json`'s `credential_pool`, not just `config.yaml`'s `model.base_url`. Fix = `hermes auth add lmstudio` (credential) + `provider: lmstudio` added under `model:` in `Aio_harness/aio-home/profiles/aio/config.yaml`. Verified end-to-end in `/app` UI.
+- Backend model provider: **LM Studio, permanent** (user directive 2026-06-22, not a temp test) — `qwen/qwen3.5-9b` local. Fixed 2026-06-22: Hermes was still silently routing to OpenRouter (dead key, 401 swallowed as empty response) because provider resolution reads `auth.json`'s `credential_pool`, not just `config.yaml`'s `model.base_url`. Fix = `hermes auth add lmstudio` (credential) + `provider: lmstudio` added under `model:` in `apps/harness/aio-home/profiles/aio/config.yaml`. Verified end-to-end in `/app` UI.
 
 ## Remaining work
 1. Plan-mode UI polish loop (active 2026-06-22): March 7th (haiku) screenshots `/app` plan-choice/grill-me card via Playwright MCP, reviews vs "đẹp và chuẩn" bar, hands findings to Dan Heng to fix. Repeats until user says stop. Known findings carried in: fragile `aio-question` fenced-block regex parsing, unenforced question-count cap (infinite-loop risk).

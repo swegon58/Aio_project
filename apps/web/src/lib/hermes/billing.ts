@@ -8,7 +8,7 @@
 //   - failed-task full refund (Q29, item 3)
 //   - actual-cost lookup via OpenRouter's /api/v1/generation endpoint
 //     (Helicone substitute — Q24 was skipped for Phase 1, see decision note
-//     in Aio_harness/CLAUDE.md)
+//     in apps/harness/CLAUDE.md)
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {

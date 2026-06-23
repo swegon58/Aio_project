@@ -3,7 +3,7 @@ import path from "path";
 import { resolveHermesRequestContext } from "@/lib/hermes/request-context";
 import { HERMES_HARNESS_ROOT, profileDir, profileHomeDir } from "@/lib/hermes/config";
 
-// memory_summary.py is a standalone helper (Aio_harness/aio-home/scripts/),
+// memory_summary.py is a standalone helper (apps/harness/aio-home/scripts/),
 // not part of hermes-agent core. It loads the profile's Honcho config the
 // same way the `hermes` CLI does (load_hermes_dotenv) and fetches:
 //   - session.context(summary=True) -> a real Honcho-generated AI summary,

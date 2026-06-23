@@ -1,7 +1,7 @@
 // Lightweight prompt-injection / exfiltration scanner for inbound user
 // messages, applied at Aio's own API boundary (this repo never imports
 // hermes-agent source — Phase 1 = wrap, no core edits). Mirrors the
-// pattern philosophy of Aio_harness/hermes-agent/tools/threat_patterns.py
+// pattern philosophy of apps/harness/hermes-agent/tools/threat_patterns.py
 // (TS port, "all"-scope subset only: classic injection + exfil, near-zero
 // false-positive). Hermes's own scan_for_threats() still runs server-side
 // on context assembly — this is an additional, independent layer, not a

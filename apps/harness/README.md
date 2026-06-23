@@ -1,11 +1,11 @@
-# Aio_harness
+# apps/harness
 
 Clone of [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) (MIT) — backend agent harness for **Aio**.
 
 ## What this is
 - `hermes-agent/` — upstream source, pinned to commit `4373e802`. Reference + API boundary for Aio.
 - Runs as **one Hermes process per customer** (own profile, port, `state.db`, `.env`). Dev profile = "aio".
-- Profiles live under `Aio_harness/aio-home/` — never `~/.hermes/` (Himeko's profile).
+- Profiles live under `apps/harness/aio-home/` — never `~/.hermes/` (Himeko's profile).
 
 ## Hard rules
 - **Never touch `~/.hermes/`** — that's Himeko's profile. All Aio profiles are under `aio-home/`.
@@ -20,8 +20,8 @@ uv venv && uv pip install -e .   # Python 3.11, venv at hermes-agent/.venv
 
 ## Launch (dev profile)
 ```bash
-HERMES_HOME=/home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/aio-home \
-HOME=/home/swegon/AI_Agent/AI_Autonomous_Project/Aio_harness/aio-home/profiles/aio/home \
+HERMES_HOME=/home/swegon/AI_Agent/AI_Autonomous_Project/apps/harness/aio-home \
+HOME=/home/swegon/AI_Agent/AI_Autonomous_Project/apps/harness/aio-home/profiles/aio/home \
 hermes -p aio gateway run --replace
 ```
 Both env vars are **required**: `HERMES_HOME` anchors profile resolution; `HOME` sandboxes `~/...` file writes inside the profile.
@@ -58,7 +58,7 @@ Key decisions:
 - Skills: `--no-skills` + curated catalog copied from dev "aio" profile config
 - Sandbox: `TERMINAL_ENV=daytona` (dev) → Render/container-per-customer (prod)
 - Secrets: Supabase Vault canonical; `.env` written at spawn
-- Pricing: $9/$19/$99, defined in `Aio/src/lib/hermes/pricing.ts`
+- Pricing: $9/$19/$99, defined in `apps/web/src/lib/hermes/pricing.ts`
 - Payments: Paddle (primary), `DevNoopPaymentProvider` active until credentials wired
 
 ## Strategy

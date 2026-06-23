@@ -67,7 +67,7 @@ async function createProfile(profileName: string): Promise<void> {
 // PLACEHOLDER for the real Q12b master catalog: the "aio" dev profile's
 // config.yaml already carries the curated `toolsets` / `disabled_toolsets` /
 // `platform_toolsets` block (narrowed via `hermes tools disable ...` during
-// Build Order Step 1). Until a standalone catalog exists under Aio_harness/,
+// Build Order Step 1). Until a standalone catalog exists under apps/harness/,
 // we copy that block + the (currently empty) skills/ dir from the "aio"
 // profile as the seed catalog for every new profile.
 async function copyCuratedCatalog(profileName: string): Promise<void> {
@@ -123,7 +123,7 @@ async function copyCuratedCatalog(profileName: string): Promise<void> {
 // config.yaml — `agent.max_turns` (per-task iteration cap), `model.default`
 // (tier model), and `agent.disabled_toolsets` (tier toolset gating, locked
 // via grill-me 2026-06-20 — see
-// Aio_harness/docs/decisions/tier-toolset-gating-grill.md). Phase 1 =
+// apps/harness/docs/decisions/tier-toolset-gating-grill.md). Phase 1 =
 // config-only, no hermes-agent core edit. Re-applied on every
 // provisionAndStart (fresh AND respawn) so a plan-tier change takes effect on
 // the customer's next task without a manual profile edit.
