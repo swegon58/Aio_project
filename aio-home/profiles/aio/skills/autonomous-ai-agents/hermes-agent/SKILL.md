@@ -1026,3 +1026,15 @@ Types: `fix:`, `feat:`, `refactor:`, `docs:`, `chore:`
 - Use `get_hermes_home()` from `hermes_constants` for all paths (profile-safe)
 - Config values go in `config.yaml`, secrets go in `.env`
 - New tools need a `check_fn` so they only appear when requirements are met
+
+### External Documentation Navigation Tips
+
+When analyzing GitHub repos or external docs, this workflow is most reliable:
+
+1. **Navigate to raw file**: `https://raw.githubusercontent.com/OWNER/REPO/main/README.md`
+2. **Scroll to reveal content**: `browser_scroll(direction="down")` (twice for full context)
+3. **Use vision for extraction**: `browser_vision(question="What are the key features, installation steps, CLI commands?")`
+
+**Anti-pattern**: Don't click folders then try to use ref IDs from snapshots — they change between calls. Always navigate directly to the file first.
+
+This pattern saves time reading unfamiliar tool/framework docs (like Claude Code, Codex, or new Hermes features). For more: `skill_view(name="hermes-agent", file_path="references/README-repository-navigation.md")`.

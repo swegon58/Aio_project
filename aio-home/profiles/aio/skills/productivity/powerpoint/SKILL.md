@@ -230,8 +230,38 @@ pdftoppm -jpeg -r 150 -f N -l N output.pdf slide-fixed
 
 ## Dependencies
 
-- `pip install "markitdown[pptx]"` - text extraction
+### Setup on Externally-Managed Environments (e.g., Debian, uv-managed)
+
+On systems that reject direct pip installs (PEP 668), use one of these patterns:
+
+```bash
+# Option A: Install into venv
+pip install python-pptx --break-system-packages
+
+# Option B: Use uv to run with system Python (recommended)
+uv run python -c "from pptx import Presentation; ..."
+
+# Option C: Install directly into hermes venv
+pip install python-pptx -t /path/to/hermes/venv/lib/python3.X/site-packages
+```
+
+### Standard Dependencies
+
+- `pip install "markitdown[pptx]"` - text extraction  
 - `pip install Pillow` - thumbnail grids
-- `npm install -g pptxgenjs` - creating from scratch
+- `npm install -g pptxgenjs` - creating from scratch (alternative to python-pptx)
 - LibreOffice (`soffice`) - PDF conversion (auto-configured for sandboxed environments via `scripts/office/soffice.py`)
 - Poppler (`pdftoppm`) - PDF to images
+
+### Python Library
+
+Use `python-pptx` library:
+
+```python
+from pptx import Presentation  # Primary method
+# Avoid using markitdown if dependency issues occur
+```
+
+**Accessing slide content:**
+- Title: `slide.shapes.title.text`
+- Body text: Iterate through `slide.shapes._spTree.children`, check for `text_frame.text` attribute
