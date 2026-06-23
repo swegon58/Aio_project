@@ -1,0 +1,2 @@
+0000000000000000000000000000000000000000 75aa66341726f103b8aab5f5a2a6cf5b4c81d808 swegon58 <swegon58@gmail.com> 1781720202 +0700	branch: Created from HEAD
+75aa66341726f103b8aab5f5a2a6cf5b4c81d808 18e165265e0a273ea905f1536cc8e4f12a50f6a1 swegon58 <swegon58@gmail.com> 1781754009 +0700	commit: Add chat history persistence, new-chat flow, dev-bypass auth seeding fix

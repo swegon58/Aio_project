@@ -1,0 +1,72 @@
+0000000000000000000000000000000000000000 8dd9cb47dde0d49fec06ee1d69bedd04840f3c95 swegon58 <swegon58@gmail.com> 1781199413 +0700	clone: from https://github.com/JCodesMore/ai-website-cloner-template.git
+8dd9cb47dde0d49fec06ee1d69bedd04840f3c95 6b205121a86e446b17e819e9322708d5176362b5 swegon58 <swegon58@gmail.com> 1781204336 +0700	commit: Foundation: manus.im fonts, design tokens, icons, assets, component specs
+6b205121a86e446b17e819e9322708d5176362b5 fca93ceec4a62de2e42b067806776c7349b1c41e swegon58 <swegon58@gmail.com> 1781204479 +0700	merge worktree-agent-a590d483e98f50257 worktree-agent-a4ca7f799150d9a29 worktree-agent-a80f59e8239f42332: Merge made by the 'octopus' strategy.
+fca93ceec4a62de2e42b067806776c7349b1c41e d9486a4dd41939325c2ef3a34afb1008c3c353ec swegon58 <swegon58@gmail.com> 1781204832 +0700	commit: Fix homepage QA: header/banner order, logo color var, bg tint, sign-up border
+d9486a4dd41939325c2ef3a34afb1008c3c353ec f6191fb0597455e7fc23ca587e08153e36002900 swegon58 <swegon58@gmail.com> 1781234067 +0700	commit: Wire brand.config into Header/layout, add footer social icons, capture webapp design refs
+f6191fb0597455e7fc23ca587e08153e36002900 5a1d14d9fdcc9c06e63de39ef56f9bc1ee377a10 swegon58 <swegon58@gmail.com> 1781234646 +0700	commit: Add shared Footer component, wire into homepage
+5a1d14d9fdcc9c06e63de39ef56f9bc1ee377a10 ea5d308d1147c944f3c060d1aa019a702ae517d3 swegon58 <swegon58@gmail.com> 1781621734 +0700	commit: chore: sync full project state
+ea5d308d1147c944f3c060d1aa019a702ae517d3 75aa66341726f103b8aab5f5a2a6cf5b4c81d808 swegon58 <swegon58@gmail.com> 1781720192 +0700	commit: Add mascot image states, credit display, template gallery, approval card to app UI
+75aa66341726f103b8aab5f5a2a6cf5b4c81d808 75aa66341726f103b8aab5f5a2a6cf5b4c81d808 swegon58 <swegon58@gmail.com> 1781720202 +0700	checkout: moving from master to ui-mockup-port
+75aa66341726f103b8aab5f5a2a6cf5b4c81d808 18e165265e0a273ea905f1536cc8e4f12a50f6a1 swegon58 <swegon58@gmail.com> 1781754009 +0700	commit: Add chat history persistence, new-chat flow, dev-bypass auth seeding fix
+18e165265e0a273ea905f1536cc8e4f12a50f6a1 75aa66341726f103b8aab5f5a2a6cf5b4c81d808 swegon58 <swegon58@gmail.com> 1781754013 +0700	checkout: moving from ui-mockup-port to master
+75aa66341726f103b8aab5f5a2a6cf5b4c81d808 18e165265e0a273ea905f1536cc8e4f12a50f6a1 swegon58 <swegon58@gmail.com> 1781754013 +0700	merge ui-mockup-port: Fast-forward
+18e165265e0a273ea905f1536cc8e4f12a50f6a1 18e165265e0a273ea905f1536cc8e4f12a50f6a1 swegon58 <swegon58@gmail.com> 1781772435 +0700	checkout: moving from master to experiment/liquid-glass
+18e165265e0a273ea905f1536cc8e4f12a50f6a1 421469aebaecd77d349a8a737bcec706007a7efc swegon58 <swegon58@gmail.com> 1781799047 +0700	commit: Fix chat UI duplicate empty bubble + add auto-scroll on stream
+421469aebaecd77d349a8a737bcec706007a7efc 18e165265e0a273ea905f1536cc8e4f12a50f6a1 swegon58 <swegon58@gmail.com> 1781799152 +0700	checkout: moving from experiment/liquid-glass to master
+18e165265e0a273ea905f1536cc8e4f12a50f6a1 421469aebaecd77d349a8a737bcec706007a7efc swegon58 <swegon58@gmail.com> 1781799153 +0700	merge experiment/liquid-glass: Fast-forward
+421469aebaecd77d349a8a737bcec706007a7efc 8e967b3cfc614df13d3e8f4f9a4293944af53fba swegon58 <swegon58@gmail.com> 1781800596 +0700	commit: Replace app icon with Aio robot mascot, remove unused components, update CLAUDE.md
+8e967b3cfc614df13d3e8f4f9a4293944af53fba 3f94c630c10925610113dcbbd464d964c3ebaf6d swegon58 <swegon58@gmail.com> 1781836148 +0700	commit: chore: update favicon assets and AppHome mockup
+3f94c630c10925610113dcbbd464d964c3ebaf6d 3f94c630c10925610113dcbbd464d964c3ebaf6d swegon58 <swegon58@gmail.com> 1781841332 +0700	checkout: moving from master to feat/guardrail-backend-secrecy
+3f94c630c10925610113dcbbd464d964c3ebaf6d 9b726f42c8485a5398b5e84fa8d6765877a02714 swegon58 <swegon58@gmail.com> 1781946465 +0700	commit: Add RAG knowledge base + plan-mode clarify wiring
+9b726f42c8485a5398b5e84fa8d6765877a02714 826c625feb592538059dbb57c0b25bc22b6ed85e swegon58 <swegon58@gmail.com> 1781988106 +0700	commit: Add tier-toolset gating (Starter/Pro/Business) + upsell UI
+826c625feb592538059dbb57c0b25bc22b6ed85e f1f90ee30c545c9da5adbbbafd1001ad3efd98e2 swegon58 <swegon58@gmail.com> 1781990243 +0700	commit: Add initial-load usage meter (no more blank until first chat msg)
+f1f90ee30c545c9da5adbbbafd1001ad3efd98e2 f1e0af725331a82840dd373acf778fe4b3725da3 swegon58 <swegon58@gmail.com> 1781990328 +0700	commit: Polish live tool-progress indicator + fix leftover typo
+f1e0af725331a82840dd373acf778fe4b3725da3 33e0a4785d3ea3bff53975c4d2b5847e11b6db14 swegon58 <swegon58@gmail.com> 1781991299 +0700	commit: Add Scheduled Tasks feature: cron proxy API + Activity tab UI
+33e0a4785d3ea3bff53975c4d2b5847e11b6db14 80155955e9245d363adbf1ec3e1ad96945d8b136 swegon58 <swegon58@gmail.com> 1781991652 +0700	commit: feat: add remove-token action to Connections tab
+80155955e9245d363adbf1ec3e1ad96945d8b136 5fb7ff383aa390b24f67b10a03ef2bf050731d13 swegon58 <swegon58@gmail.com> 1781992437 +0700	commit: feat: add create-task form to Scheduled Tasks UI
+5fb7ff383aa390b24f67b10a03ef2bf050731d13 3bf4efb78b936ff24dab07855846b3527207a0bf swegon58 <swegon58@gmail.com> 1781992545 +0700	commit: style: add icons to loading/empty states across Activity + Memory panels
+3bf4efb78b936ff24dab07855846b3527207a0bf 803b59676a2dfec2872d2d7dd5e67c46f4425ea1 swegon58 <swegon58@gmail.com> 1781992645 +0700	commit: refactor: extract PanelLoading/PanelEmpty into shared component, apply to Settings tabs
+803b59676a2dfec2872d2d7dd5e67c46f4425ea1 dff39b04c4e5bae2e89e7ff455ed419a473d3b43 swegon58 <swegon58@gmail.com> 1782005652 +0700	commit: feat: add copy-to-clipboard button on assistant chat messages
+dff39b04c4e5bae2e89e7ff455ed419a473d3b43 507eb1404601fad95c25712e7ff29f44bc25bf10 swegon58 <swegon58@gmail.com> 1782006444 +0700	commit: fix: disable non-functional Attach/Voice composer buttons with coming-soon tooltip
+507eb1404601fad95c25712e7ff29f44bc25bf10 d1a2cc3e6930e8c6495740d7dc344d7f3ec36d0f swegon58 <swegon58@gmail.com> 1782006554 +0700	commit: feat: render assistant chat messages as markdown
+d1a2cc3e6930e8c6495740d7dc344d7f3ec36d0f 38f51e75b5eb348414a157b0def581e98870c215 swegon58 <swegon58@gmail.com> 1782006637 +0700	commit: fix: disable non-functional Add MCP Server button with coming-soon tooltip
+38f51e75b5eb348414a157b0def581e98870c215 bb6629b5a98f70ca19d765dd5983b470d8a53c98 swegon58 <swegon58@gmail.com> 1782006837 +0700	commit: fix: require second click to confirm chat delete (no accidental loss)
+bb6629b5a98f70ca19d765dd5983b470d8a53c98 4ced8ce39fda879301e810651837a4fae0d59e3f swegon58 <swegon58@gmail.com> 1782006954 +0700	commit: feat: add scroll-to-bottom button for chat when scrolled away from latest
+4ced8ce39fda879301e810651837a4fae0d59e3f 57dc6c2dcb1475cc2a84b8667b8f87d176503593 swegon58 <swegon58@gmail.com> 1782007002 +0700	commit: fix: show explicit empty state for chat history sidebar
+57dc6c2dcb1475cc2a84b8667b8f87d176503593 a1b51aedf56dec97dd2033a46829971205cea9c9 swegon58 <swegon58@gmail.com> 1782007354 +0700	commit: fix: remove unnecessary state-mirror effect in SwitchGroup
+a1b51aedf56dec97dd2033a46829971205cea9c9 780cceb26c319562005ea689679d0a1f4b6ba7dd swegon58 <swegon58@gmail.com> 1782007464 +0700	commit: fix: guard conversation switch against out-of-order fetch responses
+780cceb26c319562005ea689679d0a1f4b6ba7dd 70c0000d64551f122c68823a24bf7e4797edd245 swegon58 <swegon58@gmail.com> 1782007531 +0700	commit: chore: remove dead RightPanel/ApprovalCard components
+70c0000d64551f122c68823a24bf7e4797edd245 9d46ebd5cd911d4952f532d5ae37e71c43adaee1 swegon58 <swegon58@gmail.com> 1782007726 +0700	commit: chore: remove dead AppShell/AppSidebar components
+9d46ebd5cd911d4952f532d5ae37e71c43adaee1 f42f6a3c4c51716ec1a8e2d9dfdda34ddc3b284e swegon58 <swegon58@gmail.com> 1782007840 +0700	commit: fix: guard approval/clarify responses against network failures
+f42f6a3c4c51716ec1a8e2d9dfdda34ddc3b284e 5ddf4270ae03929adf31e0808a675211ce84397f swegon58 <swegon58@gmail.com> 1782007955 +0700	commit: chore: remove unused imports in chat/credits API routes
+5ddf4270ae03929adf31e0808a675211ce84397f eab384d26d16df781b4788690dda8f8c8cbc06ed swegon58 <swegon58@gmail.com> 1782010134 +0700	commit: fix: surface chat stream errors in the UI
+eab384d26d16df781b4788690dda8f8c8cbc06ed cdfe4f022702e8c54af71a5b9b0c8831abf383a1 swegon58 <swegon58@gmail.com> 1782010318 +0700	commit: feat: rename conversations from the chat sidebar
+cdfe4f022702e8c54af71a5b9b0c8831abf383a1 64059704ba9e051924b75656c97bde20dfcbeeab swegon58 <swegon58@gmail.com> 1782010409 +0700	commit: fix: require confirmation before removing tokens/knowledge docs
+64059704ba9e051924b75656c97bde20dfcbeeab 3b2b2ce8301237ab7705acfdb22aac1617c1feb2 swegon58 <swegon58@gmail.com> 1782014120 +0700	commit: fix: require confirmation before deleting cron tasks/gallery images
+3b2b2ce8301237ab7705acfdb22aac1617c1feb2 d0848f7874bdee10391ab3a8d239b886555999f8 swegon58 <swegon58@gmail.com> 1782014558 +0700	commit: fix: guard cron proxy routes against network failures
+d0848f7874bdee10391ab3a8d239b886555999f8 1b2bf96bb8150f537c4069a03ff28801db4fe1b2 swegon58 <swegon58@gmail.com> 1782016658 +0700	commit: feat: add low-credit warning state to usage meter
+1b2bf96bb8150f537c4069a03ff28801db4fe1b2 2b989c24c48abe6dde6490102c1fca460b26abf6 swegon58 <swegon58@gmail.com> 1782016848 +0700	commit: fix: widen right panel and de-clutter nested tabs on Activity view
+2b989c24c48abe6dde6490102c1fca460b26abf6 047c81d199347f89fbc99236f7c2e862ad5d6809 swegon58 <swegon58@gmail.com> 1782017840 +0700	commit: fix: right-panel constant width + borderless card/button unification
+047c81d199347f89fbc99236f7c2e862ad5d6809 59eb5383cc2c54abda4d16dbff92225880ed0f47 swegon58 <swegon58@gmail.com> 1782018019 +0700	commit: chore: drop stale borderBottom inline overrides in right panel
+59eb5383cc2c54abda4d16dbff92225880ed0f47 21dec842cc30c69d7d46f753cc748a403c277965 swegon58 <swegon58@gmail.com> 1782018079 +0700	commit: polish: right-panel header reflects active tab, disambiguate Live Tool Calls
+21dec842cc30c69d7d46f753cc748a403c277965 4ca3fa76b6514827a557b80826b5ac35cad82a61 swegon58 <swegon58@gmail.com> 1782018643 +0700	commit: style: redesign-skill audit pass on right panel — depth + states
+4ca3fa76b6514827a557b80826b5ac35cad82a61 8d03e9d842f3ca1bf2e2270cfc68fabacc976d53 swegon58 <swegon58@gmail.com> 1782023604 +0700	commit: style: redesign-skill pass on message bubbles + code blocks
+8d03e9d842f3ca1bf2e2270cfc68fabacc976d53 420f401d585d3eb9cdbfd3b9f4c404eb3b4c83d2 swegon58 <swegon58@gmail.com> 1782023674 +0700	commit: fix: plan mode — stateless plan-gate instead of clarify-tool round trip
+420f401d585d3eb9cdbfd3b9f4c404eb3b4c83d2 712b8a5b6c87b7421b688dfc37f10652b845e4db swegon58 <swegon58@gmail.com> 1782023800 +0700	commit: fix(a11y): settings toggles, modal, swatches keyboard-focusable
+712b8a5b6c87b7421b688dfc37f10652b845e4db 72bc1be79832147c10409cc3de0f8a926e874f75 swegon58 <swegon58@gmail.com> 1782024120 +0700	commit: fix: remove dead external link to competitor (events.manus.im) from Header nav
+72bc1be79832147c10409cc3de0f8a926e874f75 7cc9626c029d66ee7c0fda38ac9b6be2e844a45d swegon58 <swegon58@gmail.com> 1782025505 +0700	commit: feat: add file browser panel to Activity tab
+7cc9626c029d66ee7c0fda38ac9b6be2e844a45d 45343b6e7ae9e05fc745a5bfa068a3ac29503156 swegon58 <swegon58@gmail.com> 1782025893 +0700	commit: fix(workspace-tree): refuse listing until thread has a real workspace
+45343b6e7ae9e05fc745a5bfa068a3ac29503156 4f869ec5267f4e995c69577bbc6aaa37f47387e5 swegon58 <swegon58@gmail.com> 1782026447 +0700	commit: chore: trim AGENTS.md, drop stale clone-website inspection guide
+4f869ec5267f4e995c69577bbc6aaa37f47387e5 0510fd5b97b14e79ee2cd65104bd0cc329d8eeac swegon58 <swegon58@gmail.com> 1782026774 +0700	commit: feat: wire MCP tab to real Hermes profile config
+0510fd5b97b14e79ee2cd65104bd0cc329d8eeac a8b186d22fb3c1feed45ed04ed6cfc61ba7e850f swegon58 <swegon58@gmail.com> 1782029238 +0700	commit: style: redesign-skill audit on Aio /app — font swap + focus-visible states
+a8b186d22fb3c1feed45ed04ed6cfc61ba7e850f 1d545d8981b0a37a4b318bfcbb2bde8f8b2f178c swegon58 <swegon58@gmail.com> 1782029249 +0700	commit: fix: keyboard accessibility on Aio /app sidebar chat-item rows
+1d545d8981b0a37a4b318bfcbb2bde8f8b2f178c 5dd89997bf914738b3c77d5d9526307cb6549fdc swegon58 <swegon58@gmail.com> 1782029430 +0700	commit: fix: default app accent to brand blue (#0081f2), not purple
+5dd89997bf914738b3c77d5d9526307cb6549fdc 0f54c6c44b7b9a85637eaab4825a61e8082e4c19 swegon58 <swegon58@gmail.com> 1782031937 +0700	commit: feat: multi-round grill-me style clarify for Plan Mode
+0f54c6c44b7b9a85637eaab4825a61e8082e4c19 b9768b39f5991496f2a5cfe97b2c55b68d25dd22 swegon58 <swegon58@gmail.com> 1782032480 +0700	commit: fix: parsePlanQuestion accept unfenced JSON
+b9768b39f5991496f2a5cfe97b2c55b68d25dd22 60db577f1b3ec59efecb15bcd9b95e09e9d3ef6b swegon58 <swegon58@gmail.com> 1782033224 +0700	commit: fix: restore conversation, plan card, and theme/accent across page refresh
+60db577f1b3ec59efecb15bcd9b95e09e9d3ef6b 9a89d08bd34e13fb9c2a82305f39ff77f98ed3bf swegon58 <swegon58@gmail.com> 1782098405 +0700	commit: feat: interactive DotGrid particle background for /app
+9a89d08bd34e13fb9c2a82305f39ff77f98ed3bf 4d8157fe9a34432d8bc897bf556a806334506ba6 swegon58 <swegon58@gmail.com> 1782117022 +0700	commit: feat: billing checkout/webhook routes, input threat-scan guardrail, re-assert network lockdown
+4d8157fe9a34432d8bc897bf556a806334506ba6 1549c83bdfad6aa72fff07db02a1553fdc58ad75 swegon58 <swegon58@gmail.com> 1782117057 +0700	commit: docs: mark Paddle checkout/webhook work done, env vars still needed for prod
+1549c83bdfad6aa72fff07db02a1553fdc58ad75 8314084915e4290e9f8949d0eb449904db55bcdf swegon58 <swegon58@gmail.com> 1782117122 +0700	commit: fix: drop manus.im name from /features/browser-operator URL slug
+8314084915e4290e9f8949d0eb449904db55bcdf b2a8dd3fdbd8db47aa361ff9f8233d4e7f3a887f swegon58 <swegon58@gmail.com> 1782118014 +0700	commit: docs: replace clone-4-pages backlog item with active plan-mode UI polish loop
+b2a8dd3fdbd8db47aa361ff9f8233d4e7f3a887f 2f5cc359591eb77c1db29da0a0e34e6228ba543f swegon58 <swegon58@gmail.com> 1782120459 +0700	commit: chore: remove unused multi-AI-tool boilerplate template cruft

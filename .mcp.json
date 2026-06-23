@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "/home/swegon/.local/bin/github-mcp-server",
+      "args": ["stdio"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "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"
+      }
+    },
+    "lean-ctx": {
+      "command": "/home/swegon/.hermes/node/bin/lean-ctx",
+      "args": []
+    }
+  }
+}

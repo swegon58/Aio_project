@@ -1,0 +1,33 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"lean-ctx MANDATORY (project rule): use ctx_shell instead of native Bash. ctx_shell compresses output (95+ patterns) and avoids context/token blowups. Only use native Bash for things ctx_shell genuinely cannot do.\"}}'"
+          }
+        ]
+      },
+      {
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"lean-ctx MANDATORY: use ctx_search instead of native Grep — same matches, far less token output.\"}}'"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"lean-ctx MANDATORY: use ctx_read instead of native Read for big files — ctx_read caches and compresses heavily (re-reads ~13 tok). Native Read is OK only right before an Edit that needs literal full content.\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}

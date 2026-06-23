@@ -1,0 +1,18 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+	hooksPath = /home/swegon/AI_Agent/AI_Autonomous_Project/ai-website-cloner-template/.git/hooks
+[remote "origin"]
+	url = https://github.com/swegon58/Aio.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "master"]
+	remote = origin
+	vscode-merge-base = origin/master
+	merge = refs/heads/master
+[branch "experiment/liquid-glass"]
+	remote = origin
+	merge = refs/heads/experiment/liquid-glass
+[branch "feat/guardrail-backend-secrecy"]
+	vscode-merge-base = origin/master

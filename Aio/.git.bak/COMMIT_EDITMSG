@@ -1,0 +1,7 @@
+chore: remove unused multi-AI-tool boilerplate template cruft
+
+Repo was scaffolded from a generic clone template that ships config
+dirs for Amazon Q, Augment, Cline, Codex, Continue.dev, Cursor,
+Gemini CLI, OpenCode, and Windsurf. None of these are used — this
+project standardizes on Claude Code (.claude/, CLAUDE.md, AGENTS.md).
+Also rolls in the LM Studio provider-status note for CLAUDE.md.
