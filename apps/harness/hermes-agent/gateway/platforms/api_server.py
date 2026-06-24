@@ -4146,6 +4146,39 @@ class APIServerAdapter(BasePlatformAdapter):
             return web.json_response(data, status=400)
         return web.json_response(data)
 
+    async def _handle_workspace_cwd(self, request: "web.Request") -> "web.Response":
+        """GET /v1/workspace/cwd?task_id= — resolved absolute workspace root.
+
+        Read-only. Reuses the same internal resolver as the agent's own file
+        tools (``tools.file_tools._resolve_base_dir``) — not a new trust
+        boundary, just a way for Aio's web UI to learn the host filesystem
+        path it needs to bind-mount for live preview (see
+        ``preview-sandbox.ts``).
+
+        When the task is running on a non-local backend (``TERMINAL_ENV`` !=
+        "local", e.g. docker/ssh/daytona — same check as
+        ``run_agent.py:_launch_cwd_for_session``), there is no host path to
+        bind-mount, so we return ``{"cwd": null, "reason":
+        "remote_environment"}`` instead of a path that would be meaningless
+        (or actively wrong) to mount.
+        """
+        auth_err = self._check_auth(request)
+        if auth_err:
+            return auth_err
+
+        task_id = request.query.get("task_id") or "default"
+
+        backend = (os.environ.get("TERMINAL_ENV") or "local").strip().lower()
+        if backend and backend != "local":
+            return web.json_response({"cwd": None, "reason": "remote_environment"})
+
+        from tools.file_tools import _resolve_base_dir
+
+        base_dir = await asyncio.get_running_loop().run_in_executor(
+            None, _resolve_base_dir, task_id
+        )
+        return web.json_response({"cwd": str(base_dir)})
+
     async def _handle_run_file(self, request: "web.Request") -> "web.Response":
         """GET /v1/runs/{run_id}/file?path= — download a generated artifact.
 
@@ -4433,6 +4466,7 @@ class APIServerAdapter(BasePlatformAdapter):
             self._app.router.add_get("/v1/runs/{run_id}/file", self._handle_run_file)
 
             self._app.router.add_get("/v1/workspace/tree", self._handle_workspace_tree)
+            self._app.router.add_get("/v1/workspace/cwd", self._handle_workspace_cwd)
             # Store the adapter after native routes are registered. Local Hermes-Relay
             # bootstrap shims use this key as a feature-detection hook; registering
             # native routes first lets those shims no-op instead of shadowing the
