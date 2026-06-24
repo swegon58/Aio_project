@@ -1643,10 +1643,10 @@ export function AppHome({ email }: AppHomeProps) {
             <button
               type="button"
               className="sidebar-close-btn"
-              onClick={() => setSettingsOpen(true)}
-              aria-label="Settings"
+              onClick={() => setSidebarCollapsed(true)}
+              aria-label="Close sidebar"
             >
-              <Cog className="w-4 h-4" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
