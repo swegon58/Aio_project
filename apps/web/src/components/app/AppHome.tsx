@@ -2173,7 +2173,7 @@ export function AppHome({ email }: AppHomeProps) {
             <div className="panel-header-actions">
               <button
                 type="button"
-                className={`panel-action-btn${terminalOpen ? " active" : ""}`}
+                className={`panel-action-btn panel-action-btn--terminal${terminalOpen ? " active" : ""}`}
                 onClick={cycleTerminal}
                 aria-label={
                   !terminalOpen
@@ -2190,6 +2190,7 @@ export function AppHome({ email }: AppHomeProps) {
                 ) : (
                   <TerminalSquare className="w-3.5 h-3.5" />
                 )}
+                <span>{!terminalOpen ? "Open Terminal" : terminalScale === "small" ? "Expand" : "Close Terminal"}</span>
               </button>
               <button
                 type="button"
@@ -2683,6 +2684,7 @@ export function AppHome({ email }: AppHomeProps) {
 
           {terminalOpen && (
             <div className="aio-terminal">
+              <div className="aio-terminal-title">Aio Terminal</div>
               <div className="aio-terminal-tabs">
                 <button
                   type="button"
