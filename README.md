@@ -87,9 +87,3 @@ Hermes profiles live under `apps/harness/aio-home/`.
 - Hermes backend wired end-to-end (streaming, memory, sandboxed terminal)
 - Credit/billing endpoints in place, payment provider (Paddle) not yet live
 - Per-customer secret vaulting deferred — profiles currently share a `.env`
-
-## History
-
-Split out of a larger internal monorepo on 2026-06-23 into this standalone repo
-(`Aio/` → `apps/web`, `Aio_harness/` → `apps/harness`) so it can ship and deploy on
-its own.
