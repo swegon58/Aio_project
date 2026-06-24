@@ -7,4 +7,4 @@ Always use:
 - `ctx_tree` not ls/find
 - Native Edit/Write stay as-is — lean-ctx is read-only.
 
-Root cause (traced 2026-06-23 in the original AI_Autonomous_Project location): high context/token usage came from native `Read` calls on large files (e.g. `AppHome.tsx`) instead of `ctx_read`, which compresses heavily. Default to `ctx_read(path, "auto")` first; only fall back to native `Read`/full mode right before an `Edit` that needs literal full content.
+Default `ctx_read(path, "auto")` first; native `Read`/full mode only right before an `Edit` needing literal content.

@@ -3,3 +3,6 @@
 Aio/node_modules/
 Aio/.next/
 Aio/.env.local
+
+# secrets
+.claude/channels/discord/.env

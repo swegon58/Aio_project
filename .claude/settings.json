@@ -1,31 +1,67 @@
 {
   "hooks": {
-    "PreToolUse": [
+    "UserPromptSubmit": [
       {
-        "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"lean-ctx MANDATORY (project rule): use ctx_shell instead of native Bash. ctx_shell compresses output (95+ patterns) and avoids context/token blowups. Only use native Bash for things ctx_shell genuinely cannot do.\"}}'"
-          }
+          { "type": "command", "command": "python3 /home/swegon/AI_Agent/Aio_project/.claude/hooks/aio-mention-filter.py", "timeout": 5 },
+          { "type": "command", "command": "python3 /home/swegon/AI_Agent/Aio_project/.claude/hooks/aio-thinking-indicator.py", "timeout": 10 },
+          { "type": "command", "command": "bash /home/swegon/AI_Agent/Aio_project/.claude/hooks/spawn-aio-terminal.sh", "async": true }
         ]
-      },
+      }
+    ],
+    "PostToolUse": [
       {
-        "matcher": "Grep",
         "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"lean-ctx MANDATORY: use ctx_search instead of native Grep — same matches, far less token output.\"}}'"
-          }
+          { "type": "command", "command": "python3 /home/swegon/AI_Agent/Aio_project/tools/discord_live_update.py", "async": true }
         ]
-      },
+      }
+    ],
+    "Stop": [
       {
-        "matcher": "Read|Glob",
         "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"lean-ctx MANDATORY: use ctx_read instead of native Read for big files — ctx_read caches and compresses heavily (re-reads ~13 tok). Native Read is OK only right before an Edit that needs literal full content.\"}}'"
-          }
+          { "type": "command", "command": "python3 /home/swegon/AI_Agent/Aio_project/.claude/hooks/aio-done-indicator.py", "async": true }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 /home/swegon/AI_Agent/Aio_project/.claude/hooks/aio-lifecycle-notify.py Notification" }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 /home/swegon/AI_Agent/Aio_project/.claude/hooks/aio-lifecycle-notify.py PermissionRequest" }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 /home/swegon/AI_Agent/Aio_project/.claude/hooks/aio-lifecycle-notify.py PreCompact" }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 /home/swegon/AI_Agent/Aio_project/.claude/hooks/aio-lifecycle-notify.py PostCompact" }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 /home/swegon/AI_Agent/Aio_project/.claude/hooks/aio-lifecycle-notify.py StopFailure" }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 /home/swegon/AI_Agent/Aio_project/.claude/hooks/aio-lifecycle-notify.py SubagentStop" }
         ]
       }
     ]
