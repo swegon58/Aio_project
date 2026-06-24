@@ -609,7 +609,7 @@ export function SettingsModal({
                           <button
                             type="button"
                             className="mcp-add-btn"
-                            style={{ padding: "4px 10px", fontSize: 12 }}
+                            style={{ width: "auto", flexShrink: 0, padding: "4px 10px", fontSize: 12 }}
                             disabled={!targetTier || upgradingTier === targetTier}
                             onClick={() => targetTier && handleUpgrade(targetTier)}
                           >
