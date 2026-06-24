@@ -31,6 +31,8 @@ import {
   Send,
   Server,
   SkipForward,
+  SquareSplitHorizontal,
+  TerminalSquare,
   Trash2,
   X,
 } from "lucide-react";
@@ -139,6 +141,90 @@ function deriveMascotState(
 
 type PanelTab = "info" | "mcp" | "memory" | "activity";
 type ActivitySubTab = "kanban" | "gallery" | "tasks" | "files";
+
+// Aio Terminal: replaces the old empty Workspace panel. "small" renders
+// inline below the panel tabs (old Workspace spot); "split" hides the
+// sidebar and gives chat + terminal ~50/50 width. Toggle button cycles
+// closed -> small -> split -> closed.
+type TerminalScale = "small" | "split";
+type TerminalTab = "code" | "preview";
+
+// File the agent is actively touching right now, derived from the live
+// activity stream (most recent tool entry that carries a filePath).
+interface ActiveFile {
+  filePath: string;
+  fileName?: string;
+}
+
+// Preview-tab integration point. Actual rendering (iframe live preview,
+// pdf.js, mammoth.js, xlsx viewer, etc.) is out of scope here — this only
+// wires up the file-type switch + placeholder copy for that follow-up work.
+function PreviewPane({ file }: { file: ActiveFile | null }) {
+  if (!file) {
+    return (
+      <div className="terminal-preview-empty">
+        Open or edit a file and its preview will show up here.
+      </div>
+    );
+  }
+
+  const name = file.fileName ?? file.filePath;
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+
+  let placeholder: string;
+  switch (ext) {
+    case "html":
+    case "htm":
+    case "js":
+    case "jsx":
+    case "ts":
+    case "tsx":
+      // TODO(task 3): render live app preview, e.g. sandboxed iframe pointed
+      // at the running dev/preview server for this file.
+      placeholder = "Live app preview will render here.";
+      break;
+    case "pdf":
+      // TODO(task 3): render with pdf.js.
+      placeholder = "PDF preview will render here.";
+      break;
+    case "doc":
+    case "docx":
+      // TODO(task 3): render with mammoth.js.
+      placeholder = "Document preview will render here.";
+      break;
+    case "xls":
+    case "xlsx":
+    case "csv":
+      // TODO(task 3): render with a spreadsheet viewer (e.g. xlsx + a grid).
+      placeholder = "Spreadsheet preview will render here.";
+      break;
+    case "png":
+    case "jpg":
+    case "jpeg":
+    case "gif":
+    case "webp":
+    case "svg":
+      // TODO(task 3): render the image directly (likely doesn't need a stub
+      // at all — an <img> works today — but kept as a placeholder for now
+      // per the explicit scope-lock on this task).
+      placeholder = "Image preview will render here.";
+      break;
+    case "md":
+    case "markdown":
+      // TODO(task 3): render via the existing MarkdownMessage renderer.
+      placeholder = "Markdown preview will render here.";
+      break;
+    default:
+      placeholder = "Preview for this file type will render here.";
+  }
+
+  return (
+    <div className="terminal-preview-pane">
+      <div className="terminal-preview-filename">{name}</div>
+      <div className="terminal-preview-placeholder">{placeholder}</div>
+    </div>
+  );
+}
 
 interface CronJob {
   id: string;
@@ -314,6 +400,21 @@ export function AppHome({ email }: AppHomeProps) {
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("info");
   const [activitySubTab, setActivitySubTab] = useState<ActivitySubTab>("kanban");
+  const [terminalOpen, setTerminalOpen] = useState(false);
+  const [terminalScale, setTerminalScale] = useState<TerminalScale>("small");
+  const [terminalTab, setTerminalTab] = useState<TerminalTab>("code");
+  // Toggle button cycle: closed -> small -> split -> closed.
+  const cycleTerminal = () => {
+    if (!terminalOpen) {
+      setTerminalOpen(true);
+      setTerminalScale("small");
+    } else if (terminalScale === "small") {
+      setTerminalScale("split");
+    } else {
+      setTerminalOpen(false);
+      setTerminalScale("small");
+    }
+  };
   const [connections, setConnections] = useState<ConnectionStatus[] | null>(null);
   const [connectionsError, setConnectionsError] = useState<string | null>(null);
   const [tokenPlatform, setTokenPlatform] = useState("");
@@ -1227,6 +1328,21 @@ export function AppHome({ email }: AppHomeProps) {
     return () => mql.removeEventListener("change", handler);
   }, []);
 
+  // Aio Terminal Preview tab auto-follows whichever file the agent is
+  // currently touching: prefer the most recent running tool call that
+  // carries a filePath, falling back to the most recent completed one so
+  // the preview doesn't go blank the instant a tool finishes.
+  const activeFile = useMemo<ActiveFile | null>(() => {
+    const withFile = activity.filter(
+      (item): item is Extract<HermesActivityData, { kind: "tool" }> & { filePath: string } =>
+        item.kind === "tool" && typeof item.filePath === "string",
+    );
+    if (withFile.length === 0) return null;
+    const reversed = [...withFile].reverse();
+    const target = reversed.find((item) => item.status === "running") ?? reversed[0];
+    return { filePath: target.filePath, fileName: target.fileName };
+  }, [activity]);
+
   const openWorkspaceEntry = (messageId: string) => {
     setExpandedWorkspaceId(messageId);
     if (!isMobileViewport) setRightPanelCollapsed(false);
@@ -1294,9 +1410,17 @@ export function AppHome({ email }: AppHomeProps) {
       </div>
       <div className="bottom-glow" aria-hidden />
 
-      <div className="app-container">
+      <div className={`app-container${terminalOpen && terminalScale === "split" ? " terminal-split" : ""}`}>
         {/* ===== LEFT SIDEBAR ===== */}
-        <aside className={`sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
+        {/* Aio Terminal's split scale force-hides the sidebar (mirrors
+            sidebarCollapsed visuals) without touching sidebarCollapsed
+            itself, so the user's prior sidebar state is restored when the
+            terminal goes back to "small" or closes. */}
+        <aside
+          className={`sidebar${
+            sidebarCollapsed || (terminalOpen && terminalScale === "split") ? " collapsed" : ""
+          }`}
+        >
           <div className="sidebar-header">
             <div className="logo-container">
               <Image src="/seo/icon.png" alt={brand.name} width={38} height={38} priority />
@@ -1820,7 +1944,11 @@ export function AppHome({ email }: AppHomeProps) {
         </main>
 
         {/* ===== RIGHT PANEL ===== */}
-        <aside className={`right-panel${rightPanelCollapsed ? " collapsed" : ""}`}>
+        <aside
+          className={`right-panel${rightPanelCollapsed ? " collapsed" : ""}${
+            terminalOpen && terminalScale === "split" ? " terminal-split" : ""
+          }`}
+        >
           <div className="panel-header">
             <h3>
               {panelTab === "info"
@@ -1832,6 +1960,26 @@ export function AppHome({ email }: AppHomeProps) {
                     : "Activity"}
             </h3>
             <div className="panel-header-actions">
+              <button
+                type="button"
+                className={`panel-action-btn${terminalOpen ? " active" : ""}`}
+                onClick={cycleTerminal}
+                aria-label={
+                  !terminalOpen
+                    ? "Open Aio Terminal"
+                    : terminalScale === "small"
+                      ? "Expand Aio Terminal to split view"
+                      : "Close Aio Terminal"
+                }
+                aria-pressed={terminalOpen}
+                title="Aio Terminal"
+              >
+                {terminalScale === "split" && terminalOpen ? (
+                  <SquareSplitHorizontal className="w-3.5 h-3.5" />
+                ) : (
+                  <TerminalSquare className="w-3.5 h-3.5" />
+                )}
+              </button>
               <button
                 type="button"
                 className="panel-action-btn"
@@ -2322,42 +2470,66 @@ export function AppHome({ email }: AppHomeProps) {
 
           </div>
 
-          <div className="workspace-panel">
-            <div className="workspace-panel-title">Workspace</div>
-            <div className="workspace-panel-body">
-              {workspaceEntries.length === 0 ? (
-                <div className="workspace-panel-empty">Code and tool activity will show up here.</div>
-              ) : (
-                workspaceEntries.map((entry, idx) => {
-                  const isLive = isStreaming && entry.id === lastAssistantMessage?.id;
-                  const isOpen = expandedWorkspaceId === entry.id;
-                  return (
-                    <div key={entry.id} className={`workspace-entry${isOpen ? " open" : ""}`}>
-                      <button
-                        type="button"
-                        className="workspace-entry-header"
-                        onClick={() => setExpandedWorkspaceId(isOpen ? null : entry.id)}
-                      >
-                        <ChevronRight className={`w-3.5 h-3.5 workspace-entry-chevron${isOpen ? " open" : ""}`} />
-                        <span>{isLive ? "Live" : `Turn ${idx + 1}`}</span>
-                        {isLive && <span className="workspace-entry-live-dot" aria-hidden />}
-                      </button>
-                      {isOpen && (
-                        <div className="workspace-entry-body">
-                          {isLive && <ActivityStream items={activity} />}
-                          {entry.blocks.map((block, i) => (
-                            <pre key={i} className="workspace-code-block">
-                              <code>{block.code}</code>
-                            </pre>
-                          ))}
+          {terminalOpen && (
+            <div className="aio-terminal">
+              <div className="aio-terminal-tabs">
+                <button
+                  type="button"
+                  className={`aio-terminal-tab${terminalTab === "code" ? " active" : ""}`}
+                  onClick={() => setTerminalTab("code")}
+                >
+                  Code
+                </button>
+                <button
+                  type="button"
+                  className={`aio-terminal-tab${terminalTab === "preview" ? " active" : ""}`}
+                  onClick={() => setTerminalTab("preview")}
+                >
+                  Preview
+                </button>
+              </div>
+
+              {terminalTab === "code" ? (
+                <div className="aio-terminal-body">
+                  {workspaceEntries.length === 0 ? (
+                    <div className="workspace-panel-empty">Code and tool activity will show up here.</div>
+                  ) : (
+                    workspaceEntries.map((entry, idx) => {
+                      const isLive = isStreaming && entry.id === lastAssistantMessage?.id;
+                      const isOpen = expandedWorkspaceId === entry.id;
+                      return (
+                        <div key={entry.id} className={`workspace-entry${isOpen ? " open" : ""}`}>
+                          <button
+                            type="button"
+                            className="workspace-entry-header"
+                            onClick={() => setExpandedWorkspaceId(isOpen ? null : entry.id)}
+                          >
+                            <ChevronRight className={`w-3.5 h-3.5 workspace-entry-chevron${isOpen ? " open" : ""}`} />
+                            <span>{isLive ? "Live" : `Turn ${idx + 1}`}</span>
+                            {isLive && <span className="workspace-entry-live-dot" aria-hidden />}
+                          </button>
+                          {isOpen && (
+                            <div className="workspace-entry-body">
+                              {isLive && <ActivityStream items={activity} />}
+                              {entry.blocks.map((block, i) => (
+                                <pre key={i} className="workspace-code-block">
+                                  <code>{block.code}</code>
+                                </pre>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="aio-terminal-body">
+                  <PreviewPane file={activeFile} />
+                </div>
               )}
             </div>
-          </div>
+          )}
         </aside>
       </div>
 

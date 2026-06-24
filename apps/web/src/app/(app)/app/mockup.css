@@ -1086,6 +1086,99 @@
 
 .right-panel.collapsed { width: 0; min-width: 0; overflow: hidden; border-left: none; }
 
+/* ===== AIO TERMINAL ===== */
+/* Replaces the old .workspace-panel slot. Small scale: same flex slot below
+   the panel tabs. Split scale (.right-panel.terminal-split, paired with
+   .app-container.terminal-split): right panel grows to ~50% viewport width
+   and the sidebar is force-collapsed (see AppHome.tsx) so chat + terminal
+   share the screen evenly. */
+.app-container.terminal-split .main-content { flex: 1 1 50%; min-width: 0; }
+
+.right-panel.terminal-split {
+  width: 50vw;
+  min-width: 420px;
+  flex: 0 0 50vw;
+}
+
+.aio-terminal {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.aio-terminal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.aio-terminal-tab {
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
+}
+
+.aio-terminal-tab:hover { color: var(--text-secondary); }
+
+.aio-terminal-tab.active {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+.aio-terminal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.terminal-preview-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 12px 4px;
+}
+
+.terminal-preview-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.terminal-preview-filename {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+  word-break: break-all;
+}
+
+.terminal-preview-placeholder {
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+}
+
+.panel-action-btn.active { background: var(--bg-hover); color: var(--accent-secondary); }
+
 .panel-header {
   padding: 14px 16px;
   border-bottom: 1px solid var(--border-color);
@@ -1115,12 +1208,13 @@
 
 .panel-action-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 
-.panel-tabs { display: flex; border-bottom: 1px solid var(--border-color); padding: 0 12px; }
+.panel-tabs { display: flex; align-items: center; border-bottom: 1px solid var(--border-color); padding: 0 12px; gap: 4px; }
 
 .panel-tab {
   padding: 10px 12px;
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.2;
   color: var(--text-muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -1147,13 +1241,16 @@
   flex: 1;
   padding: 6px 10px;
   border-radius: 999px;
-  border-bottom: none;
+  border: 2px solid transparent;
   text-align: center;
 }
+
+.panel-tabs--segmented .panel-tab:hover { color: var(--text-secondary); }
 
 .panel-tabs--segmented .panel-tab.active {
   background: var(--bg-secondary);
   color: var(--text-primary);
+  border-color: transparent;
   box-shadow: var(--shadow-sm);
 }
 

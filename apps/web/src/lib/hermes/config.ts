@@ -18,6 +18,16 @@ export const DEV_PROFILE_PORT = 8642;
 // Dynamic provisioning port range (Step 3b). Dev seed profile keeps 8642.
 export const PROVISION_PORT_RANGE: readonly [number, number] = [8650, 8700];
 
+// "Aio Terminal" live-preview sandbox port range — dedicated, separate from
+// PROVISION_PORT_RANGE (per-customer gateway processes) so the two pools
+// never collide and can be reasoned about independently. Small fixed range
+// per the OpenHands-style decision (no wildcard DNS / no per-session
+// subdomains — overkill for a pre-launch single-VPS product): each Docker
+// container binds one host port from this pool for its dev server, proxied
+// via /api/preview/<sessionId>/* (see preview-sandbox.ts). Range size doubles
+// as the de-facto concurrent live-preview cap for Phase 1.
+export const PREVIEW_PORT_RANGE: readonly [number, number] = [8800, 8830];
+
 // Hermes commit pin (Q26) — must match apps/harness/hermes-agent HEAD.
 export const HERMES_COMMIT_PIN = "4373e802a1b90150b131b459c52e84ada2e70d06";
 
