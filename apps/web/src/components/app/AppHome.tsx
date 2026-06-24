@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useChat } from "@ai-sdk/react";
 import {
   ArrowRight,
+  BarChart3,
   Bot,
   Brain,
   Check,
@@ -19,9 +20,11 @@ import {
   FileCode,
   Folder,
   HelpCircle,
+  Home,
   ImageIcon,
   ListChecks,
   Lock,
+  Menu,
   Mic,
   Pause,
   Paperclip,
@@ -29,11 +32,11 @@ import {
   Play,
   Plus,
   Send,
-  Server,
   SkipForward,
   SquareSplitHorizontal,
   TerminalSquare,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import { Mascot, MascotStatusBadge } from "@/components/app/Mascot";
@@ -42,7 +45,6 @@ import { DotGrid } from "@/components/app/DotGrid";
 import TextType from "@/components/app/TextType";
 import { TASK_TEMPLATES } from "@/components/app/TemplateGallery";
 import { ActivityStream } from "@/components/app/ActivityStream";
-import type { McpServerStatus } from "@/app/api/integrations/mcp/route";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
 import { SwitchGroup } from "@/components/ui/switch-group";
@@ -139,8 +141,14 @@ function deriveMascotState(
   return "idle";
 }
 
-type PanelTab = "info" | "mcp" | "memory" | "activity";
-type ActivitySubTab = "kanban" | "gallery" | "tasks" | "files";
+type PanelTab = "status" | "memory" | "files";
+type FilesSubTab = "gallery" | "files";
+
+interface MetaLogEntry {
+  id: string;
+  text: string;
+  ts: number;
+}
 
 // Aio Terminal: replaces the old empty Workspace panel. "small" renders
 // inline below the panel tabs (old Workspace spot); "split" hides the
@@ -509,7 +517,16 @@ interface MemorySnapshot {
 }
 
 const CAPABILITIES = ["Web browsing", "Code execution", "File analysis", "Data extraction", "Image understanding", "Long-running tasks"];
-const TOOLS_LIST = ["web_search", "browser_use", "code_execute", "file_read", "file_write", "shell_exec"];
+
+// ponytail: nav targets beyond Home are placeholders, no routes yet — boss said he'll wire them up later
+const ICON_RAIL_ITEMS = [
+  { key: "home", label: "Home", icon: Home, active: true },
+  { key: "agents", label: "Agents", icon: Users, active: false },
+  { key: "tasks", label: "Tasks", icon: ListChecks, active: false },
+  { key: "knowledge", label: "Knowledge", icon: Brain, active: false },
+  { key: "analytics", label: "Analytics", icon: BarChart3, active: false },
+  { key: "settings", label: "Settings", icon: Cog, active: false },
+] as const;
 
 const ACCENT_HEX: Record<AccentKey, string> = {
   purple: "#6c5ce7",
@@ -608,9 +625,13 @@ export function AppHome({ email }: AppHomeProps) {
   const confirmDeleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadConversationRequestRef = useRef<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [iconRailMobileOpen, setIconRailMobileOpen] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
-  const [panelTab, setPanelTab] = useState<PanelTab>("info");
-  const [activitySubTab, setActivitySubTab] = useState<ActivitySubTab>("kanban");
+  const [panelTab, setPanelTab] = useState<PanelTab>("status");
+  const [filesSubTab, setFilesSubTab] = useState<FilesSubTab>("gallery");
+  const [metaLog, setMetaLog] = useState<MetaLogEntry[]>([]);
+  const logMeta = (text: string) =>
+    setMetaLog((prev) => [{ id: `${Date.now()}-${Math.random()}`, text, ts: Date.now() }, ...prev].slice(0, 20));
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [terminalScale, setTerminalScale] = useState<TerminalScale>("small");
   const [terminalTab, setTerminalTab] = useState<TerminalTab>("code");
@@ -672,8 +693,6 @@ export function AppHome({ email }: AppHomeProps) {
   const [fileTreeEntries, setFileTreeEntries] = useState<FileTreeEntry[] | null>(null);
   const [fileTreeError, setFileTreeError] = useState<string | null>(null);
   const [fileTreeLoading, setFileTreeLoading] = useState(false);
-  const [mcpServers, setMcpServers] = useState<McpServerStatus[] | null>(null);
-  const [mcpError, setMcpError] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<CredentialStatus[] | null>(null);
   const [credentialsError, setCredentialsError] = useState<string | null>(null);
   const [credentialId, setCredentialId] = useState("");
@@ -952,6 +971,7 @@ export function AppHome({ email }: AppHomeProps) {
       const res = await fetch(`/api/conversations/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`status ${res.status}`);
       setConversations((prev) => (prev ?? []).filter((c) => c.id !== id));
+      logMeta("Deleted a conversation");
       if (id === activeConversationId) {
         loadConversationRequestRef.current = null;
         setActiveConversationId(null);
@@ -986,6 +1006,7 @@ export function AppHome({ email }: AppHomeProps) {
         body: JSON.stringify({ title }),
       });
       if (!res.ok) throw new Error(`status ${res.status}`);
+      logMeta(`Renamed a conversation to "${title}"`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setConversationsError(msg);
@@ -1051,6 +1072,7 @@ export function AppHome({ email }: AppHomeProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? `status ${res.status}`);
       await loadKnowledgeFiles();
+      logMeta(`Uploaded knowledge file "${file.name}"`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setKnowledgeError(msg);
@@ -1064,6 +1086,7 @@ export function AppHome({ email }: AppHomeProps) {
     try {
       const res = await fetch(`/api/knowledge?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`status ${res.status}`);
+      logMeta("Deleted a knowledge file");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setKnowledgeError(msg);
@@ -1098,7 +1121,7 @@ export function AppHome({ email }: AppHomeProps) {
   };
 
   useEffect(() => {
-    if (panelTab === "activity" && kanban === null) {
+    if (panelTab === "status" && kanban === null) {
       loadKanban();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1125,11 +1148,11 @@ export function AppHome({ email }: AppHomeProps) {
   };
 
   useEffect(() => {
-    if (panelTab === "activity" && activitySubTab === "gallery" && galleryImages === null) {
+    if (panelTab === "files" && filesSubTab === "gallery" && galleryImages === null) {
       loadGallery();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelTab, activitySubTab]);
+  }, [panelTab, filesSubTab]);
 
   const loadCronJobs = async () => {
     setCronError(null);
@@ -1223,11 +1246,11 @@ export function AppHome({ email }: AppHomeProps) {
   };
 
   useEffect(() => {
-    if (panelTab === "activity" && activitySubTab === "tasks" && cronJobs === null) {
+    if (panelTab === "status" && cronJobs === null) {
       loadCronJobs();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelTab, activitySubTab]);
+  }, [panelTab]);
 
   const loadFileTree = async (path: string) => {
     setFileTreeLoading(true);
@@ -1252,27 +1275,11 @@ export function AppHome({ email }: AppHomeProps) {
   };
 
   useEffect(() => {
-    if (panelTab === "activity" && activitySubTab === "files" && fileTreeEntries === null) {
+    if (panelTab === "files" && filesSubTab === "files" && fileTreeEntries === null) {
       loadFileTree(fileTreePath);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelTab, activitySubTab]);
-
-  useEffect(() => {
-    if (panelTab !== "mcp" || mcpServers !== null) return;
-    (async () => {
-      try {
-        const res = await fetch("/api/integrations/mcp");
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error ?? `status ${res.status}`);
-        setMcpServers(data.servers ?? []);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setMcpError(msg);
-        setMcpServers([]);
-      }
-    })();
-  }, [panelTab, mcpServers]);
+  }, [panelTab, filesSubTab]);
 
   const handleGalleryFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1287,6 +1294,7 @@ export function AppHome({ email }: AppHomeProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? `status ${res.status}`);
       await loadGallery();
+      logMeta(`Saved image "${file.name}" to gallery`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setGalleryError(msg);
@@ -1336,6 +1344,7 @@ export function AppHome({ email }: AppHomeProps) {
       } else {
         setTokenValue("");
         setTokenMessage("Saved. Restart the gateway for it to take effect.");
+        logMeta(`Saved ${tokenPlatform} connection token`);
         await loadConnections();
       }
     } catch (err) {
@@ -1359,6 +1368,7 @@ export function AppHome({ email }: AppHomeProps) {
         setTokenMessage(data.message ?? "Failed to remove token");
       } else {
         setTokenMessage("Removed. Restart the gateway for it to take effect.");
+        logMeta(`Removed ${platformId} connection token`);
         await loadConnections();
       }
     } catch (err) {
@@ -1385,6 +1395,7 @@ export function AppHome({ email }: AppHomeProps) {
       } else {
         setCredentialValue("");
         setCredentialMessage("Saved. Restart the gateway for it to take effect.");
+        logMeta(`Saved credential "${credentialId}"`);
         await loadCredentials();
       }
     } catch (err) {
@@ -1469,7 +1480,19 @@ export function AppHome({ email }: AppHomeProps) {
     if (status === "ready" || status === "error") setIsCompressing(false);
   }, [status]);
 
-  const toolCallCount = activity.filter((a) => a.kind === "tool").length;
+  const runningTool = activity.findLast((a): a is Extract<HermesActivityData, { kind: "tool" }> =>
+    a.kind === "tool" && a.status === "running",
+  );
+  const lastCompletedTool = activity.findLast(
+    (a): a is Extract<HermesActivityData, { kind: "tool" }> => a.kind === "tool",
+  );
+  const liveStatusText = runningTool
+    ? `${brand.name} is using ${runningTool.label ?? runningTool.tool}…`
+    : isStreaming
+      ? `${brand.name} is thinking…`
+      : lastCompletedTool
+        ? `${brand.name} last ran ${lastCompletedTool.label ?? lastCompletedTool.tool}`
+        : `${brand.name} is ready`;
   const username = email.split("@")[0];
   const userInitial = email.charAt(0).toUpperCase();
   const greetingLines = useMemo(
@@ -1621,7 +1644,48 @@ export function AppHome({ email }: AppHomeProps) {
       </div>
       <div className="bottom-glow" aria-hidden />
 
+      <button
+        type="button"
+        className="icon-rail-mobile-toggle"
+        style={iconRailMobileOpen ? { display: "none" } : undefined}
+        onClick={() => setIconRailMobileOpen(true)}
+        aria-label="Open nav"
+      >
+        <Menu className="w-4.5 h-4.5" />
+      </button>
+
+      <div className={`icon-rail-mobile-sheet${iconRailMobileOpen ? " open" : ""}`}>
+        <div
+          className="icon-rail-mobile-sheet-backdrop"
+          onClick={() => setIconRailMobileOpen(false)}
+        />
+        <nav className="icon-rail" style={{ width: "80vw", maxWidth: 320 }}>
+          {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active }) => (
+            <button
+              key={key}
+              type="button"
+              className={`icon-rail-item${active ? " active" : ""}`}
+              onClick={() => setIconRailMobileOpen(false)}
+            >
+              <Icon className="w-4.5 h-4.5" />
+              <span className="icon-rail-label" style={{ opacity: 1 }}>{label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
       <div className={`app-container${terminalOpen && terminalScale === "split" ? " terminal-split" : ""}`}>
+        <div className="icon-rail-slot">
+          <nav className="icon-rail">
+            {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active }) => (
+              <button key={key} type="button" className={`icon-rail-item${active ? " active" : ""}`}>
+                <Icon className="w-4.5 h-4.5" />
+                <span className="icon-rail-label">{label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
         {/* ===== LEFT SIDEBAR ===== */}
         {/* Aio Terminal's split scale force-hides the sidebar (mirrors
             sidebarCollapsed visuals) without touching sidebarCollapsed
@@ -2161,15 +2225,7 @@ export function AppHome({ email }: AppHomeProps) {
           }`}
         >
           <div className="panel-header">
-            <h3>
-              {panelTab === "info"
-                ? "Agent Info"
-                : panelTab === "mcp"
-                  ? "MCP Servers"
-                  : panelTab === "memory"
-                    ? "Memory"
-                    : "Activity"}
-            </h3>
+            <h3>{panelTab === "status" ? "Status" : panelTab === "memory" ? "Memory" : "Files"}</h3>
             <div className="panel-header-actions">
               <button
                 type="button"
@@ -2204,20 +2260,20 @@ export function AppHome({ email }: AppHomeProps) {
           </div>
 
           <div className="panel-tabs">
-            {(["info", "mcp", "memory", "activity"] as PanelTab[]).map((t) => (
+            {(["status", "memory", "files"] as PanelTab[]).map((t) => (
               <button
                 key={t}
                 type="button"
                 className={`panel-tab${panelTab === t ? " active" : ""}`}
                 onClick={() => setPanelTab(t)}
               >
-                {t === "info" ? "Info" : t === "mcp" ? "MCP" : t === "memory" ? "Memory" : "Activity"}
+                {t === "status" ? "Status" : t === "memory" ? "Memory" : "Files"}
               </button>
             ))}
           </div>
 
           <div className="panel-tab-content">
-          {panelTab === "info" && (
+          {panelTab === "status" && (
             <div>
               <div className="panel-section">
                 <div className="agent-info-card">
@@ -2226,7 +2282,7 @@ export function AppHome({ email }: AppHomeProps) {
                   </div>
                   <div className="agent-info-details">
                     <h4>{brand.name}</h4>
-                    <p>{brand.tagline}</p>
+                    <p>{liveStatusText}</p>
                   </div>
                 </div>
                 <div className="capability-tags">
@@ -2235,28 +2291,6 @@ export function AppHome({ email }: AppHomeProps) {
                       <Check /> {c}
                     </span>
                   ))}
-                </div>
-              </div>
-
-              <div className="panel-section">
-                <div className="panel-section-title">Session Stats</div>
-                <div className="stats-grid">
-                  <div className="stat-card">
-                    <div className="stat-value">{messages.length}</div>
-                    <div className="stat-label">Messages</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-value">{toolCallCount}</div>
-                    <div className="stat-label">Tool Calls</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-value">{creditBalance ?? "—"}</div>
-                    <div className="stat-label">Credits</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-value">{isStreaming ? "Live" : "Idle"}</div>
-                    <div className="stat-label">Status</div>
-                  </div>
                 </div>
                 {usedPercentLabel && (
                   <div className={`usage-meter${usageLevel !== "normal" ? ` usage-meter--${usageLevel}` : ""}`}>
@@ -2276,45 +2310,197 @@ export function AppHome({ email }: AppHomeProps) {
                   </div>
                 )}
               </div>
-            </div>
-          )}
 
-          {panelTab === "mcp" && (
-            <div className="panel-section">
-              {mcpServers === null && !mcpError && <PanelLoading />}
-
-              {mcpServers && mcpServers.length === 0 && (
-                <PanelEmpty icon={<Server className="w-5 h-5" />}>
-                  No MCP servers configured yet.
-                </PanelEmpty>
-              )}
-
-              {mcpServers?.map((server) => (
-                <div key={server.name} className="mcp-server-item">
-                  <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
-                    <Server className="w-3.5 h-3.5" />
+              <div className="panel-section">
+                <div className="panel-section-title">Task Progress</div>
+                {kanbanError && (
+                  <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
+                    Failed to load: {kanbanError}
                   </div>
-                  <div className="mcp-server-info">
-                    <div className="mcp-server-name">{server.name}</div>
-                    <div className="mcp-server-url">{server.transport}</div>
-                  </div>
-                  <div className={`mcp-server-status ${server.enabled ? "connected" : "disconnected"}`} />
-                </div>
-              ))}
-              <button type="button" className="mcp-add-btn" disabled title="Custom MCP servers coming soon">
-                <Server className="w-3.5 h-3.5" />
-                Add MCP Server
-              </button>
+                )}
+                {kanban === null && !kanbanError && <PanelLoading />}
+                {kanban && (() => {
+                  const allTasks = kanban.statuses.flatMap((s) => kanban.columns[s] ?? []);
+                  const doneCount = (kanban.columns.done ?? []).length;
+                  const total = allTasks.length;
+                  const activeCron = (cronJobs ?? []).filter((j) => j.enabled !== false).length;
+                  if (total === 0 && activeCron === 0) {
+                    return <PanelEmpty icon={<Columns className="w-5 h-5" />}>No tasks yet.</PanelEmpty>;
+                  }
+                  return (
+                    <>
+                      {total > 0 && (
+                        <div className="usage-meter">
+                          <div className="usage-meter-bar">
+                            <div
+                              className="usage-meter-fill"
+                              style={{ width: `${Math.round((doneCount / total) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="usage-meter-label">
+                            <span>
+                              {doneCount}/{total} tasks done
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {activeCron > 0 && (
+                        <div className="memory-text" style={{ opacity: 0.7, marginTop: 6 }}>
+                          {activeCron} scheduled task{activeCron === 1 ? "" : "s"} active
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
-              <div className="panel-section-title" style={{ marginTop: 16 }}>
-                MCP Tools
+                {cronLocked && (
+                  <div className="mcp-server-item" style={{ opacity: 0.6, marginTop: 10 }}>
+                    <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
+                      <Lock className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="mcp-server-info">
+                      <div className="mcp-server-name">Scheduled Tasks</div>
+                      <div className="mcp-server-url">Requires the Business plan</div>
+                    </div>
+                    <button
+                      type="button"
+                      className="mcp-add-btn"
+                      style={{ width: "auto", flexShrink: 0, padding: "4px 10px", fontSize: 12 }}
+                      disabled={upgrading}
+                      onClick={handleUpgradeToBusiness}
+                    >
+                      {upgrading ? "Redirecting…" : "Upgrade"}
+                    </button>
+                  </div>
+                )}
+
+                {!cronLocked && cronError && (
+                  <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8, marginTop: 10 }}>
+                    Failed to load: {cronError}
+                  </div>
+                )}
+
+                {!cronLocked && cronJobs && cronJobs.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+                    {cronJobs.map((job) => (
+                      <div key={job.id} className="mcp-server-item">
+                        <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
+                          <Clock className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="mcp-server-info">
+                          <div className="mcp-server-name">{job.name}</div>
+                          <div className="mcp-server-url">{job.schedule}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button
+                            type="button"
+                            className="mcp-add-btn"
+                            style={{ padding: "4px 6px" }}
+                            disabled={cronActionPending === job.id}
+                            onClick={() =>
+                              handleCronAction(job.id, job.enabled === false ? "resume" : "pause")
+                            }
+                            aria-label={job.enabled === false ? "Resume" : "Pause"}
+                          >
+                            {job.enabled === false ? (
+                              <Play className="w-3.5 h-3.5" />
+                            ) : (
+                              <Pause className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            className="mcp-add-btn"
+                            style={
+                              confirmDeleteId === job.id
+                                ? { padding: "4px 6px", background: "rgba(226, 92, 92, 0.12)", color: "#e25c5c" }
+                                : { padding: "4px 6px" }
+                            }
+                            disabled={cronActionPending === job.id}
+                            onClick={() => handleCronDelete(job.id)}
+                            aria-label={confirmDeleteId === job.id ? "Confirm delete task" : "Delete task"}
+                            title={confirmDeleteId === job.id ? "Click again to delete" : "Delete task"}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!cronLocked && (
+                  <>
+                    <div className="panel-section-title" style={{ marginTop: 16 }}>
+                      New Scheduled Task
+                    </div>
+                    <form
+                      onSubmit={handleCronCreate}
+                      style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                    >
+                      <input
+                        type="text"
+                        value={cronName}
+                        onChange={(e) => setCronName(e.target.value)}
+                        placeholder="Task name"
+                        className="message-input"
+                        style={{ height: 32 }}
+                      />
+                      <input
+                        type="text"
+                        value={cronSchedule}
+                        onChange={(e) => setCronSchedule(e.target.value)}
+                        placeholder="Cron schedule (e.g. 0 9 * * *)"
+                        className="message-input"
+                        style={{ height: 32 }}
+                      />
+                      <textarea
+                        value={cronPrompt}
+                        onChange={(e) => setCronPrompt(e.target.value)}
+                        placeholder="What should the agent do when this runs?"
+                        className="message-input"
+                        style={{ minHeight: 64, resize: "vertical", paddingTop: 6 }}
+                      />
+                      <button
+                        type="submit"
+                        className="mcp-add-btn"
+                        disabled={cronCreating || !cronName.trim() || !cronSchedule.trim()}
+                      >
+                        {cronCreating ? "Creating…" : "Create Task"}
+                      </button>
+                      {cronCreateMessage && <div className="memory-text">{cronCreateMessage}</div>}
+                    </form>
+                  </>
+                )}
               </div>
-              <div className="capability-tags">
-                {TOOLS_LIST.map((t) => (
-                  <span key={t} className="capability-tag">
-                    <Check /> {t}
-                  </span>
-                ))}
+
+              <div className="panel-section">
+                <div className="panel-section-title">Recent Activity</div>
+                {(() => {
+                  const toolFeed = activity
+                    .filter((a) => a.kind === "tool")
+                    .map((a) => ({
+                      id: `tool-${a.toolCallId}`,
+                      ts: a.ts,
+                      text: `${a.status === "running" ? "Running" : a.error ? "Failed" : "Ran"} ${a.label ?? a.tool}`,
+                    }));
+                  const feed = [...toolFeed, ...metaLog].sort((a, b) => b.ts - a.ts).slice(0, 15);
+                  if (feed.length === 0) {
+                    return <PanelEmpty icon={<Clock className="w-5 h-5" />}>No activity yet.</PanelEmpty>;
+                  }
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {feed.map((item) => (
+                        <div key={item.id} className="memory-item">
+                          <div className="memory-icon">
+                            <Clock className="w-2.5 h-2.5" />
+                          </div>
+                          <div className="memory-text">{item.text}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -2358,62 +2544,22 @@ export function AppHome({ email }: AppHomeProps) {
             </div>
           )}
 
-          {panelTab === "activity" && (
+          {panelTab === "files" && (
             <div className="panel-section">
               <div className="panel-tabs panel-tabs--segmented" style={{ marginBottom: 12 }}>
-                {(["kanban", "gallery", "tasks", "files"] as ActivitySubTab[]).map((t) => (
+                {(["gallery", "files"] as FilesSubTab[]).map((t) => (
                   <button
                     key={t}
                     type="button"
-                    className={`panel-tab${activitySubTab === t ? " active" : ""}`}
-                    onClick={() => setActivitySubTab(t)}
+                    className={`panel-tab${filesSubTab === t ? " active" : ""}`}
+                    onClick={() => setFilesSubTab(t)}
                   >
-                    {t === "kanban" ? "Kanban" : t === "gallery" ? "Gallery" : t === "tasks" ? "Tasks" : "Files"}
+                    {t === "gallery" ? "Gallery" : "Files"}
                   </button>
                 ))}
               </div>
 
-              {activitySubTab === "kanban" && (
-                <>
-                  {kanbanError && (
-                    <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
-                      Failed to load: {kanbanError}
-                    </div>
-                  )}
-                  {kanban === null && !kanbanError && <PanelLoading />}
-                  {kanban && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {kanban.statuses.map((status) => {
-                        const tasks = kanban.columns[status] ?? [];
-                        if (tasks.length === 0) return null;
-                        return (
-                          <div key={status}>
-                            <div className="memory-text" style={{ opacity: 0.6, marginBottom: 4 }}>
-                              {status} ({tasks.length})
-                            </div>
-                            {tasks.map((task) => (
-                              <div key={task.id} className="mcp-server-item">
-                                <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
-                                  <Columns className="w-3.5 h-3.5" />
-                                </div>
-                                <div className="mcp-server-info">
-                                  <div className="mcp-server-name">{task.title}</div>
-                                  <div className="mcp-server-url">{task.id}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })}
-                      {kanban.statuses.every((s) => (kanban.columns[s] ?? []).length === 0) && (
-                        <PanelEmpty icon={<Columns className="w-5 h-5" />}>No tasks on the board.</PanelEmpty>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {activitySubTab === "gallery" && (
+              {filesSubTab === "gallery" && (
                 <>
                   <input
                     ref={galleryFileInputRef}
@@ -2473,137 +2619,7 @@ export function AppHome({ email }: AppHomeProps) {
                 </>
               )}
 
-              {activitySubTab === "tasks" && (
-                <>
-                  {cronLocked && (
-                    <div className="mcp-server-item" style={{ opacity: 0.6 }}>
-                      <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
-                        <Lock className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="mcp-server-info">
-                        <div className="mcp-server-name">Scheduled Tasks</div>
-                        <div className="mcp-server-url">Requires the Business plan</div>
-                      </div>
-                      <button
-                        type="button"
-                        className="mcp-add-btn"
-                        style={{ padding: "4px 10px", fontSize: 12 }}
-                        disabled={upgrading}
-                        onClick={handleUpgradeToBusiness}
-                      >
-                        {upgrading ? "Redirecting…" : "Upgrade"}
-                      </button>
-                    </div>
-                  )}
-
-                  {!cronLocked && cronError && (
-                    <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
-                      Failed to load: {cronError}
-                    </div>
-                  )}
-
-                  {!cronLocked && cronJobs === null && !cronError && <PanelLoading />}
-
-                  {!cronLocked && cronJobs && cronJobs.length === 0 && !cronError && (
-                    <PanelEmpty icon={<Clock className="w-5 h-5" />}>No scheduled tasks yet.</PanelEmpty>
-                  )}
-
-                  {!cronLocked && cronJobs && cronJobs.length > 0 && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {cronJobs.map((job) => (
-                        <div key={job.id} className="mcp-server-item">
-                          <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
-                            <Clock className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="mcp-server-info">
-                            <div className="mcp-server-name">{job.name}</div>
-                            <div className="mcp-server-url">{job.schedule}</div>
-                          </div>
-                          <div style={{ display: "flex", gap: 4 }}>
-                            <button
-                              type="button"
-                              className="mcp-add-btn"
-                              style={{ padding: "4px 6px" }}
-                              disabled={cronActionPending === job.id}
-                              onClick={() =>
-                                handleCronAction(job.id, job.enabled === false ? "resume" : "pause")
-                              }
-                              aria-label={job.enabled === false ? "Resume" : "Pause"}
-                            >
-                              {job.enabled === false ? (
-                                <Play className="w-3.5 h-3.5" />
-                              ) : (
-                                <Pause className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              className="mcp-add-btn"
-                              style={
-                                confirmDeleteId === job.id
-                                  ? { padding: "4px 6px", background: "rgba(226, 92, 92, 0.12)", color: "#e25c5c" }
-                                  : { padding: "4px 6px" }
-                              }
-                              disabled={cronActionPending === job.id}
-                              onClick={() => handleCronDelete(job.id)}
-                              aria-label={confirmDeleteId === job.id ? "Confirm delete task" : "Delete task"}
-                              title={confirmDeleteId === job.id ? "Click again to delete" : "Delete task"}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {!cronLocked && (
-                    <>
-                      <div className="panel-section-title" style={{ marginTop: 16 }}>
-                        New Scheduled Task
-                      </div>
-                      <form
-                        onSubmit={handleCronCreate}
-                        style={{ display: "flex", flexDirection: "column", gap: 8 }}
-                      >
-                        <input
-                          type="text"
-                          value={cronName}
-                          onChange={(e) => setCronName(e.target.value)}
-                          placeholder="Task name"
-                          className="message-input"
-                          style={{ height: 32 }}
-                        />
-                        <input
-                          type="text"
-                          value={cronSchedule}
-                          onChange={(e) => setCronSchedule(e.target.value)}
-                          placeholder="Cron schedule (e.g. 0 9 * * *)"
-                          className="message-input"
-                          style={{ height: 32 }}
-                        />
-                        <textarea
-                          value={cronPrompt}
-                          onChange={(e) => setCronPrompt(e.target.value)}
-                          placeholder="What should the agent do when this runs?"
-                          className="message-input"
-                          style={{ minHeight: 64, resize: "vertical", paddingTop: 6 }}
-                        />
-                        <button
-                          type="submit"
-                          className="mcp-add-btn"
-                          disabled={cronCreating || !cronName.trim() || !cronSchedule.trim()}
-                        >
-                          {cronCreating ? "Creating…" : "Create Task"}
-                        </button>
-                        {cronCreateMessage && <div className="memory-text">{cronCreateMessage}</div>}
-                      </form>
-                    </>
-                  )}
-                </>
-              )}
-
-              {activitySubTab === "files" && (
+              {filesSubTab === "files" && (
                 <>
                   {fileTreePath !== "." && (
                     <button
@@ -2684,7 +2700,6 @@ export function AppHome({ email }: AppHomeProps) {
 
           {terminalOpen && (
             <div className="aio-terminal">
-              <div className="aio-terminal-title">Aio Terminal</div>
               <div className="aio-terminal-tabs">
                 <button
                   type="button"
