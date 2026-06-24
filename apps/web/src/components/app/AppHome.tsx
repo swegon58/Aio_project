@@ -1782,7 +1782,7 @@ export function AppHome({ email }: AppHomeProps) {
               )}
               <button
                 type="button"
-                className="toggle-btn"
+                className="toggle-btn toggle-btn--right-panel"
                 onClick={() => setRightPanelCollapsed((c) => !c)}
                 aria-label="Toggle panel"
               >

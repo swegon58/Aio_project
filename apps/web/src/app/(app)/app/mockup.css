@@ -2026,6 +2026,8 @@
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) {
   .right-panel { display: none; }
+  /* ponytail: nothing for this to open at this width — right panel is gone */
+  .toggle-btn--right-panel { display: none; }
 }
 
 .workspace-mobile-modal-overlay {
