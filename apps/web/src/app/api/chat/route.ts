@@ -24,6 +24,7 @@ import type {
   HermesApprovalData,
   HermesCompressionData,
   HermesReasoningData,
+  HermesShowcaseData,
 } from "@/lib/hermes/chat-types";
 import { scanAndCleanInput } from "@/lib/security/threat-patterns";
 import { recordThreatHitAndCheckBlock } from "@/lib/security/abuse-tracker";
@@ -62,6 +63,15 @@ interface HermesRunEvent {
   question?: string;
   // clarify.responded
   response?: string;
+  // task.codeexec (agent capability showcase cards — code_exec only for now)
+  status?: "running" | "completed" | "error";
+  task_data?: {
+    scriptPath?: string;
+    code?: string;
+    stdout?: string;
+    resultsFile?: string;
+    resultsTable?: Record<string, string>[];
+  };
 }
 
 const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === "true";
@@ -337,6 +347,12 @@ export async function POST(req: NextRequest) {
       // card survives a page reload instead of only existing in the
       // in-memory `activity` stream while the turn is live.
       const assistantArtifacts: { filePath: string; fileName?: string }[] = [];
+      // Showcase cards (agent-capability-showcase-cards grill log, Q12:
+      // DB-persisted with the message). One id per code_exec task so the
+      // running -> completed/error events reconcile the same UI part in
+      // place; scope-locked to one code_exec task in flight per run.
+      const assistantShowcases: HermesShowcaseData[] = [];
+      let activeShowcaseId: string | null = null;
 
       // /v1/runs has no stable per-tool-call id (tool.started/completed carry
       // only `tool` + `preview`/`duration`). Track an open running-tool stack
@@ -488,6 +504,31 @@ export async function POST(req: NextRequest) {
                 });
                 break;
               }
+              case "task.codeexec": {
+                const taskId: string = activeShowcaseId ?? `${runId}:codeexec:${evt.timestamp ?? Date.now()}`;
+                if (evt.status === "running") activeShowcaseId = taskId;
+                else activeShowcaseId = null;
+                const showcase: HermesShowcaseData = {
+                  taskId,
+                  taskType: "code_exec",
+                  status: evt.status ?? "running",
+                  ts: Date.now(),
+                  taskData: {
+                    scriptPath: evt.task_data?.scriptPath,
+                    code: evt.task_data?.code,
+                    stdout: evt.task_data?.stdout,
+                    resultsFile: evt.task_data?.resultsFile
+                      ? `/api/chat/artifact?runId=${encodeURIComponent(runId)}&path=${encodeURIComponent(evt.task_data.resultsFile)}`
+                      : undefined,
+                    resultsTable: evt.task_data?.resultsTable,
+                  },
+                };
+                const existingIdx = assistantShowcases.findIndex((s) => s.taskId === taskId);
+                if (existingIdx >= 0) assistantShowcases[existingIdx] = showcase;
+                else assistantShowcases.push(showcase);
+                writer.write({ type: "data-hermes-showcase", id: taskId, data: showcase });
+                break;
+              }
               case "run.completed":
               case "run.failed":
               case "run.cancelled":
@@ -547,7 +588,9 @@ export async function POST(req: NextRequest) {
 
         // New-chat/history persistence — independent of billing/DEV_BYPASS,
         // since chat history must work in dev mode too.
-        await persistConversation(db, userId, threadId, messages, assistantText, planMode, assistantArtifacts);
+        await persistConversation(
+          db, userId, threadId, messages, assistantText, planMode, assistantArtifacts, assistantShowcases,
+        );
       }
     },
   });
@@ -566,13 +609,18 @@ async function persistConversation(
   assistantText: string,
   planMode: boolean,
   artifacts: { filePath: string; fileName?: string }[],
+  showcases: HermesShowcaseData[],
 ) {
   const assistantMessage: UIMessage | null = assistantText
     ? {
         id: crypto.randomUUID(),
         role: "assistant",
         parts: [{ type: "text", text: assistantText }],
-        metadata: { planMode, ...(artifacts.length > 0 ? { artifacts } : {}) },
+        metadata: {
+          planMode,
+          ...(artifacts.length > 0 ? { artifacts } : {}),
+          ...(showcases.length > 0 ? { showcases } : {}),
+        },
       }
     : null;
   const fullMessages = assistantMessage ? [...messages, assistantMessage] : messages;

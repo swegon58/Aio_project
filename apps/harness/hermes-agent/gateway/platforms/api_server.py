@@ -32,6 +32,7 @@ Requires:
 """
 
 import asyncio
+import csv
 import hashlib
 import hmac
 import json
@@ -44,7 +45,7 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 try:
     from aiohttp import web
@@ -788,6 +789,11 @@ class APIServerAdapter(BasePlatformAdapter):
         # arbitrary-path-read endpoint.
         self._run_artifacts: Dict[str, set] = {}
         self._session_db: Optional[Any] = None  # Lazy-init SessionDB for session continuity
+        # code_exec showcase detection state per run_id (grill-log
+        # agent-capability-showcase-cards Q6): tracks a write_file -> terminal
+        # "write then run" pattern so the gateway can emit a `task.codeexec`
+        # event without any model prompt changes.
+        self._run_codeexec: Dict[str, Dict[str, Any]] = {}
 
     @staticmethod
     def _parse_cors_origins(value: Any) -> tuple[str, ...]:
@@ -3704,6 +3710,82 @@ class APIServerAdapter(BasePlatformAdapter):
             return match.group(1)
         return None
 
+    _CODEEXEC_SCRIPT_EXTENSIONS = (".py", ".js", ".ts", ".sh")
+
+    def _track_codeexec_started(
+        self, run_id: str, tool_name: Optional[str], args: Optional[Dict[str, Any]],
+        ts: float, push: "Callable[[Dict[str, Any]], None]",
+    ) -> None:
+        """Detect the "write a script then run it" pattern (no model prompt
+        changes needed — see grill-log agent-capability-showcase-cards Q6)."""
+        state = self._run_codeexec.setdefault(run_id, {})
+        if tool_name == "write_file" and isinstance(args, dict):
+            path = args.get("path") or ""
+            if path.lower().endswith(self._CODEEXEC_SCRIPT_EXTENSIONS):
+                state["candidate"] = {"path": path, "content": args.get("content") or ""}
+            return
+        if tool_name == "terminal" and isinstance(args, dict):
+            pending = state.pop("pending_script", None)
+            command = args.get("command") or ""
+            if pending and os.path.basename(pending["path"]) in command:
+                state["active"] = {**pending, "started_ts": ts}
+                push({
+                    "event": "task.codeexec",
+                    "run_id": run_id,
+                    "timestamp": ts,
+                    "status": "running",
+                    "task_data": {"scriptPath": pending["path"], "code": pending["content"]},
+                })
+
+    def _track_codeexec_completed(
+        self, run_id: str, tool_name: Optional[str], result: Any, is_error: bool,
+        artifact_path: Optional[str], ts: float, push: "Callable[[Dict[str, Any]], None]",
+    ) -> None:
+        state = self._run_codeexec.get(run_id)
+        if state is None:
+            return
+        if tool_name == "write_file":
+            candidate = state.pop("candidate", None)
+            if candidate and not is_error:
+                state["pending_script"] = candidate
+            return
+        if tool_name != "terminal":
+            return
+        active = state.pop("active", None)
+        if not active:
+            return
+        task_data: Dict[str, Any] = {
+            "scriptPath": active["path"],
+            "code": active["content"],
+            "stdout": result if isinstance(result, str) else str(result or ""),
+        }
+        if artifact_path and not is_error:
+            task_data["resultsFile"] = artifact_path
+            rows = self._read_csv_preview(artifact_path)
+            if rows:
+                task_data["resultsTable"] = rows
+        push({
+            "event": "task.codeexec",
+            "run_id": run_id,
+            "timestamp": ts,
+            "status": "error" if is_error else "completed",
+            "task_data": task_data,
+        })
+
+    @staticmethod
+    def _read_csv_preview(path: str, max_rows: int = 50) -> Optional[list]:
+        """Best-effort: reads the script's own output file into row dicts for
+        the Results tab. Only .csv is supported for now (ponytail: add a
+        json-array branch if a showcase script ever emits .json instead)."""
+        if not path.lower().endswith(".csv"):
+            return None
+        try:
+            with open(path, newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                return [row for i, row in enumerate(reader) if i < max_rows]
+        except Exception:
+            return None
+
     def _make_run_event_callback(self, run_id: str, loop: "asyncio.AbstractEventLoop"):
         """Return a tool_progress_callback that pushes structured events to the run's SSE queue."""
         def _push(event: Dict[str, Any]) -> None:
@@ -3723,6 +3805,7 @@ class APIServerAdapter(BasePlatformAdapter):
         def _callback(event_type: str, tool_name: str = None, preview: str = None, args=None, **kwargs):
             ts = time.time()
             if event_type == "tool.started":
+                self._track_codeexec_started(run_id, tool_name, args, ts, _push)
                 _push({
                     "event": "tool.started",
                     "run_id": run_id,
@@ -3745,6 +3828,10 @@ class APIServerAdapter(BasePlatformAdapter):
                     event["file_path"] = artifact_path
                     event["file_name"] = os.path.basename(artifact_path)
                 _push(event)
+                self._track_codeexec_completed(
+                    run_id, tool_name, kwargs.get("result"), kwargs.get("is_error", False),
+                    artifact_path, ts, _push,
+                )
             elif event_type == "reasoning.available":
                 _push({
                     "event": "reasoning.available",
@@ -4407,6 +4494,7 @@ class APIServerAdapter(BasePlatformAdapter):
             for run_id in stale_statuses:
                 self._run_statuses.pop(run_id, None)
                 self._run_artifacts.pop(run_id, None)
+                self._run_codeexec.pop(run_id, None)
 
     # ------------------------------------------------------------------
     # BasePlatformAdapter interface

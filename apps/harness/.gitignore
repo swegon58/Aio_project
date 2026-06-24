@@ -1,5 +1,7 @@
 aio-home/profiles/aio/home/
 aio-home/profiles/aio/state.db*
+aio-home/profiles/aio/response_store.db*
+aio-home/profiles/aio/.clean_shutdown
 
 aio-home/.env
 aio-home/profiles/aio/.env

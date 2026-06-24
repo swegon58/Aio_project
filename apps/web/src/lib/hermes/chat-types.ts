@@ -104,7 +104,13 @@ export interface HermesCompressionData {
 // chat bubble survives a reload instead of only existing in the live
 // `activity` stream.
 export type HermesUIMessage = UIMessage<
-  { planMode?: boolean; artifacts?: { filePath: string; fileName?: string }[] },
+  {
+    planMode?: boolean;
+    artifacts?: { filePath: string; fileName?: string }[];
+    // Q12: showcase cards persisted with the message so they survive reload
+    // (DB-backed, not session/RAM-only) — see route.ts persistConversation.
+    showcases?: HermesShowcaseData[];
+  },
   {
     "hermes-activity": HermesActivityData;
     "hermes-approval": HermesApprovalData;
@@ -112,6 +118,7 @@ export type HermesUIMessage = UIMessage<
     "hermes-run": HermesRunData;
     "hermes-credits": HermesCreditsData;
     "hermes-compression": HermesCompressionData;
+    "hermes-showcase": HermesShowcaseData;
   }
 >;
 
@@ -135,6 +142,29 @@ export function mascotStateForTool(toolName: string): MascotImageState {
   if (t.includes("websearch") || t.includes("web_search") || t.includes("search") && t.includes("web")) return "research";
   if (t.includes("read") || t.includes("grep")) return "reading";
   return "thinking";
+}
+
+// `data-hermes-showcase` part — agent capability showcase cards (grill-log
+// agent-capability-showcase-cards-2026-06-24). Scope-locked to `code_exec`
+// for now: harness infers a write-then-run script pattern (no model prompt
+// changes) and emits this once at script-run start (`status: "running"`,
+// chip disabled/spinner) and once at finish (`completed`/`error`). The
+// results table is read from the script's own output file, never from
+// model-printed text — see _track_codeexec_completed in api_server.py.
+export type HermesShowcaseTaskType = "code_exec";
+
+export interface HermesShowcaseData {
+  taskId: string;
+  taskType: HermesShowcaseTaskType;
+  status: "running" | "completed" | "error";
+  ts: number;
+  taskData: {
+    scriptPath?: string;
+    code?: string;
+    stdout?: string;
+    resultsFile?: string;
+    resultsTable?: Record<string, string>[];
+  };
 }
 
 // `data-hermes-credits` part — credit balance surfaced to the client. Not

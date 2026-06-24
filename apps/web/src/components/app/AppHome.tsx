@@ -9,8 +9,10 @@ import {
   Bot,
   Brain,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
+  CircleAlert,
   Clock,
   Cog,
   Columns,
@@ -23,6 +25,7 @@ import {
   Home,
   ImageIcon,
   ListChecks,
+  Loader2,
   Lock,
   Menu,
   Mic,
@@ -54,6 +57,7 @@ import {
   type HermesActivityData,
   type HermesApprovalData,
   type HermesCreditsData,
+  type HermesShowcaseData,
   type HermesUIMessage,
   type MascotImageState,
 } from "@/lib/hermes/chat-types";
@@ -141,7 +145,7 @@ function deriveMascotState(
   return "idle";
 }
 
-type PanelTab = "status" | "memory" | "files";
+type PanelTab = "status" | "memory" | "files" | "showcase";
 type FilesSubTab = "gallery" | "files";
 
 interface MetaLogEntry {
@@ -170,6 +174,23 @@ const DOC_EXTS = new Set(["doc", "docx"]);
 const SHEET_EXTS = new Set(["xls", "xlsx", "csv"]);
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 const MARKDOWN_EXTS = new Set(["md", "markdown"]);
+
+// Q11: error chip shows a short line + an expand toggle for the full
+// stdout/traceback, instead of dumping it inline.
+function ShowcaseErrorDetail({ stdout }: { stdout?: string }) {
+  const [open, setOpen] = useState(false);
+  if (!stdout) return null;
+  const firstLine = stdout.trim().split("\n").pop() ?? stdout;
+  return (
+    <div className="showcase-chip-log" style={{ fontSize: 11.5, color: "var(--aio-error, #e25c5c)", marginTop: 2 }}>
+      <span className="truncate">{firstLine}</span>
+      <button type="button" className="showcase-chip-log-toggle" onClick={() => setOpen((v) => !v)}>
+        {open ? "Ẩn log" : "Xem log đầy đủ"}
+      </button>
+      {open && <pre className="workspace-code-block">{stdout}</pre>}
+    </div>
+  );
+}
 
 // Preview-tab integration point: renders the live-edited file inline in the
 // Aio Terminal panel, switching on extension.
@@ -564,6 +585,16 @@ interface AppHomeProps {
 
 export function AppHome({ email }: AppHomeProps) {
   const [activity, setActivity] = useState<HermesActivityData[]>([]);
+  // code_exec showcase cards (grill-log agent-capability-showcase-cards
+  // Q2/Q4/Q8): one task in flight per turn (scope-locked), live updates land
+  // here; `activeShowcaseTaskId` drives both the chat-chip lookup and the
+  // auto-switch of the right panel to the "showcase" tab while running.
+  const [showcases, setShowcases] = useState<HermesShowcaseData[]>([]);
+  // Which showcase task is shown in the right panel / mobile sheet. Holds the
+  // full data (not just an id) so a click on a *persisted* (reload-restored)
+  // chip works without re-searching the live `showcases` array.
+  const [openShowcase, setOpenShowcase] = useState<HermesShowcaseData | null>(null);
+  const [mobileShowcaseOpen, setMobileShowcaseOpen] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<
     Extract<HermesApprovalData, { kind: "request" }> | null
   >(null);
@@ -602,6 +633,22 @@ export function AppHome({ email }: AppHomeProps) {
         } else {
           setPendingApproval((prev) => (prev?.requestId === incoming.requestId ? null : prev));
         }
+        return;
+      }
+      if (dataPart.type === "data-hermes-showcase") {
+        const incoming = dataPart.data;
+        setShowcases((prev) => {
+          const index = prev.findIndex((item) => item.taskId === incoming.taskId);
+          if (index === -1) return [...prev, incoming];
+          const next = [...prev];
+          next[index] = incoming;
+          return next;
+        });
+        // Q4: auto-switch the right panel to follow the task live, not just
+        // on chip click (chip itself stays disabled while running — Q8).
+        setOpenShowcase(incoming);
+        setPanelTab("showcase");
+        if (!isMobileViewport) setRightPanelCollapsed(false);
         return;
       }
       if (dataPart.type !== "data-hermes-activity") return;
@@ -806,6 +853,7 @@ export function AppHome({ email }: AppHomeProps) {
     e.preventDefault();
     if (!input.trim() || status !== "ready") return;
     setActivity([]);
+    setShowcases([]);
     setPendingApproval(null);
     setPlanAwaitingAction(planMode === "plan");
     sendMessage({ text: input }, { body: { planMode: planMode === "plan" } });
@@ -883,6 +931,7 @@ export function AppHome({ email }: AppHomeProps) {
     setActiveConversationId(data.id);
     setMessages(data.messages ?? []);
     setActivity([]);
+    setShowcases([]);
     setPendingApproval(null);
     const last = data.messages?.[data.messages.length - 1];
     const awaitingPlan = Boolean(last?.role === "assistant" && last.metadata?.planMode);
@@ -927,6 +976,7 @@ export function AppHome({ email }: AppHomeProps) {
       setActiveConversationId(data.id);
       setMessages([]);
       setActivity([]);
+      setShowcases([]);
       setPendingApproval(null);
       setPlanAwaitingAction(false);
       loadConversations();
@@ -977,6 +1027,7 @@ export function AppHome({ email }: AppHomeProps) {
         setActiveConversationId(null);
         setMessages([]);
         setActivity([]);
+        setShowcases([]);
         setPendingApproval(null);
         setPlanAwaitingAction(false);
       }
@@ -1430,6 +1481,7 @@ export function AppHome({ email }: AppHomeProps) {
     setPlanAwaitingAction(false);
     setPlanMode("auto");
     setActivity([]);
+    setShowcases([]);
     setPendingApproval(null);
     sendMessage(
       { text: "Proceed with the plan above, step by step." },
@@ -1451,6 +1503,7 @@ export function AppHome({ email }: AppHomeProps) {
   const handlePlanAnswer = (answer: string) => {
     if (status !== "ready" || !answer.trim()) return;
     setActivity([]);
+    setShowcases([]);
     setPendingApproval(null);
     setPlanOtherText("");
     setPlanAwaitingAction(true);
@@ -1580,6 +1633,16 @@ export function AppHome({ email }: AppHomeProps) {
   const openWorkspaceEntry = (messageId: string) => {
     setExpandedWorkspaceId(messageId);
     if (!isMobileViewport) setRightPanelCollapsed(false);
+  };
+
+  // Q8: chip is only clickable once finished, so this never opens a
+  // still-running/empty panel. Mirrors openWorkspaceEntry's
+  // mobile-modal-vs-right-panel split (Q5).
+  const openShowcasePanel = (showcase: HermesShowcaseData) => {
+    setOpenShowcase(showcase);
+    setPanelTab("showcase");
+    if (isMobileViewport) setMobileShowcaseOpen(true);
+    else setRightPanelCollapsed(false);
   };
 
   const mobileWorkspaceEntry = isMobileViewport
@@ -1923,6 +1986,12 @@ export function AppHome({ email }: AppHomeProps) {
                               .map((item) => ({ filePath: item.filePath, fileName: item.fileName }))
                           : [])
                       : [];
+                  // Same persisted-vs-live split as messageArtifacts, for the
+                  // code_exec showcase chip (Q12 reload survival).
+                  const messageShowcases: HermesShowcaseData[] =
+                    message.role === "assistant"
+                      ? message.metadata?.showcases ?? (isActiveAssistant ? showcases : [])
+                      : [];
                   return (
                     <div key={message.id} className={`message ${message.role === "user" ? "user" : "ai"}`}>
                       <div className="message-content">
@@ -1972,6 +2041,39 @@ export function AppHome({ email }: AppHomeProps) {
                               ))}
                             </div>
                           )}
+                          {messageShowcases.map((showcase) => {
+                            const running = showcase.status === "running";
+                            const errored = showcase.status === "error";
+                            const scriptName = showcase.taskData.scriptPath?.split("/").pop() ?? "script";
+                            return (
+                              <div key={showcase.taskId}>
+                                <button
+                                  type="button"
+                                  className={`showcase-chip${errored ? " error" : ""}`}
+                                  disabled={running}
+                                  onClick={() => openShowcasePanel(showcase)}
+                                >
+                                  {running ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" />
+                                  ) : errored ? (
+                                    <CircleAlert className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                  )}
+                                  <span>Code thực thi</span>
+                                  {!isMobileViewport && (
+                                    <span className="truncate">
+                                      {errored ? "Lỗi khi chạy " : "Đã tạo & chạy "}
+                                      {scriptName}
+                                    </span>
+                                  )}
+                                </button>
+                                {errored && (
+                                  <ShowcaseErrorDetail stdout={showcase.taskData.stdout} />
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                         {message.role === "assistant" && !isActiveAssistant && (
                           <div className="message-meta">
@@ -2225,7 +2327,15 @@ export function AppHome({ email }: AppHomeProps) {
           }`}
         >
           <div className="panel-header">
-            <h3>{panelTab === "status" ? "Status" : panelTab === "memory" ? "Memory" : "Files"}</h3>
+            <h3>
+              {panelTab === "status"
+                ? "Status"
+                : panelTab === "memory"
+                  ? "Memory"
+                  : panelTab === "showcase"
+                    ? "Code thực thi"
+                    : "Files"}
+            </h3>
             <div className="panel-header-actions">
               <button
                 type="button"
@@ -2260,14 +2370,18 @@ export function AppHome({ email }: AppHomeProps) {
           </div>
 
           <div className="panel-tabs">
-            {(["status", "memory", "files"] as PanelTab[]).map((t) => (
+            {(
+              openShowcase
+                ? (["status", "memory", "files", "showcase"] as PanelTab[])
+                : (["status", "memory", "files"] as PanelTab[])
+            ).map((t) => (
               <button
                 key={t}
                 type="button"
                 className={`panel-tab${panelTab === t ? " active" : ""}`}
                 onClick={() => setPanelTab(t)}
               >
-                {t === "status" ? "Status" : t === "memory" ? "Memory" : "Files"}
+                {t === "status" ? "Status" : t === "memory" ? "Memory" : t === "showcase" ? "Code" : "Files"}
               </button>
             ))}
           </div>
@@ -2502,6 +2616,56 @@ export function AppHome({ email }: AppHomeProps) {
                   );
                 })()}
               </div>
+            </div>
+          )}
+
+          {panelTab === "showcase" && openShowcase && (
+            <div className="panel-section">
+              <div className="panel-section-title">
+                {openShowcase.taskData.scriptPath?.split("/").pop() ?? "script"}
+              </div>
+              <pre className="workspace-code-block">
+                <code>{openShowcase.taskData.code ?? "No source captured."}</code>
+              </pre>
+              {openShowcase.status === "error" && (
+                <ShowcaseErrorDetail stdout={openShowcase.taskData.stdout} />
+              )}
+              <div className="panel-section-title" style={{ marginTop: 14 }}>
+                Results
+              </div>
+              {openShowcase.taskData.resultsTable && openShowcase.taskData.resultsTable.length > 0 ? (
+                <table className="showcase-results-table">
+                  <thead>
+                    <tr>
+                      {Object.keys(openShowcase.taskData.resultsTable[0]).map((col) => (
+                        <th key={col}>{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openShowcase.taskData.resultsTable.map((row, i) => (
+                      <tr key={i}>
+                        {Object.keys(openShowcase.taskData.resultsTable![0]).map((col) => (
+                          <td key={col}>{row[col]}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <PanelEmpty icon={<FileCode className="w-5 h-5" />}>No results table yet.</PanelEmpty>
+              )}
+              {openShowcase.taskData.resultsFile && (
+                <a
+                  href={openShowcase.taskData.resultsFile}
+                  download
+                  className="message-artifact-card"
+                  style={{ marginTop: 8 }}
+                >
+                  <Download className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--aio-subtle)" }} aria-hidden />
+                  <span className="truncate">Download results file</span>
+                </a>
+              )}
             </div>
           )}
 
@@ -2792,6 +2956,72 @@ export function AppHome({ email }: AppHomeProps) {
                   <code>{block.code}</code>
                 </pre>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mobileShowcaseOpen && openShowcase && (
+        <div
+          className="workspace-mobile-modal-overlay"
+          onClick={() => setMobileShowcaseOpen(false)}
+        >
+          <div
+            className="workspace-mobile-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Code thực thi"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="workspace-mobile-modal-header">
+              <span>Code thực thi</span>
+              <button
+                type="button"
+                className="workspace-mobile-modal-close"
+                onClick={() => setMobileShowcaseOpen(false)}
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="workspace-entry-body">
+              <pre className="workspace-code-block">
+                <code>{openShowcase.taskData.code ?? "No source captured."}</code>
+              </pre>
+              {openShowcase.status === "error" && (
+                <ShowcaseErrorDetail stdout={openShowcase.taskData.stdout} />
+              )}
+              {openShowcase.taskData.resultsTable && openShowcase.taskData.resultsTable.length > 0 && (
+                <table className="showcase-results-table">
+                  <thead>
+                    <tr>
+                      {Object.keys(openShowcase.taskData.resultsTable[0]).map((col) => (
+                        <th key={col}>{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openShowcase.taskData.resultsTable.map((row, i) => (
+                      <tr key={i}>
+                        {Object.keys(openShowcase.taskData.resultsTable![0]).map((col) => (
+                          <td key={col}>{row[col]}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {openShowcase.taskData.resultsFile && (
+                <a
+                  href={openShowcase.taskData.resultsFile}
+                  download
+                  className="message-artifact-card"
+                  style={{ marginTop: 8 }}
+                >
+                  <Download className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--aio-subtle)" }} aria-hidden />
+                  <span className="truncate">Download results file</span>
+                </a>
+              )}
             </div>
           </div>
         </div>

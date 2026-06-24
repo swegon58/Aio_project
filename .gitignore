@@ -1,8 +1,15 @@
 
-# Aio (Next.js frontend)
-Aio/node_modules/
-Aio/.next/
-Aio/.env.local
+# Next.js frontend
+apps/web/node_modules/
+apps/web/.next/
+apps/web/.env.local
+
+# root tooling (no root package.json — this should never reappear, but guard anyway)
+/node_modules/
+
+# generated tool caches — never commit
+.playwright-mcp/
+.lean-ctx/
 
 # secrets
 .claude/channels/discord/.env
