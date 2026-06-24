@@ -55,7 +55,7 @@
 // map) is the v1 choice.
 // ---------------------------------------------------------------------------
 
-import { spawn, type ChildProcess } from "child_process";
+import { spawn } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import { PREVIEW_PORT_RANGE } from "./config";
