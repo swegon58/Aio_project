@@ -1308,7 +1308,8 @@
   border-color: var(--accent-secondary);
 }
 
-.panel-tabs { display: flex; align-items: center; border-bottom: 1px solid var(--border-color); padding: 0 12px; gap: 4px; }
+.panel-tabs { display: flex; align-items: center; border-bottom: 1px solid var(--border-color); padding: 0 12px; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.panel-tabs::-webkit-scrollbar { display: none; }
 
 .panel-tab {
   padding: 10px 12px;
@@ -1320,6 +1321,7 @@
   border-bottom: 2px solid transparent;
   transition: var(--transition-fast);
   white-space: nowrap;
+  flex-shrink: 0;
   background: none;
   border-top: none;
   border-left: none;
