@@ -11,6 +11,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleAlert,
   Clock,
@@ -158,7 +159,7 @@ interface MetaLogEntry {
 // sidebar and gives chat + terminal ~50/50 width. Toggle button cycles
 // closed -> small -> split -> closed.
 type TerminalScale = "small" | "split";
-type TerminalTab = "code" | "preview";
+type TerminalTab = "code" | "results" | "data";
 
 // File the agent is actively touching right now, derived from the live
 // activity stream (most recent tool entry that carries a filePath).
@@ -844,6 +845,16 @@ export function AppHome({ email }: AppHomeProps) {
       setCopiedMessageId(id);
       setTimeout(() => setCopiedMessageId((current) => (current === id ? null : current)), 1500);
     });
+  };
+
+  const codeBlockFileName = (lang: string) => {
+    const ext = lang?.trim() ? lang.trim().toLowerCase() : "txt";
+    return `snippet.${ext}`;
+  };
+
+  const codeBlockSize = (code: string) => {
+    const bytes = new TextEncoder().encode(code).length;
+    return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1739,17 +1750,28 @@ export function AppHome({ email }: AppHomeProps) {
 
       <div className={`app-container${terminalOpen && terminalScale === "split" ? " terminal-split" : ""}`}>
         <div className="icon-rail-slot">
-          <nav className="icon-rail">
+          <nav className="icon-rail icon-rail--compact">
             {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active }) => (
-              <button key={key} type="button" className={`icon-rail-item${active ? " active" : ""}`}>
-                <Icon className="w-4.5 h-4.5" />
+              <button
+                key={key}
+                type="button"
+                className={`icon-rail-item icon-rail-item--compact${active ? " active" : ""}`}
+              >
+                <Icon className="w-5.5 h-5.5" />
                 <span className="icon-rail-label">{label}</span>
               </button>
             ))}
             <div className="icon-rail-footer">
               <div className="icon-rail-footer-avatar">{userInitial}</div>
-              <span className="icon-rail-label">{username}</span>
             </div>
+            <button
+              type="button"
+              className="icon-rail-collapse-btn"
+              onClick={() => setSidebarCollapsed((prev) => !prev)}
+              aria-label="Collapse sidebar"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
           </nav>
         </div>
 
@@ -2849,14 +2871,32 @@ export function AppHome({ email }: AppHomeProps) {
                   className={`aio-terminal-tab${terminalTab === "code" ? " active" : ""}`}
                   onClick={() => setTerminalTab("code")}
                 >
+                  <FileCode className="w-3.5 h-3.5" />
                   Code
                 </button>
                 <button
                   type="button"
-                  className={`aio-terminal-tab${terminalTab === "preview" ? " active" : ""}`}
-                  onClick={() => setTerminalTab("preview")}
+                  className={`aio-terminal-tab${terminalTab === "results" ? " active" : ""}`}
+                  onClick={() => setTerminalTab("results")}
                 >
-                  Preview
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  Results
+                </button>
+                <button
+                  type="button"
+                  className={`aio-terminal-tab${terminalTab === "data" ? " active" : ""}`}
+                  onClick={() => setTerminalTab("data")}
+                >
+                  <Columns className="w-3.5 h-3.5" />
+                  Data
+                </button>
+                <button
+                  type="button"
+                  className="aio-terminal-tab-expand"
+                  onClick={() => setTerminalScale(terminalScale === "split" ? "small" : "split")}
+                  aria-label="Expand terminal"
+                >
+                  <SquareSplitHorizontal className="w-3.5 h-3.5" />
                 </button>
               </div>
 
@@ -2882,11 +2922,31 @@ export function AppHome({ email }: AppHomeProps) {
                           {isOpen && (
                             <div className="workspace-entry-body">
                               {isLive && <ActivityStream items={activity} />}
-                              {entry.blocks.map((block, i) => (
-                                <pre key={i} className="workspace-code-block">
-                                  <code>{block.code}</code>
-                                </pre>
-                              ))}
+                              {entry.blocks.map((block, i) => {
+                                const blockId = `${entry.id}-${i}`;
+                                return (
+                                  <div key={i} className="code-file-card">
+                                    <div className="code-file-card-header">
+                                      <FileCode className="w-4 h-4 code-file-card-icon" />
+                                      <div className="code-file-card-meta">
+                                        <span className="code-file-card-name">{codeBlockFileName(block.lang)}</span>
+                                        <span className="code-file-card-size">{codeBlockSize(block.code)}</span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="code-file-card-copy"
+                                        onClick={() => handleCopyMessage(blockId, block.code)}
+                                      >
+                                        <Copy className="w-3 h-3" />
+                                        {copiedMessageId === blockId ? "Copied" : "Copy"}
+                                      </button>
+                                    </div>
+                                    <pre className="workspace-code-block">
+                                      <code>{block.code}</code>
+                                    </pre>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -2894,9 +2954,13 @@ export function AppHome({ email }: AppHomeProps) {
                     })
                   )}
                 </div>
-              ) : (
+              ) : terminalTab === "results" ? (
                 <div className="aio-terminal-body">
                   <PreviewPane file={activeFile} />
+                </div>
+              ) : (
+                <div className="aio-terminal-body">
+                  <div className="workspace-panel-empty">Structured data output will show up here.</div>
                 </div>
               )}
             </div>
