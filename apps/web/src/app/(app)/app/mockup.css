@@ -1402,12 +1402,19 @@
 .right-panel.collapsed { width: 0; min-width: 0; overflow: hidden; border-left: none; }
 
 /* ===== AIO TERMINAL ===== */
-/* Replaces the old .workspace-panel slot. Small scale: same flex slot below
-   the panel tabs. Split scale (.right-panel.terminal-split, paired with
-   .app-container.terminal-split): right panel grows to ~50% viewport width
-   and the sidebar is force-collapsed (see AppHome.tsx) so chat + terminal
-   share the screen evenly. */
+/* Replaces the .workspace-panel slot entirely while open — an in-flow
+   column docked beside the chat (never a floating overlay, so it can't
+   cover chat text). Small scale widens the right panel a bit past its
+   normal Workspace width; split scale widens it to ~50% viewport and
+   force-collapses the sidebar (see AppHome.tsx) so chat + terminal share
+   the screen evenly. */
 .app-container.terminal-split .main-content { flex: 1 1 50%; min-width: 0; }
+
+.right-panel.terminal-small {
+  width: 460px;
+  min-width: 460px;
+  flex: 0 0 460px;
+}
 
 .right-panel.terminal-split {
   width: 50vw;
@@ -1428,38 +1435,6 @@
   padding: 6px;
 }
 
-/* Small scale: detached floating card over the chat area, to the left of
-   the (still-visible) right panel — Workspace stays in the right panel,
-   this card overlays the chat instead of replacing it. */
-.aio-terminal--small {
-  position: fixed;
-  right: 364px;
-  bottom: 20px;
-  top: auto;
-  flex: 0 0 auto;
-  width: 400px;
-  max-width: calc(100vw - 400px);
-  height: min(520px, 64vh);
-  margin: 0;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
-  z-index: 200;
-}
-
-@media (max-width: 1024px) {
-  .aio-terminal--small {
-    right: 16px;
-    left: 16px;
-    width: auto;
-    max-width: none;
-  }
-}
-
-/* Split scale: stays in normal flow, filling the widened right panel —
-   trimmed a notch so it reads as a panel, not a bulky standalone card. */
-.aio-terminal--split {
-  margin: 8px;
-  padding: 4px;
-}
 
 .aio-terminal-tabs {
   background: transparent;
