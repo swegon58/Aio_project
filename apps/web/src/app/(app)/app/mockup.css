@@ -781,9 +781,15 @@
   padding: 12px 16px;
 }
 .message.user .message-bubble {
-  background: linear-gradient(155deg, var(--accent-primary), color-mix(in srgb, var(--accent-primary) 80%, black));
-  box-shadow: 0 2px 10px var(--accent-glow);
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--accent-primary) 38%, var(--bg-card)),
+    color-mix(in srgb, var(--accent-primary) 22%, var(--bg-primary))
+  );
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 35%, transparent);
+  box-shadow: var(--shadow-sm);
   border-radius: var(--radius-standard);
+  color: var(--text-primary);
 }
 
 .markdown-message { display: flex; flex-direction: column; gap: 10px; }
