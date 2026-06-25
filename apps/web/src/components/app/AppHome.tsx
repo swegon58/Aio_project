@@ -11,7 +11,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   CircleAlert,
   Clock,
@@ -174,6 +173,40 @@ const DOC_EXTS = new Set(["doc", "docx"]);
 const SHEET_EXTS = new Set(["xls", "xlsx", "csv"]);
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 const MARKDOWN_EXTS = new Set(["md", "markdown"]);
+
+const KEYWORDS = new Set([
+  "function", "const", "let", "var", "return", "if", "else", "for", "while",
+  "import", "export", "from", "default", "class", "extends", "new", "this",
+  "async", "await", "try", "catch", "finally", "throw", "typeof", "interface",
+  "type", "public", "private", "static", "void", "null", "undefined", "true",
+  "false", "def", "self", "elif", "import", "as", "with", "lambda", "yield",
+]);
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+}
+
+// Minimal regex tokenizer for the terminal's code blocks — covers
+// comments/strings/numbers/keywords well enough to break up a wall of
+// monochrome text, without pulling in a full highlighter dependency.
+function highlightCode(code: string): string {
+  const tokenPattern = /(\/\/.*$|#.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b\d+(?:\.\d+)?\b)|(\b[a-zA-Z_]\w*\b)/gm;
+  let out = "";
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = tokenPattern.exec(code)) !== null) {
+    out += escapeHtml(code.slice(lastIndex, match.index));
+    const [full, comment, str, num, word] = match;
+    if (comment) out += `<span class="tok-com">${escapeHtml(comment)}</span>`;
+    else if (str) out += `<span class="tok-str">${escapeHtml(str)}</span>`;
+    else if (num) out += `<span class="tok-num">${escapeHtml(num)}</span>`;
+    else if (word && KEYWORDS.has(word)) out += `<span class="tok-kw">${escapeHtml(word)}</span>`;
+    else out += escapeHtml(full);
+    lastIndex = match.index + full.length;
+  }
+  out += escapeHtml(code.slice(lastIndex));
+  return out;
+}
 
 // Q11: error chip shows a short line + an expand toggle for the full
 // stdout/traceback, instead of dumping it inline.
@@ -680,13 +713,13 @@ export function AppHome({ email }: AppHomeProps) {
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [terminalScale, setTerminalScale] = useState<TerminalScale>("small");
   const [terminalTab, setTerminalTab] = useState<TerminalTab>("code");
-  // Toggle button cycle: closed -> small -> split -> closed.
+  // Panel-header button just opens (small, floating) / closes the terminal.
+  // Resizing between "small" (floating card) and "split" (full-width column)
+  // happens via the scale button inside the terminal card itself.
   const cycleTerminal = () => {
     if (!terminalOpen) {
       setTerminalOpen(true);
       setTerminalScale("small");
-    } else if (terminalScale === "small") {
-      setTerminalScale("split");
     } else {
       setTerminalOpen(false);
       setTerminalScale("small");
@@ -855,6 +888,16 @@ export function AppHome({ email }: AppHomeProps) {
   const codeBlockSize = (code: string) => {
     const bytes = new TextEncoder().encode(code).length;
     return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
+  };
+
+  const handleDownloadCodeBlock = (lang: string, code: string) => {
+    const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = codeBlockFileName(lang);
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1638,6 +1681,17 @@ export function AppHome({ email }: AppHomeProps) {
     return { filePath: target.filePath, fileName: target.fileName };
   }, [activity]);
 
+  // Results tab fallback when no tool-touched file is active: render the
+  // most recent code block the agent produced inline in chat (the common
+  // case — "Aio code xong" with no file-tool activity at all).
+  const latestCodeBlock = useMemo(() => {
+    for (let i = workspaceEntries.length - 1; i >= 0; i--) {
+      const blocks = workspaceEntries[i].blocks;
+      if (blocks.length > 0) return blocks[blocks.length - 1];
+    }
+    return null;
+  }, [workspaceEntries]);
+
   const openWorkspaceEntry = (messageId: string) => {
     setExpandedWorkspaceId(messageId);
     if (!isMobileViewport) setRightPanelCollapsed(false);
@@ -1756,6 +1810,7 @@ export function AppHome({ email }: AppHomeProps) {
                 key={key}
                 type="button"
                 className={`icon-rail-item icon-rail-item--compact${active ? " active" : ""}`}
+                onClick={key === "settings" ? () => setSettingsOpen(true) : undefined}
               >
                 <Icon className="w-5.5 h-5.5" />
                 <span className="icon-rail-label">{label}</span>
@@ -1763,15 +1818,21 @@ export function AppHome({ email }: AppHomeProps) {
             ))}
             <div className="icon-rail-footer">
               <div className="icon-rail-footer-avatar">{userInitial}</div>
+              <div className="icon-rail-footer-expanded">
+                <div className="icon-rail-footer-info">
+                  <div className="icon-rail-footer-name">{username}</div>
+                  <div className="icon-rail-footer-plan">Pro Plan</div>
+                </div>
+                <button
+                  type="button"
+                  className="icon-rail-footer-settings-btn"
+                  onClick={() => setSettingsOpen(true)}
+                  aria-label="Settings"
+                >
+                  <Cog className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              className="icon-rail-collapse-btn"
-              onClick={() => setSidebarCollapsed((prev) => !prev)}
-              aria-label="Collapse sidebar"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
           </nav>
         </div>
 
@@ -1886,21 +1947,6 @@ export function AppHome({ email }: AppHomeProps) {
             ))}
           </div>
 
-          <div className="sidebar-footer">
-            <div className="user-avatar">{userInitial}</div>
-            <div className="user-info">
-              <div className="user-name">{username}</div>
-              <div className="user-plan">Pro Plan</div>
-            </div>
-            <button
-              type="button"
-              className="settings-btn"
-              onClick={() => setSettingsOpen(true)}
-              aria-label="Settings"
-            >
-              <Cog className="w-4.5 h-4.5" />
-            </button>
-          </div>
         </aside>
 
         {/* ===== MAIN CONTENT ===== */}
@@ -2353,28 +2399,17 @@ export function AppHome({ email }: AppHomeProps) {
           }`}
         >
           <div className="panel-header">
-            <h3>{terminalOpen ? "Aio Terminal" : "Workspace"}</h3>
+            <h3>{terminalOpen && terminalScale === "split" ? "Aio Terminal" : "Workspace"}</h3>
             <div className="panel-header-actions">
               <button
                 type="button"
                 className={`panel-action-btn panel-action-btn--terminal${terminalOpen ? " active" : ""}`}
                 onClick={cycleTerminal}
-                aria-label={
-                  !terminalOpen
-                    ? "Open Aio Terminal"
-                    : terminalScale === "small"
-                      ? "Expand Aio Terminal to split view"
-                      : "Close Aio Terminal"
-                }
+                aria-label={!terminalOpen ? "Open Aio Terminal" : "Close Aio Terminal"}
                 aria-pressed={terminalOpen}
                 title="Aio Terminal"
               >
-                {terminalScale === "split" && terminalOpen ? (
-                  <SquareSplitHorizontal className="w-3.5 h-3.5" />
-                ) : (
-                  <TerminalSquare className="w-3.5 h-3.5" />
-                )}
-                <span>{!terminalOpen ? "Open Terminal" : terminalScale === "small" ? "Expand" : "Close Terminal"}</span>
+                <TerminalSquare className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
@@ -2387,7 +2422,7 @@ export function AppHome({ email }: AppHomeProps) {
             </div>
           </div>
 
-          {!terminalOpen && (
+          {!(terminalOpen && terminalScale === "split") && (
           <div className="panel-tab-content">
           <div>
               <div className="panel-section-heading">Status</div>
@@ -2864,7 +2899,7 @@ export function AppHome({ email }: AppHomeProps) {
           )}
 
           {terminalOpen && (
-            <div className="aio-terminal">
+            <div className={`aio-terminal aio-terminal--${terminalScale}`}>
               <div className="aio-terminal-tabs">
                 <button
                   type="button"
@@ -2940,9 +2975,17 @@ export function AppHome({ email }: AppHomeProps) {
                                         <Copy className="w-3 h-3" />
                                         {copiedMessageId === blockId ? "Copied" : "Copy"}
                                       </button>
+                                      <button
+                                        type="button"
+                                        className="code-file-card-download"
+                                        onClick={() => handleDownloadCodeBlock(block.lang, block.code)}
+                                      >
+                                        <Download className="w-3 h-3" />
+                                        Download
+                                      </button>
                                     </div>
                                     <pre className="workspace-code-block">
-                                      <code>{block.code}</code>
+                                      <code dangerouslySetInnerHTML={{ __html: highlightCode(block.code) }} />
                                     </pre>
                                   </div>
                                 );
@@ -2956,7 +2999,25 @@ export function AppHome({ email }: AppHomeProps) {
                 </div>
               ) : terminalTab === "results" ? (
                 <div className="aio-terminal-body">
-                  <PreviewPane file={activeFile} />
+                  {activeFile ? (
+                    <PreviewPane file={activeFile} />
+                  ) : latestCodeBlock && ["html", "htm"].includes(latestCodeBlock.lang.toLowerCase()) ? (
+                    <iframe
+                      srcDoc={latestCodeBlock.code}
+                      className="terminal-results-iframe"
+                      sandbox="allow-scripts"
+                      title="Preview"
+                    />
+                  ) : latestCodeBlock ? (
+                    <div className="terminal-preview-pane">
+                      <div className="terminal-preview-filename">{codeBlockFileName(latestCodeBlock.lang)}</div>
+                      <pre className="workspace-code-block">
+                        <code dangerouslySetInnerHTML={{ __html: highlightCode(latestCodeBlock.code) }} />
+                      </pre>
+                    </div>
+                  ) : (
+                    <PreviewPane file={activeFile} />
+                  )}
                 </div>
               ) : (
                 <div className="aio-terminal-body">
