@@ -35,6 +35,15 @@
   --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 
+  /* Frosted-glass recipe (extracted from gradient-card-showcase ref):
+     white-highlight rgba + backdrop-blur + soft shadow. Opacity/blur
+     tuned up from the original (made for light bg) so it reads on dark. */
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-blur: 16px;
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --radius-standard: 18px;
+
   font-family: var(--font-outfit), -apple-system, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -55,6 +64,18 @@
 .aio-mockup ::-webkit-scrollbar-track { background: transparent; }
 .aio-mockup ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 10px; }
 .aio-mockup ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+/* ===== GLASS SURFACE (reusable frosted-glass utility) =====
+   Apply to any new bubble/tab/card surface that should read as
+   "frosted glass" — stacks a white-highlight layer + blur + shadow
+   on top of whatever background-color the element already has. */
+.glass-surface {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
 
 /* ===== BOTTOM GLOW ===== */
 .bottom-glow {
@@ -185,11 +206,34 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 14px 0;
-  gap: 2px;
+  padding: 18px 0;
+  gap: 10px;
   overflow: hidden;
   transition: width 0.18s ease;
   z-index: 110;
+}
+
+.icon-rail-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 17px;
+  flex-shrink: 0;
+}
+
+.icon-rail-footer-avatar {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .icon-rail:hover {
@@ -521,12 +565,13 @@
 /* Top Bar */
 .top-bar {
   padding: 10px 20px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--glass-border);
   display: flex;
   align-items: center;
   gap: 10px;
-  background: color-mix(in srgb, var(--bg-primary-translucent) 20%, transparent);
-  backdrop-filter: blur(20px);
+  background: linear-gradient(var(--glass-bg), var(--glass-bg)), color-mix(in srgb, var(--bg-primary-translucent) 20%, transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   z-index: 10;
 }
 
@@ -717,7 +762,7 @@
 
 .message-bubble {
   padding: 12px 16px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-standard);
   font-size: 15.5px;
   line-height: 1.6;
   word-wrap: break-word;
@@ -725,17 +770,20 @@
 }
 
 .message.ai .message-bubble {
-  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid color-mix(in srgb, var(--accent-primary) 18%, transparent);
-  border-radius: 18px;
+  background:
+    linear-gradient(var(--glass-bg), var(--glass-bg)),
+    color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-standard);
   padding: 12px 16px;
 }
 .message.user .message-bubble {
   background: linear-gradient(155deg, var(--accent-primary), color-mix(in srgb, var(--accent-primary) 80%, black));
   box-shadow: 0 2px 10px var(--accent-glow);
-  border-radius: 22px;
+  border-radius: var(--radius-standard);
 }
 
 .markdown-message { display: flex; flex-direction: column; gap: 10px; }
@@ -835,8 +883,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
+  background: linear-gradient(var(--glass-bg), var(--glass-bg)), var(--bg-input);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   border-radius: 28px;
   padding: 6px 6px 6px 14px;
   transition: var(--transition);
@@ -954,9 +1005,11 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--glass-border);
   border-radius: 10px;
-  background: var(--bg-tertiary);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   color: var(--text-secondary);
   font-size: 12.5px;
   font-weight: 600;
@@ -1113,10 +1166,10 @@
 .right-panel {
   width: 340px;
   min-width: 340px;
-  background: color-mix(in srgb, var(--bg-secondary) 20%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-left: 1px solid var(--border-color);
+  background: linear-gradient(var(--glass-bg), var(--glass-bg)), color-mix(in srgb, var(--bg-secondary) 20%, transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-left: 1px solid var(--glass-border);
   display: flex;
   flex-direction: column;
   transition: var(--transition-slow);
@@ -1385,7 +1438,7 @@
 
 .panel-header {
   padding: 14px 16px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--glass-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1458,7 +1511,10 @@
 
 .panel-tabs--segmented {
   border-bottom: none;
-  background: var(--bg-tertiary);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
   border-radius: 999px;
   padding: 3px;
   gap: 2px;
@@ -1489,8 +1545,26 @@
   outline-offset: 2px;
 }
 
-.panel-section { padding: 14px 16px; }
-.panel-section + .panel-section { border-top: 1px solid var(--border-color); }
+.panel-section {
+  padding: 14px 16px;
+  margin: 10px 12px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-standard);
+  box-shadow: var(--glass-shadow);
+}
+.panel-section + .panel-section { margin-top: 0; }
+
+.panel-section-heading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-secondary);
+  padding: 2px 14px 6px;
+}
 
 .panel-section-title {
   font-size: 12px;
@@ -1561,7 +1635,10 @@
 
 .stat-card {
   padding: 10px;
-  background: var(--bg-tertiary);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   text-align: center;
   transition: var(--transition-fast);
@@ -1733,7 +1810,9 @@
    notification/alert idiom used by the mockup's .notification component) */
 .approval-card {
   padding: 12px 14px;
-  background: var(--bg-card);
+  background: linear-gradient(var(--glass-bg), var(--glass-bg)), var(--bg-card);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid rgba(255, 170, 48, 0.35);
   border-radius: var(--radius-md);
   display: flex;
@@ -1784,7 +1863,10 @@
   padding: 13px 15px;
   background:
     linear-gradient(180deg, rgba(124, 108, 240, 0.06), rgba(124, 108, 240, 0)),
+    linear-gradient(var(--glass-bg), var(--glass-bg)),
     var(--bg-card);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid rgba(124, 108, 240, 0.22);
   border-radius: var(--radius-md);
   display: flex;
@@ -2146,6 +2228,12 @@
   --text-muted: #9090ab;
   --border-color: rgba(0, 0, 0, 0.08);
   --border-active: rgba(0, 129, 242, 0.45);
+
+  /* Glass recipe re-tuned for light bg: white highlight needs to lean on
+     shadow/border for definition since it can't lighten an already-white bg. */
+  --glass-bg: rgba(255, 255, 255, 0.5);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-shadow: 0 8px 24px rgba(28, 28, 46, 0.08);
 }
 
 /* ===== RESPONSIVE ===== */

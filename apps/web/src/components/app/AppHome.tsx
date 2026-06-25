@@ -145,7 +145,6 @@ function deriveMascotState(
   return "idle";
 }
 
-type PanelTab = "status" | "memory" | "files" | "showcase";
 type FilesSubTab = "gallery" | "files";
 
 interface MetaLogEntry {
@@ -647,7 +646,6 @@ export function AppHome({ email }: AppHomeProps) {
         // Q4: auto-switch the right panel to follow the task live, not just
         // on chip click (chip itself stays disabled while running — Q8).
         setOpenShowcase(incoming);
-        setPanelTab("showcase");
         if (!isMobileViewport) setRightPanelCollapsed(false);
         return;
       }
@@ -674,7 +672,6 @@ export function AppHome({ email }: AppHomeProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [iconRailMobileOpen, setIconRailMobileOpen] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
-  const [panelTab, setPanelTab] = useState<PanelTab>("status");
   const [filesSubTab, setFilesSubTab] = useState<FilesSubTab>("gallery");
   const [metaLog, setMetaLog] = useState<MetaLogEntry[]>([]);
   const logMeta = (text: string) =>
@@ -1172,18 +1169,18 @@ export function AppHome({ email }: AppHomeProps) {
   };
 
   useEffect(() => {
-    if (panelTab === "status" && kanban === null) {
+    if (kanban === null) {
       loadKanban();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelTab]);
+  }, []);
 
   useEffect(() => {
-    if (panelTab === "memory" && memorySnapshot === null) {
+    if (memorySnapshot === null) {
       loadMemorySnapshot();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelTab]);
+  }, []);
 
   const loadGallery = async () => {
     setGalleryError(null);
@@ -1199,11 +1196,11 @@ export function AppHome({ email }: AppHomeProps) {
   };
 
   useEffect(() => {
-    if (panelTab === "files" && filesSubTab === "gallery" && galleryImages === null) {
+    if (filesSubTab === "gallery" && galleryImages === null) {
       loadGallery();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelTab, filesSubTab]);
+  }, [filesSubTab]);
 
   const loadCronJobs = async () => {
     setCronError(null);
@@ -1297,11 +1294,11 @@ export function AppHome({ email }: AppHomeProps) {
   };
 
   useEffect(() => {
-    if (panelTab === "status" && cronJobs === null) {
+    if (cronJobs === null) {
       loadCronJobs();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelTab]);
+  }, []);
 
   const loadFileTree = async (path: string) => {
     setFileTreeLoading(true);
@@ -1326,11 +1323,11 @@ export function AppHome({ email }: AppHomeProps) {
   };
 
   useEffect(() => {
-    if (panelTab === "files" && filesSubTab === "files" && fileTreeEntries === null) {
+    if (filesSubTab === "files" && fileTreeEntries === null) {
       loadFileTree(fileTreePath);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelTab, filesSubTab]);
+  }, [filesSubTab]);
 
   const handleGalleryFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1640,7 +1637,6 @@ export function AppHome({ email }: AppHomeProps) {
   // mobile-modal-vs-right-panel split (Q5).
   const openShowcasePanel = (showcase: HermesShowcaseData) => {
     setOpenShowcase(showcase);
-    setPanelTab("showcase");
     if (isMobileViewport) setMobileShowcaseOpen(true);
     else setRightPanelCollapsed(false);
   };
@@ -1734,6 +1730,10 @@ export function AppHome({ email }: AppHomeProps) {
               <span className="icon-rail-label" style={{ opacity: 1 }}>{label}</span>
             </button>
           ))}
+          <div className="icon-rail-footer">
+            <div className="icon-rail-footer-avatar">{userInitial}</div>
+            <span className="icon-rail-label" style={{ opacity: 1 }}>{username}</span>
+          </div>
         </nav>
       </div>
 
@@ -1746,6 +1746,10 @@ export function AppHome({ email }: AppHomeProps) {
                 <span className="icon-rail-label">{label}</span>
               </button>
             ))}
+            <div className="icon-rail-footer">
+              <div className="icon-rail-footer-avatar">{userInitial}</div>
+              <span className="icon-rail-label">{username}</span>
+            </div>
           </nav>
         </div>
 
@@ -2327,15 +2331,7 @@ export function AppHome({ email }: AppHomeProps) {
           }`}
         >
           <div className="panel-header">
-            <h3>
-              {panelTab === "status"
-                ? "Status"
-                : panelTab === "memory"
-                  ? "Memory"
-                  : panelTab === "showcase"
-                    ? "Code thực thi"
-                    : "Files"}
-            </h3>
+            <h3>Workspace</h3>
             <div className="panel-header-actions">
               <button
                 type="button"
@@ -2369,26 +2365,9 @@ export function AppHome({ email }: AppHomeProps) {
             </div>
           </div>
 
-          <div className="panel-tabs">
-            {(
-              openShowcase
-                ? (["status", "memory", "files", "showcase"] as PanelTab[])
-                : (["status", "memory", "files"] as PanelTab[])
-            ).map((t) => (
-              <button
-                key={t}
-                type="button"
-                className={`panel-tab${panelTab === t ? " active" : ""}`}
-                onClick={() => setPanelTab(t)}
-              >
-                {t === "status" ? "Status" : t === "memory" ? "Memory" : t === "showcase" ? "Code" : "Files"}
-              </button>
-            ))}
-          </div>
-
           <div className="panel-tab-content">
-          {panelTab === "status" && (
-            <div>
+          <div>
+              <div className="panel-section-heading">Status</div>
               <div className="panel-section">
                 <div className="agent-info-card">
                   <div className="agent-info-avatar">
@@ -2617,10 +2596,10 @@ export function AppHome({ email }: AppHomeProps) {
                 })()}
               </div>
             </div>
-          )}
 
-          {panelTab === "showcase" && openShowcase && (
+          {openShowcase && (
             <div className="panel-section">
+              <div className="panel-section-heading">Code thực thi</div>
               <div className="panel-section-title">
                 {openShowcase.taskData.scriptPath?.split("/").pop() ?? "script"}
               </div>
@@ -2669,8 +2648,8 @@ export function AppHome({ email }: AppHomeProps) {
             </div>
           )}
 
-          {panelTab === "memory" && (
-            <div className="panel-section">
+          <div className="panel-section">
+              <div className="panel-section-heading">Memory</div>
               {memoryError && (
                 <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
                   Failed to load: {memoryError}
@@ -2706,10 +2685,9 @@ export function AppHome({ email }: AppHomeProps) {
                 <PanelEmpty icon={<Brain className="w-5 h-5" />}>No memory recorded yet.</PanelEmpty>
               )}
             </div>
-          )}
 
-          {panelTab === "files" && (
-            <div className="panel-section">
+          <div className="panel-section">
+              <div className="panel-section-heading">Files</div>
               <div className="panel-tabs panel-tabs--segmented" style={{ marginBottom: 12 }}>
                 {(["gallery", "files"] as FilesSubTab[]).map((t) => (
                   <button
@@ -2858,7 +2836,6 @@ export function AppHome({ email }: AppHomeProps) {
                 </>
               )}
             </div>
-          )}
 
           </div>
 
