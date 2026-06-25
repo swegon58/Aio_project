@@ -16,7 +16,7 @@
   --text-muted: #55556e;
   --accent-primary: #0081f2;
   --accent-secondary: #5cb3ff;
-  --accent-glow: rgba(0, 129, 242, 0.35);
+  --accent-glow: rgba(0, 129, 242, 0.45);
   --accent-green: #00d9a6;
   --accent-green-glow: rgba(0, 217, 166, 0.3);
   --accent-orange: #ffaa30;
@@ -39,9 +39,12 @@
      white-highlight rgba + backdrop-blur + soft shadow. Opacity/blur
      tuned up from the original (made for light bg) so it reads on dark. */
   --glass-bg: rgba(255, 255, 255, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.16);
+  /* Border/inner-edge opacity bumped (0.16→0.24) and a dark inset edge
+     added so glass stays legible across every accent — cyan/green no longer
+     wash the border into their own glow. Accent-independent recipe. */
+  --glass-border: rgba(255, 255, 255, 0.24);
   --glass-blur: 16px;
-  --glass-shadow: 0 8px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --radius-standard: 18px;
 
   font-family: var(--font-outfit), -apple-system, sans-serif;
@@ -209,7 +212,7 @@
   padding: 18px 0;
   gap: 10px;
   overflow: hidden;
-  transition: width 0.18s ease;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 110;
 }
 
@@ -297,7 +300,7 @@
   margin: 0 auto;
   border-radius: 10px;
   font-size: 10.5px;
-  transition: width 0.18s ease, padding 0.18s ease;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .icon-rail-item--compact:hover { background: var(--bg-hover); }
@@ -308,6 +311,9 @@
   height: 0;
   overflow: hidden;
   font-size: 10px;
+  /* Synced to the container's 0.2s widen, with a tiny delay so the label
+     surfaces after the rail has widened — no more "pop" ahead of the box. */
+  transition: opacity 0.2s ease 0.05s;
 }
 
 .icon-rail-item--compact.active .icon-rail-label {
@@ -388,8 +394,8 @@
 
 .sidebar-close-btn {
   display: none;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
@@ -799,7 +805,7 @@
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   transition: var(--transition-fast);
-  z-index: 5;
+  z-index: 10;
 }
 .scroll-to-bottom-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 
@@ -953,10 +959,11 @@
   color: var(--text-muted);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transform: scale(0.92);
+  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-.message:hover .copy-btn { opacity: 1; }
+.message:hover .copy-btn { opacity: 1; transform: scale(1); }
 .copy-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 
 /* Mascot status badge (inside AI bubble while active) */
@@ -1355,7 +1362,10 @@
   transition: var(--transition-fast);
 }
 
-.workspace-entry-header:hover { background: var(--bg-hover); color: var(--text-primary); }
+.workspace-entry-header:hover {
+  background: color-mix(in srgb, var(--accent-primary) 8%, var(--bg-hover));
+  color: var(--text-primary);
+}
 
 .workspace-entry-chevron { transition: transform 0.15s ease; }
 .workspace-entry-chevron.open { transform: rotate(90deg); }
@@ -1748,7 +1758,11 @@
 }
 
 .panel-tab:hover { color: var(--text-secondary); }
-.panel-tab.active { color: var(--accent-secondary); border-bottom-color: var(--accent-primary); }
+.panel-tab.active {
+  color: var(--accent-secondary);
+  border-bottom: 3px solid var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
 
 .panel-tabs--segmented {
   border-bottom: none;
@@ -2583,10 +2597,18 @@
     position: fixed;
     inset: 0;
     z-index: 390;
-    display: none;
+    /* visibility+opacity (not display:none) so open/close can transition
+       smoothly — backdrop fades and the rail slides, no jarring snap. */
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0s linear 0.25s, opacity 0.25s ease;
   }
 
-  .icon-rail-mobile-sheet.open { display: block; }
+  .icon-rail-mobile-sheet.open {
+    visibility: visible;
+    opacity: 1;
+    transition-delay: 0s;
+  }
 
   .icon-rail-mobile-sheet-backdrop {
     position: absolute;
@@ -2599,6 +2621,12 @@
     inset: 0 auto 0 0;
     width: 80vw;
     max-width: 320px;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .icon-rail-mobile-sheet.open .icon-rail {
+    transform: translateX(0);
   }
 
   .message-content { max-width: 100%; }
