@@ -2331,7 +2331,7 @@ export function AppHome({ email }: AppHomeProps) {
           }`}
         >
           <div className="panel-header">
-            <h3>Workspace</h3>
+            <h3>{terminalOpen ? "Aio Terminal" : "Workspace"}</h3>
             <div className="panel-header-actions">
               <button
                 type="button"
@@ -2365,6 +2365,7 @@ export function AppHome({ email }: AppHomeProps) {
             </div>
           </div>
 
+          {!terminalOpen && (
           <div className="panel-tab-content">
           <div>
               <div className="panel-section-heading">Status</div>
@@ -2838,6 +2839,7 @@ export function AppHome({ email }: AppHomeProps) {
             </div>
 
           </div>
+          )}
 
           {terminalOpen && (
             <div className="aio-terminal">

@@ -1189,11 +1189,6 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.right-panel.terminal-split .panel-tab-content {
-  flex: 0 0 25%;
-  min-height: 25%;
-}
-
 .workspace-panel {
   flex: 1 1 auto;
   min-height: 0;
