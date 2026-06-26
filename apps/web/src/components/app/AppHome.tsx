@@ -47,7 +47,8 @@ import { MarkdownMessage } from "@/components/app/MarkdownMessage";
 import { DotGrid } from "@/components/app/DotGrid";
 import TextType from "@/components/app/TextType";
 import { TASK_TEMPLATES } from "@/components/app/TemplateGallery";
-import { ActivityStream } from "@/components/app/ActivityStream";
+import { RunTimeline, legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timeline";
+import { WorkspaceModules } from "@/components/app/WorkspaceModules";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
 import { SwitchGroup } from "@/components/ui/switch-group";
@@ -61,6 +62,7 @@ import {
   type HermesUIMessage,
   type MascotImageState,
 } from "@/lib/hermes/chat-types";
+import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
 import "@/app/(app)/app/mockup.css";
 
 // Mirrors route.ts PLAN_MODE_INSTRUCTIONS' aio-question protocol: a
@@ -143,6 +145,21 @@ function deriveMascotState(
   if (runningTool && runningTool.kind === "tool") return mascotStateForTool(runningTool.tool);
   if (status === "submitted" || (status === "streaming" && !hasText)) return "thinking";
   return "idle";
+}
+
+function runEventKey(event: AioRunEvent): string {
+  if ("toolCallId" in event) return `${event.type}:${event.toolCallId}`;
+  if ("approvalId" in event) return `${event.type}:${event.approvalId}`;
+  if ("artifactId" in event) return `${event.type}:${event.artifactId}`;
+  if ("taskId" in event) return `${event.type}:${event.taskId}`;
+  return `${event.type}:${event.runId}:${event.createdAt}`;
+}
+
+function upsertRunEvent(events: AioRunEvent[], event: AioRunEvent): AioRunEvent[] {
+  const key = runEventKey(event);
+  const index = events.findIndex((item) => runEventKey(item) === key);
+  const next = index === -1 ? [...events, event] : events.map((item, i) => (i === index ? event : item));
+  return next.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
 }
 
 type FilesSubTab = "gallery" | "files";
@@ -667,6 +684,8 @@ interface AppHomeProps {
 
 export function AppHome({ email }: AppHomeProps) {
   const [activity, setActivity] = useState<HermesActivityData[]>([]);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [runEvents, setRunEvents] = useState<AioRunEvent[]>([]);
   // code_exec showcase cards (grill-log agent-capability-showcase-cards
   // Q2/Q4/Q8): one task in flight per turn (scope-locked), live updates land
   // here; `activeShowcaseTaskId` drives both the chat-chip lookup and the
@@ -691,24 +710,29 @@ export function AppHome({ email }: AppHomeProps) {
 
   const { messages, sendMessage, status, setMessages, error: chatError, regenerate, clearError } = useChat<HermesUIMessage>({
     onData: (dataPart) => {
-      if (dataPart.type === "data-hermes-run") {
+      if (dataPart.type === "data-aio-event") {
+        setRunEvents((prev) => upsertRunEvent(prev, dataPart.data));
+        return;
+      }
+      if (dataPart.type === "data-aio-run" || dataPart.type === "data-hermes-run") {
         // Brand-new chat (sent before "New Chat" was ever clicked, so
         // activeConversationId is still null) — capture the server-assigned
         // thread id now, otherwise the reload-restore effect has no id to
         // look up and the whole turn vanishes on refresh.
         setActiveConversationId((prev) => prev ?? dataPart.data.threadId);
+        setActiveRunId(dataPart.data.runId);
         return;
       }
-      if (dataPart.type === "data-hermes-credits") {
+      if (dataPart.type === "data-aio-credits" || dataPart.type === "data-hermes-credits") {
         setCreditBalance(dataPart.data.balance);
         setCreditUsage(dataPart.data);
         return;
       }
-      if (dataPart.type === "data-hermes-compression") {
+      if (dataPart.type === "data-aio-compression" || dataPart.type === "data-hermes-compression") {
         setIsCompressing(dataPart.data.active);
         return;
       }
-      if (dataPart.type === "data-hermes-approval") {
+      if (dataPart.type === "data-aio-approval" || dataPart.type === "data-hermes-approval") {
         const incoming = dataPart.data;
         if (incoming.kind === "request") {
           setPendingApproval(incoming);
@@ -717,7 +741,7 @@ export function AppHome({ email }: AppHomeProps) {
         }
         return;
       }
-      if (dataPart.type === "data-hermes-showcase") {
+      if (dataPart.type === "data-aio-showcase" || dataPart.type === "data-hermes-showcase") {
         const incoming = dataPart.data;
         setShowcases((prev) => {
           const index = prev.findIndex((item) => item.taskId === incoming.taskId);
@@ -732,7 +756,7 @@ export function AppHome({ email }: AppHomeProps) {
         if (!isMobileViewport) setRightPanelCollapsed(false);
         return;
       }
-      if (dataPart.type !== "data-hermes-activity") return;
+      if (dataPart.type !== "data-aio-activity" && dataPart.type !== "data-hermes-activity") return;
       const incoming = dataPart.data;
       setActivity((prev) => {
         if (incoming.kind === "tool") {
@@ -954,6 +978,7 @@ export function AppHome({ email }: AppHomeProps) {
     e.preventDefault();
     if (!input.trim() || status !== "ready") return;
     setActivity([]);
+    setRunEvents([]);
     setShowcases([]);
     setPendingApproval(null);
     setPlanAwaitingAction(planMode === "plan");
@@ -1014,6 +1039,7 @@ export function AppHome({ email }: AppHomeProps) {
     }
 
     setActivity([]);
+    setRunEvents([]);
     setShowcases([]);
     setPendingApproval(null);
     setPlanAwaitingAction(false);
@@ -1087,6 +1113,7 @@ export function AppHome({ email }: AppHomeProps) {
     setActiveConversationId(data.id);
     setMessages(data.messages ?? []);
     setActivity([]);
+    setRunEvents([]);
     setShowcases([]);
     setPendingApproval(null);
     const last = data.messages?.[data.messages.length - 1];
@@ -1132,6 +1159,7 @@ export function AppHome({ email }: AppHomeProps) {
       setActiveConversationId(data.id);
       setMessages([]);
       setActivity([]);
+      setRunEvents([]);
       setShowcases([]);
       setPendingApproval(null);
       setPlanAwaitingAction(false);
@@ -1183,6 +1211,7 @@ export function AppHome({ email }: AppHomeProps) {
         setActiveConversationId(null);
         setMessages([]);
         setActivity([]);
+        setRunEvents([]);
         setShowcases([]);
         setPendingApproval(null);
         setPlanAwaitingAction(false);
@@ -1642,6 +1671,7 @@ export function AppHome({ email }: AppHomeProps) {
     setPlanAwaitingAction(false);
     setPlanMode("auto");
     setActivity([]);
+    setRunEvents([]);
     setShowcases([]);
     setPendingApproval(null);
     sendMessage(
@@ -1664,6 +1694,7 @@ export function AppHome({ email }: AppHomeProps) {
   const handlePlanAnswer = (answer: string) => {
     if (status !== "ready" || !answer.trim()) return;
     setActivity([]);
+    setRunEvents([]);
     setShowcases([]);
     setPendingApproval(null);
     setPlanOtherText("");
@@ -1721,6 +1752,18 @@ export function AppHome({ email }: AppHomeProps) {
     recentActivityCount > 0
       ? `${recentActivityCount} recent signal${recentActivityCount === 1 ? "" : "s"}`
       : "No recent activity";
+  const timelineEvents = useMemo(
+    () =>
+      runEvents.length > 0
+        ? runEvents
+        : legacyFrontendEventsToAioRunEvents({
+            activity,
+            approvals: pendingApproval ? [pendingApproval] : [],
+            showcases,
+            runId: activeRunId ?? activeConversationId ?? "current-run",
+          }),
+    [activity, activeConversationId, activeRunId, pendingApproval, runEvents, showcases],
+  );
   const activeTodayCards = TODAY_CARDS.filter((card) => !ignoredTodayCards.has(card.id));
   const renderTodayCard = (card: TodayCard) => (
     <button
@@ -2605,6 +2648,15 @@ export function AppHome({ email }: AppHomeProps) {
                 </div>
               </div>
 
+              <div className="panel-section">
+                <div className="panel-section-heading panel-section-heading--inline">Workspace Modules</div>
+                <WorkspaceModules
+                  events={timelineEvents}
+                  memoryLine={memoryLine}
+                  activeFileName={activeFile?.fileName ?? activeFile?.filePath?.split("/").pop()}
+                />
+              </div>
+
             </div>
 
           {openShowcase && (
@@ -2870,7 +2922,7 @@ export function AppHome({ email }: AppHomeProps) {
                           </button>
                           {isOpen && (
                             <div className="workspace-entry-body">
-                              {isLive && <ActivityStream items={activity} />}
+                              {isLive && <RunTimeline events={timelineEvents} compact />}
                               {entry.blocks.map((block, i) => {
                                 const blockId = `${entry.id}-${i}`;
                                 return (
@@ -2968,7 +3020,7 @@ export function AppHome({ email }: AppHomeProps) {
               </button>
             </div>
             <div className="workspace-entry-body">
-              {mobileWorkspaceIsLive && <ActivityStream items={activity} />}
+              {mobileWorkspaceIsLive && <RunTimeline events={timelineEvents} compact />}
               {mobileWorkspaceEntry.blocks.map((block, i) => (
                 <pre key={i} className="workspace-code-block">
                   <code>{block.code}</code>

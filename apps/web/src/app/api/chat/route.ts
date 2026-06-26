@@ -226,7 +226,10 @@ export async function POST(req: NextRequest) {
               }
 
               if (aioEvent.type === "artifact.created") {
-                assistantArtifacts.push(aioEvent.artifact);
+                const filePath = aioEvent.artifact?.filePath ?? aioEvent.url;
+                if (filePath) {
+                  assistantArtifacts.push({ filePath, fileName: aioEvent.artifact?.fileName ?? aioEvent.name });
+                }
                 continue;
               }
 

@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
 
 // Custom data part forwarded to the UI message stream as
 // `data-hermes-activity`. The activity stream renders one row per item,
@@ -119,6 +120,14 @@ export type HermesUIMessage = UIMessage<
     "hermes-credits": HermesCreditsData;
     "hermes-compression": HermesCompressionData;
     "hermes-showcase": HermesShowcaseData;
+    "aio-event": AioRunEvent;
+    "aio-activity": HermesActivityData;
+    "aio-approval": HermesApprovalData;
+    "aio-reasoning": HermesReasoningData;
+    "aio-run": HermesRunData;
+    "aio-credits": HermesCreditsData;
+    "aio-compression": HermesCompressionData;
+    "aio-showcase": HermesShowcaseData;
   }
 >;
 

@@ -16,6 +16,16 @@ export function writeCreditSnapshot(
   // TODO: Rename data-hermes-credits to an Aio-native stream part after the
   // current chat UI no longer depends on the legacy name.
   writer.write({
+    type: "data-aio-credits",
+    id: `${snapshot.runId}:credits`,
+    data: {
+      balance: snapshot.balance,
+      usedPercent: snapshot.usedPercent,
+      resetAt: snapshot.resetAt,
+      planTier: snapshot.planTier,
+    },
+  });
+  writer.write({
     type: "data-hermes-credits",
     id: `${snapshot.runId}:credits`,
     data: {

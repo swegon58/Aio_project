@@ -1,27 +1,24 @@
 {
-  "name": "ai-website-clone-template",
+  "name": "@aio/web",
   "version": "0.3.1",
   "private": true,
-  "description": "Clone any website into a clean, modern Next.js codebase using AI coding agents",
-  "author": "JCodesMore",
+  "description": "Aio web frontend for an autonomous AI agent workspace",
+  "author": "Sweg On",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/JCodesMore/ai-website-cloner-template.git"
+    "url": "https://github.com/swegon58/Aio_project.git"
   },
-  "homepage": "https://github.com/JCodesMore/ai-website-cloner-template",
+  "homepage": "https://github.com/swegon58/Aio_project",
   "bugs": {
-    "url": "https://github.com/JCodesMore/ai-website-cloner-template/issues"
+    "url": "https://github.com/swegon58/Aio_project/issues"
   },
   "keywords": [
-    "claude-code",
-    "website-clone",
-    "reverse-engineering",
+    "aio",
+    "ai-agent",
+    "autonomous-agent",
     "nextjs",
-    "ai",
-    "template",
-    "tailwindcss",
-    "shadcn-ui"
+    "hermes-agent"
   ],
   "engines": {
     "node": ">=24"
