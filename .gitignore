@@ -10,6 +10,7 @@ apps/web/.env.local
 # generated tool caches — never commit
 .playwright-mcp/
 .lean-ctx/
+.firecrawl/
 
 # secrets
 .claude/channels/discord/.env
