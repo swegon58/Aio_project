@@ -1,32 +1,41 @@
 # Refactor Next Steps
 
-## Completed In This Pass
+## Completed
 
-- Removed tracked MCP config files from Git tracking while keeping local copies on disk.
-- Added `.mcp.json` and local secret-style files to `.gitignore`.
-- Added `.mcp.example.json` with placeholder-only GitHub MCP config.
-- Introduced the Aio runtime boundary under `apps/web/src/lib/aio`.
-- Added `AioRunEvent` and a Hermes-to-Aio event mapper.
-- Kept existing `data-hermes-*` stream output for frontend compatibility.
-- Extracted plan-mode prompts, request shaping, conversation persistence, RAG retrieval, credit guard, usage settlement, runtime client calls, SSE parsing, and input scanning.
+- Security cleanup for MCP config tracking:
+  - `.mcp.json` and `apps/web/.mcp.json` are untracked local files.
+  - `.gitignore` blocks `.mcp.json`, `*.local.json`, `.env`, and `.env.*` while allowing env examples.
+  - `.mcp.example.json` contains placeholder-only GitHub MCP config.
+- Package metadata cleanup:
+  - `apps/web/package.json` now uses Aio metadata instead of the old website-clone template metadata.
+- Runtime boundary:
+  - Aio product/runtime boundary lives under `apps/web/src/lib/aio`.
+  - `apps/web/src/app/api/chat/route.ts` remains an orchestration layer.
+- Event protocol:
+  - `AioRunStatus` includes `waiting_approval`.
+  - `AioRiskLevel` is normalized to `safe`, `medium`, `dangerous`.
+  - Hermes events map through `HermesEventMapper` before reaching product/UI layers.
+- Stream compatibility:
+  - `data-aio-event` and `data-aio-*` stream parts are emitted.
+  - Existing `data-hermes-*` stream parts remain intact as compatibility aliases.
+  - The frontend prefers `data-aio-event` for Run Timeline state.
+- Run Timeline UI:
+  - Added `RunTimeline`, event cards, `AgentStateBadge`, `MascotStateMapper`, and a legacy frontend adapter.
+  - Integrated `RunTimeline` into live workspace activity without deleting `ActivityStream`.
+- Product module shells:
+  - Added Tool Center, Knowledge Center, Agent Builder, Deep Research Mode, and Workflow Canvas surfaces in the right panel.
 
-## Near-Term Work
+## Next Steps
 
-- Migrate frontend stream readers from `data-hermes-*` to `data-aio-*`.
-- Rename database tables such as `hermes_conversations` only after a migration plan exists.
-- Add unit tests for `HermesEventMapper`, especially tool reconciliation, artifact creation, approvals, and code execution showcase updates.
-- Move credit pricing imports behind an Aio billing naming layer so the route no longer imports from `lib/hermes/pricing`.
-- Add an integration test for the chat route with mocked runtime responses.
+1. Remove `data-hermes-*` aliases after compatibility verification.
+2. Connect Tool Center to a real tool registry.
+3. Connect Knowledge Center to document and memory management.
+4. Persist Agent Builder definitions.
+5. Back Deep Research Mode with source runs and citations.
+6. Back Workflow Canvas with editable workflow state.
+7. Add unit tests for `HermesEventMapper`, `frontend-event-adapter`, and `MascotStateMapper`.
+8. Add a route integration test with mocked runtime SSE events.
 
-## Product Feature Tracks
+## Security Reminder
 
-- Run Timeline: render `AioRunEvent` as an inspectable task history.
-- Tool Center: expose tool availability and approval controls without runtime-specific naming.
-- Knowledge Center: make document retrieval visible and manageable.
-- Agent Builder: define user-facing workflows on top of Aio events, not runtime internals.
-- Deep Research: use the event protocol for long-running research status, sources, artifacts, and checkpoints.
-- Workflow Canvas: model multi-step user workflows as Aio tasks and artifacts.
-
-## Research Rule
-
-Onyx and OpenManus can inform UX and workflow choices, but Aio should not import their agent frameworks or reshape itself around developer-operations use cases.
+If any real token was previously committed or shared, the owner must revoke it manually in the provider settings. Removing a file from tracking does not revoke exposed credentials.

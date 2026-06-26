@@ -11,8 +11,8 @@ type SettingsTab = "general" | "connections" | "credentials" | "knowledge" | "pl
 
 const SETTINGS_TABS = [
   { key: "general", label: "Personalization", icon: Palette },
-  { key: "connections", label: "Connections", icon: Plug },
-  { key: "credentials", label: "API Keys", icon: KeyRound },
+  { key: "connections", label: "Connected Apps", icon: Plug },
+  { key: "credentials", label: "Model Providers", icon: KeyRound },
   { key: "knowledge", label: "Knowledge", icon: Database },
   { key: "plan", label: "Plan", icon: CreditCard },
 ] satisfies { key: SettingsTab; label: string; icon: typeof Palette }[];
@@ -109,11 +109,9 @@ interface SettingsModalProps {
 
 // Settings modal markup/CSS ported from ai_agent_webapp (Copy 2).html's
 // #settingsModal, then adapted to Aio's current English product copy.
-// Toggles/sliders below have no corresponding real backend setting in
-// /api/chat — they remain visual-only, matching the mockup's own
-// non-persisted behavior. Theme + accent swatches are wired since AppShell
-// already manages theme/accent state. Connections + Credentials moved here
-// from the right panel so the panel only shows agent-facing info.
+// Keep this surface limited to settings that are wired today or manage real
+// account/workspace resources. Avoid visual-only toggles that imply runtime
+// behavior the backend does not yet support.
 export function SettingsModal({
   open,
   onClose,
@@ -183,14 +181,6 @@ export function SettingsModal({
       3000,
     );
   };
-  const [thinkingMode, setThinkingMode] = useState(true);
-  const [autoTool, setAutoTool] = useState(true);
-  const [streaming, setStreaming] = useState(true);
-  const [saveHistory, setSaveHistory] = useState(true);
-  const [sound, setSound] = useState(false);
-  const [streamSpeed, setStreamSpeed] = useState(30);
-  const [temperature, setTemperature] = useState(70);
-  const [maxTokens, setMaxTokens] = useState(4096);
 
   if (!open) return null;
   const activeTab = SETTINGS_TABS.find((item) => item.key === tab) ?? SETTINGS_TABS[0];
@@ -228,6 +218,7 @@ export function SettingsModal({
           <>
             <div className="setting-group">
               <div className="setting-label">Appearance</div>
+              <div className="setting-desc">Choose how Aio looks on this device.</div>
               <div className="theme-selector">
                 <button
                   className={`theme-option dark${theme === "dark" ? " active" : ""}`}
@@ -248,6 +239,7 @@ export function SettingsModal({
 
             <div className="setting-group">
               <div className="setting-label">Accent Color</div>
+              <div className="setting-desc">Set the highlight color used across the workspace.</div>
               <div className="accent-colors">
                 {ACCENTS.map((a) => (
                   <button
@@ -258,124 +250,6 @@ export function SettingsModal({
                   />
                 ))}
               </div>
-            </div>
-
-            <div className="setting-group">
-              <div className="setting-label">
-                Thinking Mode
-                <button
-                  type="button"
-                  className={`toggle-switch${thinkingMode ? " active" : ""}`}
-                  aria-pressed={thinkingMode}
-                  aria-label="Thinking Mode"
-                  onClick={() => setThinkingMode((v) => !v)}
-                />
-              </div>
-              <div className="setting-desc">Show the reasoning process before responding</div>
-            </div>
-
-            <div className="setting-group">
-              <div className="setting-label">
-                Automatic Tool Use
-                <button
-                  type="button"
-                  className={`toggle-switch${autoTool ? " active" : ""}`}
-                  aria-pressed={autoTool}
-                  aria-label="Automatic Tool Use"
-                  onClick={() => setAutoTool((v) => !v)}
-                />
-              </div>
-              <div className="setting-desc">Automatically choose and run the right tool</div>
-            </div>
-
-            <div className="setting-group">
-              <div className="setting-label">
-                Streaming Responses
-                <button
-                  type="button"
-                  id="streamingToggle"
-                  className={`toggle-switch${streaming ? " active" : ""}`}
-                  aria-pressed={streaming}
-                  aria-label="Streaming Responses"
-                  onClick={() => setStreaming((v) => !v)}
-                />
-              </div>
-              <div className="setting-desc">Show responses incrementally while they are being generated</div>
-            </div>
-
-            <div className="setting-group">
-              <div className="setting-label">
-                Save History
-                <button
-                  type="button"
-                  className={`toggle-switch${saveHistory ? " active" : ""}`}
-                  aria-pressed={saveHistory}
-                  aria-label="Save History"
-                  onClick={() => setSaveHistory((v) => !v)}
-                />
-              </div>
-              <div className="setting-desc">Keep previous conversations available</div>
-            </div>
-
-            <div className="setting-group">
-              <div className="setting-label">
-                Notification Sound
-                <button
-                  type="button"
-                  id="soundToggle"
-                  className={`toggle-switch${sound ? " active" : ""}`}
-                  aria-pressed={sound}
-                  aria-label="Notification Sound"
-                  onClick={() => setSound((v) => !v)}
-                />
-              </div>
-              <div className="setting-desc">Play a sound when a response arrives</div>
-            </div>
-
-            <div className="setting-group">
-              <div className="setting-label">
-                Streaming Speed
-                <span className="setting-desc">{streamSpeed} ms/word</span>
-              </div>
-              <input
-                type="range"
-                className="setting-slider"
-                min={10}
-                max={100}
-                value={streamSpeed}
-                onChange={(e) => setStreamSpeed(Number(e.target.value))}
-              />
-            </div>
-
-            <div className="setting-group">
-              <div className="setting-label">
-                Creativity
-                <span className="setting-desc">{(temperature / 100).toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                className="setting-slider"
-                min={0}
-                max={100}
-                value={temperature}
-                onChange={(e) => setTemperature(Number(e.target.value))}
-              />
-            </div>
-
-            <div className="setting-group">
-              <div className="setting-label">
-                Maximum Response Length
-                <span className="setting-desc">{maxTokens} tokens</span>
-              </div>
-              <input
-                type="range"
-                className="setting-slider"
-                min={256}
-                max={8192}
-                step={256}
-                value={maxTokens}
-                onChange={(e) => setMaxTokens(Number(e.target.value))}
-              />
             </div>
           </>
         )}
@@ -420,7 +294,7 @@ export function SettingsModal({
             ))}
 
             <div className="panel-section-title" style={{ marginTop: 16 }}>
-              Add / Update Token
+              Add or update app access
             </div>
             <form onSubmit={onTokenSubmit} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <select
@@ -439,7 +313,7 @@ export function SettingsModal({
                 type="password"
                 value={tokenValue}
                 onChange={(e) => onTokenValueChange(e.target.value)}
-                placeholder="Paste token"
+                placeholder="Paste access token"
                 className="message-input"
                 style={{ height: 32 }}
               />
@@ -448,7 +322,7 @@ export function SettingsModal({
                 className="mcp-add-btn"
                 disabled={tokenSubmitting || !tokenPlatform || !tokenValue.trim()}
               >
-                {tokenSubmitting ? "Saving…" : "Save Token"}
+                {tokenSubmitting ? "Saving…" : "Save access"}
               </button>
               {tokenMessage && <div className="memory-text">{tokenMessage}</div>}
             </form>
@@ -479,7 +353,7 @@ export function SettingsModal({
             ))}
 
             <div className="panel-section-title" style={{ marginTop: 16 }}>
-              Add / Update Key
+              Add or update provider key
             </div>
             <form onSubmit={onCredentialSubmit} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <select
@@ -507,7 +381,7 @@ export function SettingsModal({
                 className="mcp-add-btn"
                 disabled={credentialSubmitting || !credentialId || !credentialValue.trim()}
               >
-                {credentialSubmitting ? "Saving…" : "Save Key"}
+                {credentialSubmitting ? "Saving…" : "Save provider key"}
               </button>
               {credentialMessage && <div className="memory-text">{credentialMessage}</div>}
             </form>
