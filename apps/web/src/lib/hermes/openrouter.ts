@@ -1,4 +1,4 @@
-// Aio × Hermes — per-customer OpenRouter key provisioning (Q15/Q41).
+// Aio x Hermes - per-customer OpenRouter key provisioning (Q15/Q41).
 //
 // Uses OpenRouter's Provisioning API (https://openrouter.ai/docs/features/provisioning-api-keys)
 // to create a scoped API key per customer with a hard monthly spend ceiling

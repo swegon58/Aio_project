@@ -30,7 +30,8 @@ export function Mascot({ state }: { state: MascotImageState }) {
           alt={MASCOT_LABEL[state]}
           width={112}
           height={112}
-          className="object-contain"
+          className="aio-mascot-img object-contain"
+          style={{ width: 112, height: 112 }}
           priority
         />
       </div>
@@ -47,6 +48,7 @@ export function MascotStatusBadge({ state }: { state: MascotImageState }) {
         width={64}
         height={64}
         className="bubble-status-icon"
+        style={{ width: 64, height: 64 }}
       />
       <span className="bubble-status-label">{MASCOT_LABEL[state]}</span>
     </div>

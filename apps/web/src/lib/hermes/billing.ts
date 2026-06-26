@@ -1,4 +1,4 @@
-// Aio × Hermes — credit accounting (BUILD_SPEC §7 Q16/Q29).
+// Aio x Hermes - credit accounting (BUILD_SPEC Section 7 Q16/Q29).
 //
 // Credits are a prepaid balance on hermes_registry.credit_balance (1 credit
 // = $0.001 raw OpenRouter cost, pre-markup — see pricing.ts). This module

@@ -146,6 +146,17 @@ function deriveMascotState(
 }
 
 type FilesSubTab = "gallery" | "files";
+type TodayAction = "plan" | "run" | "schedule" | "ignore";
+
+interface TodayCard {
+  id: string;
+  kind: "continue" | "review" | "create" | "schedule";
+  label: string;
+  title: string;
+  reason: string;
+  source: string;
+  prompt: string;
+}
 
 interface MetaLogEntry {
   id: string;
@@ -218,7 +229,7 @@ function ShowcaseErrorDetail({ stdout }: { stdout?: string }) {
     <div className="showcase-chip-log" style={{ fontSize: 11.5, color: "var(--aio-error, #e25c5c)", marginTop: 2 }}>
       <span className="truncate">{firstLine}</span>
       <button type="button" className="showcase-chip-log-toggle" onClick={() => setOpen((v) => !v)}>
-        {open ? "Ẩn log" : "Xem log đầy đủ"}
+        {open ? "Hide log" : "View full log"}
       </button>
       {open && <pre className="workspace-code-block">{stdout}</pre>}
     </div>
@@ -570,11 +581,49 @@ interface MemorySnapshot {
   reason?: string;
 }
 
-const CAPABILITIES = ["Web browsing", "Code execution", "File analysis", "Data extraction", "Image understanding", "Long-running tasks"];
+const TODAY_CARDS: TodayCard[] = [
+  {
+    id: "continue-current-thread",
+    kind: "continue",
+    label: "Continue",
+    title: "Pick up the current thread",
+    reason: "Turn the latest context into a concrete next step.",
+    source: "Recent chat",
+    prompt: "Review our current conversation and suggest the most useful next step. Then help me execute it.",
+  },
+  {
+    id: "review-context",
+    kind: "review",
+    label: "Review",
+    title: "Find what needs attention",
+    reason: "Scan memory, files, and open context for anything worth acting on.",
+    source: "Workspace",
+    prompt: "Review my current Aio context and tell me what deserves attention next, with a short prioritized list.",
+  },
+  {
+    id: "create-artifact",
+    kind: "create",
+    label: "Create",
+    title: "Make a useful artifact",
+    reason: "Convert loose context into a plan, doc, table, or draft.",
+    source: "Aio",
+    prompt: "Based on my current context, propose one useful artifact to create and draft the first version.",
+  },
+  {
+    id: "schedule-followup",
+    kind: "schedule",
+    label: "Schedule",
+    title: "Set up a recurring follow-up",
+    reason: "Convert repeated work into a scheduled check.",
+    source: "Tasks",
+    prompt: "Help me turn one recurring task from my current context into a scheduled Aio follow-up.",
+  },
+];
 
 // ponytail: nav targets beyond Home are placeholders, no routes yet — boss said he'll wire them up later
 const ICON_RAIL_ITEMS = [
   { key: "home", label: "Home", icon: Home, active: true },
+  { key: "scheduled", label: "Scheduled", icon: Clock, active: false },
   { key: "agents", label: "Agents", icon: Users, active: false },
   { key: "tasks", label: "Tasks", icon: ListChecks, active: false },
   { key: "knowledge", label: "Knowledge", icon: Brain, active: false },
@@ -788,6 +837,7 @@ export function AppHome({ email }: AppHomeProps) {
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const [knowledgeUploading, setKnowledgeUploading] = useState(false);
   const knowledgeFileInputRef = useRef<HTMLInputElement>(null);
+  const [ignoredTodayCards, setIgnoredTodayCards] = useState<Set<string>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [accent, setAccent] = useState<AccentKey>("blue");
@@ -927,6 +977,61 @@ export function AppHome({ email }: AppHomeProps) {
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
     setInputMultiline(el.scrollHeight > 40);
+  };
+
+  const focusComposer = () => {
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
+  const handleTodayAction = (card: TodayCard, action: TodayAction) => {
+    if (action === "ignore") {
+      setIgnoredTodayCards((prev) => {
+        const next = new Set(prev);
+        next.add(card.id);
+        return next;
+      });
+      return;
+    }
+
+    if (action === "plan") {
+      setPlanMode("plan");
+      setInput(card.prompt);
+      focusComposer();
+      return;
+    }
+
+    if (action === "schedule") {
+      setPlanMode("plan");
+      setInput(`Set up a scheduled Aio follow-up for this: ${card.prompt}`);
+      focusComposer();
+      return;
+    }
+
+    if (status !== "ready") {
+      setInput(card.prompt);
+      focusComposer();
+      return;
+    }
+
+    setActivity([]);
+    setShowcases([]);
+    setPendingApproval(null);
+    setPlanAwaitingAction(false);
+    sendMessage({ text: card.prompt }, { body: { planMode: false } });
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  };
+
+  const handleRailItemClick = (key: (typeof ICON_RAIL_ITEMS)[number]["key"]) => {
+    if (key === "settings") {
+      setSettingsOpen(true);
+      return;
+    }
+    if (key === "scheduled") {
+      setPlanMode("plan");
+      setInput("Review my recurring work and help me set up one useful scheduled Aio follow-up.");
+      setRightPanelCollapsed(false);
+      focusComposer();
+    }
   };
 
   const loadConnections = async () => {
@@ -1268,6 +1373,11 @@ export function AppHome({ email }: AppHomeProps) {
       }
       if (!res.ok) throw new Error(`status ${res.status}`);
       const data = await res.json();
+      if (data.locked) {
+        setCronLocked(true);
+        setCronJobs([]);
+        return;
+      }
       setCronJobs(Array.isArray(data) ? data : data.jobs ?? []);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1597,6 +1707,36 @@ export function AppHome({ email }: AppHomeProps) {
       : lastCompletedTool
         ? `${brand.name} last ran ${lastCompletedTool.label ?? lastCompletedTool.tool}`
         : `${brand.name} is ready`;
+  const recentActivityCount = activity.length + metaLog.length;
+  const memoryLine = memorySnapshot?.available
+    ? memorySnapshot.summary
+      ? memorySnapshot.summary
+      : (memorySnapshot.facts?.length ?? 0) > 0
+        ? `${memorySnapshot.facts!.length} memory note${memorySnapshot.facts!.length === 1 ? "" : "s"} available`
+        : "No memory recorded yet"
+    : memoryError
+      ? "Memory failed to load"
+      : "Memory not available";
+  const activityLine =
+    recentActivityCount > 0
+      ? `${recentActivityCount} recent signal${recentActivityCount === 1 ? "" : "s"}`
+      : "No recent activity";
+  const activeTodayCards = TODAY_CARDS.filter((card) => !ignoredTodayCards.has(card.id));
+  const renderTodayCard = (card: TodayCard) => (
+    <button
+      key={card.id}
+      type="button"
+      className={`today-card today-card--${card.kind}`}
+      onClick={() => handleTodayAction(card, "plan")}
+    >
+      <div className="today-card-topline">
+        <span className="today-card-label">{card.label}</span>
+        <span className="today-card-source">{card.source}</span>
+      </div>
+      <div className="today-card-title">{card.title}</div>
+      <div className="today-card-reason">{card.reason}</div>
+    </button>
+  );
   const username = email.split("@")[0];
   const userInitial = email.charAt(0).toUpperCase();
   const greetingLines = useMemo(
@@ -1746,21 +1886,13 @@ export function AppHome({ email }: AppHomeProps) {
 
   return (
     <div className="aio-mockup" data-theme={theme} data-accent={accent} suppressHydrationWarning>
-      {/* Blocking inline script: applies saved theme/accent to this element's
-          attributes before the browser paints, so there's no flash of the
-          SSR default before React hydrates and runs the read-effect above. */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `(function(){try{var el=document.currentScript.parentElement;var t=localStorage.getItem("aio-theme");if(t==="light")el.setAttribute("data-theme","light");var a=localStorage.getItem("aio-accent");if(a)el.setAttribute("data-accent",a);}catch(e){}})();`,
-        }}
-      />
       <div className="particles-bg" aria-hidden>
         <DotGrid
           key={theme}
           dotSize={3}
           gap={28}
-          baseColor={mixHex(ACCENT_HEX[accent], BG_HEX[theme], 0.16)}
-          activeColor={mixHex(ACCENT_HEX[accent], BG_HEX[theme], 0.32)}
+          baseColor={mixHex(ACCENT_HEX[accent], BG_HEX[theme], 0.1)}
+          activeColor={mixHex(ACCENT_HEX[accent], BG_HEX[theme], 0.22)}
           proximity={0}
           shockRadius={0}
           shockStrength={0}
@@ -1789,7 +1921,10 @@ export function AppHome({ email }: AppHomeProps) {
               key={key}
               type="button"
               className={`icon-rail-item${active ? " active" : ""}`}
-              onClick={() => setIconRailMobileOpen(false)}
+              onClick={() => {
+                setIconRailMobileOpen(false);
+                handleRailItemClick(key);
+              }}
             >
               <Icon className="w-4.5 h-4.5" />
               <span className="icon-rail-label" style={{ opacity: 1 }}>{label}</span>
@@ -1810,28 +1945,15 @@ export function AppHome({ email }: AppHomeProps) {
                 key={key}
                 type="button"
                 className={`icon-rail-item icon-rail-item--compact${active ? " active" : ""}`}
-                onClick={key === "settings" ? () => setSettingsOpen(true) : undefined}
+                onClick={() => handleRailItemClick(key)}
+                title={label}
               >
                 <Icon className="w-5.5 h-5.5" />
                 <span className="icon-rail-label">{label}</span>
               </button>
             ))}
             <div className="icon-rail-footer">
-              <div className="icon-rail-footer-avatar">{userInitial}</div>
-              <div className="icon-rail-footer-expanded">
-                <div className="icon-rail-footer-info">
-                  <div className="icon-rail-footer-name">{username}</div>
-                  <div className="icon-rail-footer-plan">Pro Plan</div>
-                </div>
-                <button
-                  type="button"
-                  className="icon-rail-footer-settings-btn"
-                  onClick={() => setSettingsOpen(true)}
-                  aria-label="Settings"
-                >
-                  <Cog className="w-4 h-4" />
-                </button>
-              </div>
+              <div className="icon-rail-footer-avatar" title={`${username} · Pro Plan`}>{userInitial}</div>
             </div>
           </nav>
         </div>
@@ -2007,6 +2129,14 @@ export function AppHome({ email }: AppHomeProps) {
                   showCursor
                   cursorCharacter="|"
                 />
+                {isMobileViewport && activeTodayCards.length > 0 && (
+                  <section className="mobile-today-panel" aria-label="Today">
+                    <div className="mobile-today-heading">Today</div>
+                    <div className="mobile-today-strip">
+                      {activeTodayCards.map(renderTodayCard)}
+                    </div>
+                  </section>
+                )}
                 <div className="quick-actions">
                   {TASK_TEMPLATES.slice(0, 4).map((template) => {
                     const Icon = template.icon;
@@ -2132,10 +2262,10 @@ export function AppHome({ email }: AppHomeProps) {
                                   ) : (
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                   )}
-                                  <span>Code thực thi</span>
+                                  <span>Code Execution</span>
                                   {!isMobileViewport && (
                                     <span className="truncate">
-                                      {errored ? "Lỗi khi chạy " : "Đã tạo & chạy "}
+                                      {errored ? "Run failed for " : "Created & ran "}
                                       {scriptName}
                                     </span>
                                   )}
@@ -2425,8 +2555,8 @@ export function AppHome({ email }: AppHomeProps) {
           {!terminalOpen && (
           <div className="panel-tab-content">
           <div>
-              <div className="panel-section-heading">Status</div>
-              <div className="panel-section">
+              <div className="panel-section-heading">Aio</div>
+              <div className="panel-section panel-section--aio">
                 <div className="agent-info-card">
                   <div className="agent-info-avatar">
                     <Image src="/seo/icon.png" alt={brand.name} width={44} height={44} />
@@ -2436,12 +2566,15 @@ export function AppHome({ email }: AppHomeProps) {
                     <p>{liveStatusText}</p>
                   </div>
                 </div>
-                <div className="capability-tags">
-                  {CAPABILITIES.map((c) => (
-                    <span key={c} className="capability-tag">
-                      <Check /> {c}
-                    </span>
-                  ))}
+                <div className="aio-signal-list">
+                  <div className="aio-signal-row">
+                    <Brain className="w-3.5 h-3.5" />
+                    <span>{memoryLine}</span>
+                  </div>
+                  <div className="aio-signal-row">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{activityLine}</span>
+                  </div>
                 </div>
                 {usedPercentLabel && (
                   <div className={`usage-meter${usageLevel !== "normal" ? ` usage-meter--${usageLevel}` : ""}`}>
@@ -2462,202 +2595,21 @@ export function AppHome({ email }: AppHomeProps) {
                 )}
               </div>
 
-              <div className="panel-section">
-                <div className="panel-section-title">Task Progress</div>
-                {kanbanError && (
-                  <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
-                    Failed to load: {kanbanError}
-                  </div>
-                )}
-                {kanban === null && !kanbanError && <PanelLoading />}
-                {kanban && (() => {
-                  const allTasks = kanban.statuses.flatMap((s) => kanban.columns[s] ?? []);
-                  const doneCount = (kanban.columns.done ?? []).length;
-                  const total = allTasks.length;
-                  const activeCron = (cronJobs ?? []).filter((j) => j.enabled !== false).length;
-                  if (total === 0 && activeCron === 0) {
-                    return <PanelEmpty icon={<Columns className="w-5 h-5" />}>No tasks yet.</PanelEmpty>;
-                  }
-                  return (
-                    <>
-                      {total > 0 && (
-                        <div className="usage-meter">
-                          <div className="usage-meter-bar">
-                            <div
-                              className="usage-meter-fill"
-                              style={{ width: `${Math.round((doneCount / total) * 100)}%` }}
-                            />
-                          </div>
-                          <div className="usage-meter-label">
-                            <span>
-                              {doneCount}/{total} tasks done
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      {activeCron > 0 && (
-                        <div className="memory-text" style={{ opacity: 0.7, marginTop: 6 }}>
-                          {activeCron} scheduled task{activeCron === 1 ? "" : "s"} active
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-
-                {cronLocked && (
-                  <div className="mcp-server-item" style={{ opacity: 0.6, marginTop: 10 }}>
-                    <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
-                      <Lock className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="mcp-server-info">
-                      <div className="mcp-server-name">Scheduled Tasks</div>
-                      <div className="mcp-server-url">Requires the Business plan</div>
-                    </div>
-                    <button
-                      type="button"
-                      className="mcp-add-btn"
-                      style={{ width: "auto", flexShrink: 0, padding: "4px 10px", fontSize: 12 }}
-                      disabled={upgrading}
-                      onClick={handleUpgradeToBusiness}
-                    >
-                      {upgrading ? "Redirecting…" : "Upgrade"}
-                    </button>
-                  </div>
-                )}
-
-                {!cronLocked && cronError && (
-                  <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8, marginTop: 10 }}>
-                    Failed to load: {cronError}
-                  </div>
-                )}
-
-                {!cronLocked && cronJobs && cronJobs.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
-                    {cronJobs.map((job) => (
-                      <div key={job.id} className="mcp-server-item">
-                        <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
-                          <Clock className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="mcp-server-info">
-                          <div className="mcp-server-name">{job.name}</div>
-                          <div className="mcp-server-url">{job.schedule}</div>
-                        </div>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          <button
-                            type="button"
-                            className="mcp-add-btn"
-                            style={{ padding: "4px 6px" }}
-                            disabled={cronActionPending === job.id}
-                            onClick={() =>
-                              handleCronAction(job.id, job.enabled === false ? "resume" : "pause")
-                            }
-                            aria-label={job.enabled === false ? "Resume" : "Pause"}
-                          >
-                            {job.enabled === false ? (
-                              <Play className="w-3.5 h-3.5" />
-                            ) : (
-                              <Pause className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            className="mcp-add-btn"
-                            style={
-                              confirmDeleteId === job.id
-                                ? { padding: "4px 6px", background: "rgba(226, 92, 92, 0.12)", color: "#e25c5c" }
-                                : { padding: "4px 6px" }
-                            }
-                            disabled={cronActionPending === job.id}
-                            onClick={() => handleCronDelete(job.id)}
-                            aria-label={confirmDeleteId === job.id ? "Confirm delete task" : "Delete task"}
-                            title={confirmDeleteId === job.id ? "Click again to delete" : "Delete task"}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {!cronLocked && (
-                  <>
-                    <div className="panel-section-title" style={{ marginTop: 16 }}>
-                      New Scheduled Task
-                    </div>
-                    <form
-                      onSubmit={handleCronCreate}
-                      style={{ display: "flex", flexDirection: "column", gap: 8 }}
-                    >
-                      <input
-                        type="text"
-                        value={cronName}
-                        onChange={(e) => setCronName(e.target.value)}
-                        placeholder="Task name"
-                        className="message-input"
-                        style={{ height: 32 }}
-                      />
-                      <input
-                        type="text"
-                        value={cronSchedule}
-                        onChange={(e) => setCronSchedule(e.target.value)}
-                        placeholder="Cron schedule (e.g. 0 9 * * *)"
-                        className="message-input"
-                        style={{ height: 32 }}
-                      />
-                      <textarea
-                        value={cronPrompt}
-                        onChange={(e) => setCronPrompt(e.target.value)}
-                        placeholder="What should the agent do when this runs?"
-                        className="message-input"
-                        style={{ minHeight: 64, resize: "vertical", paddingTop: 6 }}
-                      />
-                      <button
-                        type="submit"
-                        className="mcp-add-btn"
-                        disabled={cronCreating || !cronName.trim() || !cronSchedule.trim()}
-                      >
-                        {cronCreating ? "Creating…" : "Create Task"}
-                      </button>
-                      {cronCreateMessage && <div className="memory-text">{cronCreateMessage}</div>}
-                    </form>
-                  </>
-                )}
+              <div className="panel-section panel-section--today">
+                <div className="panel-section-heading panel-section-heading--inline">Today</div>
+                <div className="today-card-grid">
+                  {activeTodayCards.map(renderTodayCard)}
+                  {activeTodayCards.length === 0 && (
+                    <PanelEmpty icon={<CheckCircle2 className="w-5 h-5" />}>Today is clear.</PanelEmpty>
+                  )}
+                </div>
               </div>
 
-              <div className="panel-section">
-                <div className="panel-section-title">Recent Activity</div>
-                {(() => {
-                  const toolFeed = activity
-                    .filter((a) => a.kind === "tool")
-                    .map((a) => ({
-                      id: `tool-${a.toolCallId}`,
-                      ts: a.ts,
-                      text: `${a.status === "running" ? "Running" : a.error ? "Failed" : "Ran"} ${a.label ?? a.tool}`,
-                    }));
-                  const feed = [...toolFeed, ...metaLog].sort((a, b) => b.ts - a.ts).slice(0, 15);
-                  if (feed.length === 0) {
-                    return <PanelEmpty icon={<Clock className="w-5 h-5" />}>No activity yet.</PanelEmpty>;
-                  }
-                  return (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {feed.map((item) => (
-                        <div key={item.id} className="memory-item">
-                          <div className="memory-icon">
-                            <Clock className="w-2.5 h-2.5" />
-                          </div>
-                          <div className="memory-text">{item.text}</div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
             </div>
 
           {openShowcase && (
             <div className="panel-section">
-              <div className="panel-section-heading">Code thực thi</div>
+              <div className="panel-section-heading">Code Execution</div>
               <div className="panel-section-title">
                 {openShowcase.taskData.scriptPath?.split("/").pop() ?? "script"}
               </div>
@@ -2706,45 +2658,7 @@ export function AppHome({ email }: AppHomeProps) {
             </div>
           )}
 
-          <div className="panel-section">
-              <div className="panel-section-heading">Memory</div>
-              {memoryError && (
-                <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
-                  Failed to load: {memoryError}
-                </div>
-              )}
-              {memorySnapshot === null && !memoryError && <PanelLoading />}
-              {memorySnapshot && !memorySnapshot.available && (
-                <div className="memory-text">
-                  Memory unavailable{memorySnapshot.reason ? `: ${memorySnapshot.reason}` : ""}.
-                </div>
-              )}
-              {memorySnapshot?.available && memorySnapshot.summary && (
-                <div className="memory-text" style={{ marginBottom: 8 }}>
-                  {memorySnapshot.summary}
-                </div>
-              )}
-              {memorySnapshot?.available && !memorySnapshot.summary && (memorySnapshot.facts?.length ?? 0) > 0 && (
-                <>
-                  <div className="memory-text" style={{ opacity: 0.6, marginBottom: 4 }}>
-                    recent memory
-                  </div>
-                  {memorySnapshot.facts!.map((fact, i) => (
-                    <div key={i} className="memory-item">
-                      <div className="memory-icon">
-                        <PenLine className="w-2.5 h-2.5" />
-                      </div>
-                      <div className="memory-text">{fact}</div>
-                    </div>
-                  ))}
-                </>
-              )}
-              {memorySnapshot?.available && !memorySnapshot.summary && (memorySnapshot.facts?.length ?? 0) === 0 && (
-                <PanelEmpty icon={<Brain className="w-5 h-5" />}>No memory recorded yet.</PanelEmpty>
-              )}
-            </div>
-
-          <div className="panel-section">
+          <div className="panel-section panel-section--files">
               <div className="panel-section-heading">Files</div>
               <div className="panel-tabs panel-tabs--segmented" style={{ marginBottom: 12 }}>
                 {(["gallery", "files"] as FilesSubTab[]).map((t) => (
@@ -3074,11 +2988,11 @@ export function AppHome({ email }: AppHomeProps) {
             className="workspace-mobile-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Code thực thi"
+            aria-label="Code Execution"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="workspace-mobile-modal-header">
-              <span>Code thực thi</span>
+              <span>Code Execution</span>
               <button
                 type="button"
                 className="workspace-mobile-modal-close"
