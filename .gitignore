@@ -13,3 +13,9 @@ apps/web/.env.local
 
 # secrets
 .claude/channels/discord/.env
+.mcp.json
+*.local.json
+.env
+.env.*
+!.env.example
+!.env.local.example
