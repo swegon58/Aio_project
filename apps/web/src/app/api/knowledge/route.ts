@@ -19,6 +19,12 @@ interface KnowledgeFileRow {
   created_at: string;
 }
 
+function isMissingKnowledgeSchemaError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  const message = error.message ?? "";
+  return error.code === "PGRST205" || message.includes("hermes_knowledge_files");
+}
+
 // GET /api/knowledge — list the signed-in customer's uploaded documents.
 export async function GET() {
   const ctxResult = await resolveHermesRequestContext();
@@ -33,6 +39,13 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
+    if (isMissingKnowledgeSchemaError(error)) {
+      return Response.json({
+        files: [],
+        setupRequired: true,
+        message: "Knowledge storage is not set up yet. Apply the 0008_knowledge_files migration to enable uploads.",
+      });
+    }
     return Response.json({ error: `Failed to list files: ${error.message}` }, { status: 500 });
   }
 
