@@ -1,4 +1,4 @@
-// Aio × Hermes — pricing & per-tier config (BUILD_SPEC §7 Q21/Q34, §8 Q17).
+// Aio x Hermes - pricing and per-tier config (BUILD_SPEC Section 7 Q21/Q34, Section 8 Q17).
 //
 // All $ amounts, credit amounts, model IDs, and caps below are 🔢 tunable —
 // change here, no redeploy needed elsewhere (pricing.ts is the single source

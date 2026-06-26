@@ -21,7 +21,13 @@ export async function GET() {
   const { row, planTier, apiServerKey } = ctxResult.ctx;
 
   const denied = requireCronAccess(planTier);
-  if (denied) return denied;
+  if (denied) {
+    return Response.json({
+      locked: true,
+      jobs: [],
+      error: "Scheduled tasks require the Business plan.",
+    });
+  }
 
   let upstream: Response;
   try {

@@ -1,13 +1,21 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, Lock, Server, Trash2, X } from "lucide-react";
+import { CreditCard, Database, FileText, KeyRound, Lock, Palette, Plug, Server, Trash2, X } from "lucide-react";
 import { ALL_GATEABLE_TOOLSETS, TIERS, type PlanTier } from "@/lib/hermes/pricing";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 
 type Theme = "dark" | "light";
 type AccentKey = "purple" | "green" | "blue" | "pink" | "orange" | "cyan" | "red";
 type SettingsTab = "general" | "connections" | "credentials" | "knowledge" | "plan";
+
+const SETTINGS_TABS = [
+  { key: "general", label: "Personalization", icon: Palette },
+  { key: "connections", label: "Connections", icon: Plug },
+  { key: "credentials", label: "API Keys", icon: KeyRound },
+  { key: "knowledge", label: "Knowledge", icon: Database },
+  { key: "plan", label: "Plan", icon: CreditCard },
+] satisfies { key: SettingsTab; label: string; icon: typeof Palette }[];
 
 // Human-readable labels for the gateable Hermes toolset IDs (Q2 of the
 // tier-toolset-gating grill — UI surfaces real toolset IDs as friendly names).
@@ -99,8 +107,8 @@ interface SettingsModalProps {
   currentPlanTier: string | null;
 }
 
-// Settings modal markup/CSS ported 1:1 from ai_agent_webapp (Copy 2).html's
-// #settingsModal — hardcoded Vietnamese in the mockup, no data-i18n attrs.
+// Settings modal markup/CSS ported from ai_agent_webapp (Copy 2).html's
+// #settingsModal, then adapted to Aio's current English product copy.
 // Toggles/sliders below have no corresponding real backend setting in
 // /api/chat — they remain visual-only, matching the mockup's own
 // non-persisted behavior. Theme + accent swatches are wired since AppShell
@@ -185,62 +193,61 @@ export function SettingsModal({
   const [maxTokens, setMaxTokens] = useState(4096);
 
   if (!open) return null;
+  const activeTab = SETTINGS_TABS.find((item) => item.key === tab) ?? SETTINGS_TABS[0];
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Cài đặt</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Đóng">
+      <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
+        <aside className="settings-sidebar" aria-label="Settings">
+          <button className="modal-close" onClick={onClose} aria-label="Close">
             <X className="w-4 h-4" />
           </button>
-        </div>
+          <div className="settings-sidebar-title">Settings</div>
+          <nav className="settings-nav">
+            {SETTINGS_TABS.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                type="button"
+                className={`settings-nav-item${tab === key ? " active" : ""}`}
+                onClick={() => setTab(key)}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{label}</span>
+              </button>
+            ))}
+          </nav>
+        </aside>
 
-        <div className="panel-tabs" style={{ padding: 0, marginBottom: 12 }}>
-          {(["general", "connections", "credentials", "knowledge", "plan"] as SettingsTab[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              className={`panel-tab${tab === t ? " active" : ""}`}
-              onClick={() => setTab(t)}
-            >
-              {t === "general"
-                ? "General"
-                : t === "connections"
-                  ? "Connections"
-                  : t === "credentials"
-                    ? "Credentials"
-                    : t === "knowledge"
-                      ? "Knowledge"
-                      : "Plan"}
-            </button>
-          ))}
-        </div>
+        <section className="settings-content">
+          <div className="settings-content-header">
+            <h2>{activeTab.label}</h2>
+          </div>
+          <div className="settings-content-body">
 
         {tab === "general" && (
           <>
             <div className="setting-group">
-              <div className="setting-label">Giao diện</div>
+              <div className="setting-label">Appearance</div>
               <div className="theme-selector">
                 <button
                   className={`theme-option dark${theme === "dark" ? " active" : ""}`}
                   onClick={() => onThemeChange("dark")}
-                  aria-label="Tối"
+                  aria-label="Dark"
                 >
-                  🌙
+                  Dark
                 </button>
                 <button
                   className={`theme-option light${theme === "light" ? " active" : ""}`}
                   onClick={() => onThemeChange("light")}
-                  aria-label="Sáng"
+                  aria-label="Light"
                 >
-                  ☀️
+                  Light
                 </button>
               </div>
             </div>
 
             <div className="setting-group">
-              <div className="setting-label">Màu nhấn</div>
+              <div className="setting-label">Accent Color</div>
               <div className="accent-colors">
                 {ACCENTS.map((a) => (
                   <button
@@ -255,80 +262,80 @@ export function SettingsModal({
 
             <div className="setting-group">
               <div className="setting-label">
-                Chế độ suy nghĩ
+                Thinking Mode
                 <button
                   type="button"
                   className={`toggle-switch${thinkingMode ? " active" : ""}`}
                   aria-pressed={thinkingMode}
-                  aria-label="Chế độ suy nghĩ"
+                  aria-label="Thinking Mode"
                   onClick={() => setThinkingMode((v) => !v)}
                 />
               </div>
-              <div className="setting-desc">Hiển thị quá trình suy luận trước khi trả lời</div>
+              <div className="setting-desc">Show the reasoning process before responding</div>
             </div>
 
             <div className="setting-group">
               <div className="setting-label">
-                Gọi công cụ tự động
+                Automatic Tool Use
                 <button
                   type="button"
                   className={`toggle-switch${autoTool ? " active" : ""}`}
                   aria-pressed={autoTool}
-                  aria-label="Gọi công cụ tự động"
+                  aria-label="Automatic Tool Use"
                   onClick={() => setAutoTool((v) => !v)}
                 />
               </div>
-              <div className="setting-desc">Tự động chọn và thực thi công cụ phù hợp</div>
+              <div className="setting-desc">Automatically choose and run the right tool</div>
             </div>
 
             <div className="setting-group">
               <div className="setting-label">
-                Streaming response
+                Streaming Responses
                 <button
                   type="button"
                   id="streamingToggle"
                   className={`toggle-switch${streaming ? " active" : ""}`}
                   aria-pressed={streaming}
-                  aria-label="Streaming response"
+                  aria-label="Streaming Responses"
                   onClick={() => setStreaming((v) => !v)}
                 />
               </div>
-              <div className="setting-desc">Hiển thị câu trả lời theo từng phần khi đang xử lý</div>
+              <div className="setting-desc">Show responses incrementally while they are being generated</div>
             </div>
 
             <div className="setting-group">
               <div className="setting-label">
-                Lưu lịch sử
+                Save History
                 <button
                   type="button"
                   className={`toggle-switch${saveHistory ? " active" : ""}`}
                   aria-pressed={saveHistory}
-                  aria-label="Lưu lịch sử"
+                  aria-label="Save History"
                   onClick={() => setSaveHistory((v) => !v)}
                 />
               </div>
-              <div className="setting-desc">Lưu lại các cuộc trò chuyện trước đó</div>
+              <div className="setting-desc">Keep previous conversations available</div>
             </div>
 
             <div className="setting-group">
               <div className="setting-label">
-                Âm thanh thông báo
+                Notification Sound
                 <button
                   type="button"
                   id="soundToggle"
                   className={`toggle-switch${sound ? " active" : ""}`}
                   aria-pressed={sound}
-                  aria-label="Âm thanh thông báo"
+                  aria-label="Notification Sound"
                   onClick={() => setSound((v) => !v)}
                 />
               </div>
-              <div className="setting-desc">Phát âm thanh khi nhận được phản hồi</div>
+              <div className="setting-desc">Play a sound when a response arrives</div>
             </div>
 
             <div className="setting-group">
               <div className="setting-label">
-                Tốc độ streaming
-                <span className="setting-desc">{streamSpeed} ms/từ</span>
+                Streaming Speed
+                <span className="setting-desc">{streamSpeed} ms/word</span>
               </div>
               <input
                 type="range"
@@ -342,7 +349,7 @@ export function SettingsModal({
 
             <div className="setting-group">
               <div className="setting-label">
-                Độ sáng tạo
+                Creativity
                 <span className="setting-desc">{(temperature / 100).toFixed(2)}</span>
               </div>
               <input
@@ -357,7 +364,7 @@ export function SettingsModal({
 
             <div className="setting-group">
               <div className="setting-label">
-                Độ dài phản hồi tối đa
+                Maximum Response Length
                 <span className="setting-desc">{maxTokens} tokens</span>
               </div>
               <input
@@ -472,7 +479,7 @@ export function SettingsModal({
             ))}
 
             <div className="panel-section-title" style={{ marginTop: 16 }}>
-              Add / Update Credential
+              Add / Update Key
             </div>
             <form onSubmit={onCredentialSubmit} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <select
@@ -500,7 +507,7 @@ export function SettingsModal({
                 className="mcp-add-btn"
                 disabled={credentialSubmitting || !credentialId || !credentialValue.trim()}
               >
-                {credentialSubmitting ? "Saving…" : "Save Credential"}
+                {credentialSubmitting ? "Saving…" : "Save Key"}
               </button>
               {credentialMessage && <div className="memory-text">{credentialMessage}</div>}
             </form>
@@ -624,6 +631,8 @@ export function SettingsModal({
             })()}
           </div>
         )}
+          </div>
+        </section>
       </div>
     </div>
   );
