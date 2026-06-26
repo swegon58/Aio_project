@@ -8,6 +8,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 See `CLAUDE.md` for product context. This file covers stack/commands only.
 
+## Runtime Boundary
+- Product-facing runtime code belongs under `src/lib/aio/`.
+- Keep `src/app/api/chat/route.ts` as an orchestration layer, not a dumping ground for runtime mapping, RAG, billing, or persistence helpers.
+- Map raw Hermes events through `src/lib/aio/hermes/hermes-event-mapper.ts` into Aio events from `src/lib/aio/runs/aio-run-events.ts`.
+- Preserve legacy `data-hermes-*` stream parts until the frontend has a planned migration to `data-aio-*`.
+- Local MCP files are ignored; update `.mcp.example.json` only with placeholders.
+
 ## Tech Stack
 - **Framework:** Next.js 16 (App Router, React 19, TypeScript strict)
 - **UI:** shadcn/ui (Radix primitives, Tailwind CSS v4, `cn()` utility)

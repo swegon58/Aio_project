@@ -21,6 +21,52 @@ Top-level `README.md` is the canonical overview (architecture, stack, setup). Pe
 `README.md` files were removed 2026-06-24 — they were stale and added no info beyond
 the top-level doc; read source under `apps/web/` and `apps/harness/` directly for detail.
 
+## Runtime boundary (mandatory)
+
+Aio is the product layer. Hermes is the current runtime, not the product API.
+Do not build new product features directly against raw Hermes concepts unless the code
+is inside the runtime adapter layer.
+
+Current boundary:
+
+```
+Aio Frontend
+  -> Aio API / Route Handlers
+  -> Aio Run Event Protocol
+  -> Hermes Adapter / Event Mapper
+  -> Hermes Runtime
+```
+
+Primary docs:
+
+- `docs/architecture/aio_runtime_architecture.md`
+- `docs/architecture/aio_run_event_protocol.md`
+- `docs/roadmap/refactor_next_steps.md`
+
+Web app runtime modules live under `apps/web/src/lib/aio/`:
+
+- `chat/` request shaping, plan mode, stream compatibility, persistence
+- `runs/` Aio-neutral run event protocol and writers
+- `hermes/` Hermes client, SSE parsing, artifact proxying, event mapper
+- `knowledge/` retrieval context and embeddings facade
+- `billing/` credit guard and usage settlement facade
+- `security/` input scanning and abuse guard facade
+
+When changing chat/runtime behavior:
+
+- Keep `apps/web/src/app/api/chat/route.ts` thin. It should coordinate request parsing, auth/runtime context, guards, runtime calls, streaming, settlement, and persistence.
+- Prefer Aio-neutral types from `apps/web/src/lib/aio/runs/aio-run-events.ts`.
+- Convert runtime-specific payloads through `apps/web/src/lib/aio/hermes/hermes-event-mapper.ts`.
+- Keep legacy `data-hermes-*` stream parts working until the frontend is migrated to `data-aio-*`.
+- Do not import Onyx/OpenManus or add another agent framework. Use them only as product/UX research references.
+- Do not rename `hermes_conversations` or other Hermes-named persistence surfaces without an explicit migration plan.
+
+## Secrets and local config
+
+- `.mcp.json` and `apps/web/.mcp.json` are local-only files and must stay untracked.
+- Use `.mcp.example.json` for placeholder MCP examples.
+- Do not print or commit real tokens, keys, `.env` values, profile env files, or MCP credentials.
+
 ## Dev
 
 - Frontend: `cd apps/web && npm install && npm run dev`
@@ -32,3 +78,4 @@ the top-level doc; read source under `apps/web/` and `apps/harness/` directly fo
 - Restructured 2026-06-23 to standard `apps/` monorepo layout (`Aio/` → `apps/web`, `Aio_harness/` → `apps/harness`).
 - `apps/harness/hermes-agent/` was a nested git clone (gitlink) before the fold — stripped to plain tracked files so the whole tree lives in one repo, `github.com/swegon58/Aio_project`.
 - Hermes profiles for this product live under `apps/harness/aio-home/` — never `~/.hermes/`, which is an unrelated profile on this machine.
+- 2026-06-26 refactor: chat runtime boundary introduced under `apps/web/src/lib/aio/`; route-level code should no longer accumulate Hermes mapping, billing settlement, RAG retrieval, or persistence details.
