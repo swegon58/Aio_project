@@ -154,7 +154,7 @@ See [Aio Model Supply and Gateway Strategy](docs/research/2026-06-27_model_suppl
 - [Run event protocol](docs/architecture/aio_run_event_protocol.md)
 - [Competitive product research](docs/research/2026-06-26_competitive_money_features.md)
 - [Model supply strategy](docs/research/2026-06-27_model_supply_gateway.md)
-- [Refactor roadmap](docs/roadmap/refactor_next_steps.md)
+- [Product and production roadmap](docs/roadmap/2026-06-28_aio_product_and_production_roadmap.md)
 
 ## Security
 

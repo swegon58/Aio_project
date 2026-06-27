@@ -1,45 +1,14 @@
 # Refactor Next Steps
 
-## Completed
+This refactor-specific checklist has been completed or absorbed into the
+canonical roadmap:
 
-- Security cleanup for MCP config tracking:
-  - `.mcp.json` and `apps/web/.mcp.json` are untracked local files.
-  - `.gitignore` blocks `.mcp.json`, `*.local.json`, `.env`, and `.env.*` while allowing env examples.
-  - `.mcp.example.json` contains placeholder-only GitHub MCP config.
-- Package metadata cleanup:
-  - `apps/web/package.json` now uses Aio metadata instead of the old website-clone template metadata.
-- Runtime boundary:
-  - Aio product/runtime boundary lives under `apps/web/src/lib/aio`.
-  - `apps/web/src/app/api/chat/route.ts` remains an orchestration layer.
-- Event protocol:
-  - `AioRunStatus` includes `waiting_approval`.
-  - `AioRiskLevel` is normalized to `safe`, `medium`, `dangerous`.
-  - Hermes events map through `HermesEventMapper` before reaching product/UI layers.
-- Stream compatibility:
-  - `data-aio-event` and `data-aio-*` stream parts are emitted.
-  - Existing `data-hermes-*` stream parts remain intact as compatibility aliases.
-  - The frontend prefers `data-aio-event` for Run Timeline state.
-- Run Timeline UI:
-  - Added `RunTimeline`, event cards, `AgentStateBadge`, `MascotStateMapper`, and a legacy frontend adapter.
-  - Integrated `RunTimeline` into live workspace activity without deleting `ActivityStream`.
-- Product module shells:
-  - Added Tool Center, Knowledge Center, Agent Builder, Deep Research Mode, and Workflow Canvas surfaces in the right panel.
+- [Aio Product and Production Roadmap](2026-06-28_aio_product_and_production_roadmap.md)
 
-## Next Steps
+Completed foundation work includes the Aio/Hermes boundary, normalized run
+events, compatibility stream aliases, Run Timeline UI, MCP secret cleanup,
+package metadata cleanup, and initial research/image workflow surfaces.
 
-Product prioritization now lives in `docs/research/2026-06-26_competitive_money_features.md`.
-
-1. Get product-owner approval for the next premium workflow. Current recommendation: Deep Research Workspace MVP.
-2. Persist run events so long-running research/watch tasks can be reopened.
-3. Back Deep Research Mode with source runs, citations, and artifact output.
-4. Turn Scheduled into recurring watch tasks with persisted results.
-5. Connect Knowledge Center to document/source-pack management.
-6. Persist Agent Builder definitions as reusable templates.
-7. Connect Tool Center to a real tool registry with risk and approval defaults.
-8. Remove `data-hermes-*` aliases after compatibility verification.
-9. Add unit tests for `HermesEventMapper`, `frontend-event-adapter`, and `MascotStateMapper`.
-10. Add a route integration test with mocked runtime SSE events.
-
-## Security Reminder
-
-If any real token was previously committed or shared, the owner must revoke it manually in the provider settings. Removing a file from tracking does not revoke exposed credentials.
+The old proposed Tool Center, Agent Builder, and Workflow Canvas sequence is no
+longer an active commitment. Product and production priorities now require
+explicit owner approval at each roadmap gate.
