@@ -1,7 +1,9 @@
 # Aio Product and Production Roadmap
 
-Status: proposed  
-Reviewed: 2026-06-28  
+**Status:** Proposed
+
+**Reviewed:** 2026-06-28
+
 Input: `deep-research-report-for-aio.md` and the current Aio repository
 
 ## Purpose
