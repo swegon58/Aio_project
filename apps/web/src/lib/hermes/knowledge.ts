@@ -6,8 +6,7 @@
 // header-aware approach from tools/vault_rag_ingest.py, ported to plain
 // paragraph splitting since uploaded docs aren't guaranteed Markdown.
 
-import fs from "fs/promises";
-import { profileEnvPath } from "@/lib/hermes/config";
+import { resolveProfileSecret } from "@/lib/hermes/profile-secrets";
 
 const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1";
 const EMBEDDING_MODEL = "openai/text-embedding-3-small";
@@ -17,13 +16,7 @@ const CHUNK_CHARS = 1800; // ~roughly 400-500 tokens
 const CHUNK_OVERLAP_CHARS = 200;
 
 export async function resolveOpenRouterKeyForProfile(profileName: string | null): Promise<string | null> {
-  if (!profileName) return null;
-  try {
-    const envRaw = await fs.readFile(profileEnvPath(profileName), "utf-8");
-    return envRaw.match(/^OPENROUTER_API_KEY=(.+)$/m)?.[1]?.trim() ?? null;
-  } catch {
-    return null;
-  }
+  return resolveProfileSecret(profileName, "OPENROUTER_API_KEY");
 }
 
 // Splits plain text into overlapping chunks on paragraph boundaries first,

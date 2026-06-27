@@ -8,6 +8,7 @@ and UI independent from the underlying runtime.
 ## What Aio Includes
 
 - Streaming chat with Auto, Plan, and Deep Research modes.
+- Chat-native GPT Image 2 creation and editing through Kie.ai.
 - Tool execution, run timelines, approvals, and downloadable artifacts.
 - Persistent conversations, memory, knowledge, files, and image gallery.
 - Scheduled tasks and task-oriented workspace views.
@@ -89,6 +90,11 @@ uv sync
 The default Aio profile is stored under
 `apps/harness/aio-home/profiles/aio`. Configure its model and memory providers
 locally without committing secrets or generated runtime state.
+
+For image creation, set `KIE_API_KEY` in the selected profile's ignored
+`.env` file or add it from **Settings → Model Providers**. Aio sends the key
+only from server-side code, copies completed images into private Supabase
+Storage, and serves durable authenticated image URLs from its own API.
 
 ### 3. Start the model
 

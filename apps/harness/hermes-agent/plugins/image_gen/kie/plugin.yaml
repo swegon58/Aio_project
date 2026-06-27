@@ -1,0 +1,7 @@
+name: kie
+version: 1.0.0
+description: "Kie.ai GPT Image 2 backend. Saves generated images to $HERMES_HOME/cache/images/."
+author: Aio
+kind: backend
+requires_env:
+  - KIE_API_KEY

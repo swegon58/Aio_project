@@ -16,6 +16,7 @@ export interface CredentialDef {
 
 export const KNOWN_CREDENTIALS: CredentialDef[] = [
   { id: "openrouter", label: "OpenRouter API Key", envVar: "OPENROUTER_API_KEY" },
+  { id: "kie", label: "Kie.ai Image API Key", envVar: "KIE_API_KEY" },
   { id: "daytona", label: "Daytona API Key", envVar: "DAYTONA_API_KEY" },
   { id: "honcho", label: "Honcho API Key", envVar: "HONCHO_API_KEY" },
 ];

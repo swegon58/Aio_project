@@ -85,6 +85,18 @@ export interface HermesRunData {
   threadId: string;
 }
 
+export interface AioGeneratedImage {
+  id: string;
+  url: string;
+  prompt: string;
+  aspectRatio: string;
+  resolution: string;
+  model: string;
+  provider: "kie";
+  createdAt: string;
+  estimatedCostUsd: number;
+}
+
 // `data-hermes-compression` part (A3) — forwarded when hermes-agent's
 // /v1/runs event stream emits `compression.started` / `compression.done`
 // (agent/conversation_compression.py compress_context() ->
@@ -111,6 +123,7 @@ export type HermesUIMessage = UIMessage<
     mode?: AioChatMode;
     research?: AioResearchSummary;
     artifacts?: { filePath: string; fileName?: string }[];
+    images?: AioGeneratedImage[];
     // Q12: showcase cards persisted with the message so they survive reload
     // (DB-backed, not session/RAM-only) — see route.ts persistConversation.
     showcases?: HermesShowcaseData[];

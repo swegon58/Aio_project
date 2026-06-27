@@ -6,6 +6,10 @@ model:
 memory:
   provider: honcho
 
+image_gen:
+  provider: kie
+  model: gpt-image-2-text-to-image
+
 # api_server's default toolset (hermes-api-server) excludes "clarify" since
 # it's normally an interactive-UI-only tool — Aio's Plan mode needs it for
 # the ask-user plan-confirmation step (route.ts PLAN_MODE_INSTRUCTIONS), so
