@@ -1,8 +1,10 @@
 import { convertToModelMessages, type UIMessage } from "ai";
 import type { NextRequest } from "next/server";
+import { normalizeAioChatMode, type AioChatMode } from "./chat-mode";
 
 export interface AioChatRequestPayload {
   messages: UIMessage[];
+  mode: AioChatMode;
   planMode: boolean;
 }
 
@@ -13,9 +15,11 @@ export interface AioRuntimeMessage {
 
 export async function readAioChatRequest(req: NextRequest): Promise<AioChatRequestPayload> {
   const body = await req.json();
+  const mode = normalizeAioChatMode(body.mode, Boolean(body.planMode));
   return {
     messages: body.messages ?? [],
-    planMode: Boolean(body.planMode),
+    mode,
+    planMode: mode === "plan",
   };
 }
 

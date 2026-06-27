@@ -27,14 +27,18 @@
 
 ## Next Steps
 
-1. Remove `data-hermes-*` aliases after compatibility verification.
-2. Connect Tool Center to a real tool registry.
-3. Connect Knowledge Center to document and memory management.
-4. Persist Agent Builder definitions.
-5. Back Deep Research Mode with source runs and citations.
-6. Back Workflow Canvas with editable workflow state.
-7. Add unit tests for `HermesEventMapper`, `frontend-event-adapter`, and `MascotStateMapper`.
-8. Add a route integration test with mocked runtime SSE events.
+Product prioritization now lives in `docs/research/2026-06-26_competitive_money_features.md`.
+
+1. Get product-owner approval for the next premium workflow. Current recommendation: Deep Research Workspace MVP.
+2. Persist run events so long-running research/watch tasks can be reopened.
+3. Back Deep Research Mode with source runs, citations, and artifact output.
+4. Turn Scheduled into recurring watch tasks with persisted results.
+5. Connect Knowledge Center to document/source-pack management.
+6. Persist Agent Builder definitions as reusable templates.
+7. Connect Tool Center to a real tool registry with risk and approval defaults.
+8. Remove `data-hermes-*` aliases after compatibility verification.
+9. Add unit tests for `HermesEventMapper`, `frontend-event-adapter`, and `MascotStateMapper`.
+10. Add a route integration test with mocked runtime SSE events.
 
 ## Security Reminder
 

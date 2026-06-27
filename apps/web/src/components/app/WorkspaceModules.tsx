@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { Bot, Brain, FlaskConical, GitBranch, Hammer, Search } from "lucide-react";
+import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
+import { isWebResearchTool } from "@/lib/aio/chat/research-mode";
 import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +14,7 @@ interface WorkspaceModulesProps {
   events: AioRunEvent[];
   memoryLine: string;
   activeFileName?: string;
+  activeMode: AioChatMode;
 }
 
 const MODULES: Array<{ id: WorkspaceModule; label: string; icon: ComponentType<{ className?: string }> }> = [
@@ -22,14 +25,23 @@ const MODULES: Array<{ id: WorkspaceModule; label: string; icon: ComponentType<{
   { id: "workflow", label: "Canvas", icon: GitBranch },
 ];
 
-export function WorkspaceModules({ events, memoryLine, activeFileName }: WorkspaceModulesProps) {
-  const [active, setActive] = useState<WorkspaceModule>("tools");
+export function WorkspaceModules({ events, memoryLine, activeFileName, activeMode }: WorkspaceModulesProps) {
+  const [active, setActive] = useState<WorkspaceModule>(activeMode === "research" ? "research" : "tools");
   const toolEvents = useMemo(
     () => events.filter((event) => event.type === "tool.started" || event.type === "tool.completed" || event.type === "tool.failed"),
     [events],
   );
   const artifacts = useMemo(() => events.filter((event) => event.type === "artifact.created"), [events]);
   const approvals = useMemo(() => events.filter((event) => event.type === "approval.requested"), [events]);
+  const webToolEvents = useMemo(
+    () => toolEvents.filter((event) => isWebResearchTool(event.toolName)),
+    [toolEvents],
+  );
+  const researchRunning = activeMode === "research"
+    && events.some((event) => event.type === "run.created")
+    && !events.some((event) =>
+      event.type === "run.completed" || event.type === "run.failed" || event.type === "run.cancelled"
+    );
 
   return (
     <section className="workspace-modules">
@@ -79,7 +91,11 @@ export function WorkspaceModules({ events, memoryLine, activeFileName }: Workspa
           <ModuleList
             empty="No agent configuration changes."
             rows={[
-              { key: "mode", title: "Mode", meta: "Auto / Plan" },
+              {
+                key: "mode",
+                title: "Mode",
+                meta: activeMode === "research" ? "Deep Research" : activeMode === "plan" ? "Plan" : "Auto",
+              },
               { key: "approvals", title: "Approval queue", meta: approvals.length > 0 ? `${approvals.length} pending` : "Clear" },
             ]}
           />
@@ -89,7 +105,12 @@ export function WorkspaceModules({ events, memoryLine, activeFileName }: Workspa
           <ModuleList
             empty="No research run yet."
             rows={[
-              { key: "sources", title: "Sources", meta: "Ready" },
+              { key: "status", title: "Research", meta: researchRunning ? "Running" : "Ready" },
+              {
+                key: "sources",
+                title: "Source activity",
+                meta: webToolEvents.length > 0 ? `${webToolEvents.length} web events` : "No web activity yet",
+              },
               { key: "artifacts", title: "Artifacts", meta: artifacts.length > 0 ? `${artifacts.length} created` : "None" },
             ]}
             icon={<FlaskConical className="w-3.5 h-3.5" />}

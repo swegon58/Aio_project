@@ -41,7 +41,6 @@ def main() -> int:
             honcho=client,
             config=cfg,
             context_tokens=cfg.context_tokens,
-            runtime_user_peer_name=session_key,
         )
         manager.get_or_create(session_key)
 
@@ -50,7 +49,9 @@ def main() -> int:
         try:
             ctx = manager.get_session_context(session_key, peer="user")
             summary = (ctx or {}).get("summary")
-            if summary and getattr(summary, "content", None):
+            if isinstance(summary, str) and summary.strip():
+                result["summary"] = summary
+            elif summary and getattr(summary, "content", None):
                 result["summary"] = summary.content
         except Exception as e:  # noqa: BLE001 — best-effort, degrade to facts only
             result["summary_error"] = str(e)

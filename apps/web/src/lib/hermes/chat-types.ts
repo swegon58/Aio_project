@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import type { AioChatMode, AioResearchSummary } from "@/lib/aio/chat/chat-mode";
 import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
 
 // Custom data part forwarded to the UI message stream as
@@ -107,6 +108,8 @@ export interface HermesCompressionData {
 export type HermesUIMessage = UIMessage<
   {
     planMode?: boolean;
+    mode?: AioChatMode;
+    research?: AioResearchSummary;
     artifacts?: { filePath: string; fileName?: string }[];
     // Q12: showcase cards persisted with the message so they survive reload
     // (DB-backed, not session/RAM-only) — see route.ts persistConversation.
