@@ -15,6 +15,7 @@ import type { HermesShowcaseData, HermesUIMessage } from "@/lib/hermes/chat-type
 import { readAioChatRequest, buildRuntimeMessages } from "@/lib/aio/chat/chat-route-handler";
 import { persistConversation } from "@/lib/aio/chat/conversation-persistence";
 import { buildPlanInstructions, GUARDRAIL_SYSTEM_PROMPT } from "@/lib/aio/chat/plan-mode";
+import { buildResearchInstructions, isWebResearchTool } from "@/lib/aio/chat/research-mode";
 import { writeCreditSnapshot } from "@/lib/aio/chat/stream-writer";
 import { startHermesRun, openHermesRunEvents } from "@/lib/aio/hermes/hermes-client";
 import { HermesEventMapper } from "@/lib/aio/hermes/hermes-event-mapper";
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
   // Item 3: speculative reservation — skipped in dev mode (billing RPC not applied).
   if (!DEV_BYPASS) await reserveCredits(db, userId, creditCheck.estimate);
 
-  const { messages, planMode } = await readAioChatRequest(req);
+  const { messages, mode, planMode } = await readAioChatRequest(req);
   if (messages.length === 0) {
     return Response.json({ error: "no_messages" }, { status: 400 });
   }
@@ -74,10 +75,13 @@ export async function POST(req: NextRequest) {
   // the shape conversion in Aio's chat layer so this route stays transport-only.
   const { lastMessage, conversationHistory } = await buildRuntimeMessages(messages);
   const planInstructions = buildPlanInstructions(planMode, conversationHistory, lastMessage);
+  const researchInstructions = buildResearchInstructions(mode);
 
   // Item 2c: wall-clock timeout per task (config-driven by tier, pricing.ts).
   const caps = tierConfig(planTier).caps;
   const abortController = new AbortController();
+  const abortFromClient = () => abortController.abort();
+  req.signal.addEventListener("abort", abortFromClient, { once: true });
   const timeoutHandle = setTimeout(() => abortController.abort(), caps.wallClockTimeoutMs);
 
   // Item 3: OpenRouter key-usage snapshot before the task, for settlement.
@@ -102,11 +106,14 @@ export async function POST(req: NextRequest) {
       conversationHistory,
       sessionId: hermesSessionId,
       disableTools: Boolean(planMode),
-      instructions: [GUARDRAIL_SYSTEM_PROMPT, planInstructions, knowledgeContext].filter(Boolean).join(" "),
+      instructions: [GUARDRAIL_SYSTEM_PROMPT, planInstructions, researchInstructions, knowledgeContext]
+        .filter(Boolean)
+        .join(" "),
       signal: abortController.signal,
     });
   } catch (err) {
     clearTimeout(timeoutHandle);
+    req.signal.removeEventListener("abort", abortFromClient);
     if (!DEV_BYPASS) await refundTask(db, userId, creditCheck.estimate);
     const msg = err instanceof Error ? err.message : String(err);
     const timedOut = abortController.signal.aborted;
@@ -118,6 +125,7 @@ export async function POST(req: NextRequest) {
 
   if (startResponse.status !== 202) {
     clearTimeout(timeoutHandle);
+    req.signal.removeEventListener("abort", abortFromClient);
     const errorText = await startResponse.text();
     if (!DEV_BYPASS) await refundTask(db, userId, creditCheck.estimate);
     return new Response(`Hermes error: ${errorText}`, { status: startResponse.status });
@@ -135,6 +143,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     clearTimeout(timeoutHandle);
+    req.signal.removeEventListener("abort", abortFromClient);
     if (!DEV_BYPASS) await refundTask(db, userId, creditCheck.estimate);
     const msg = err instanceof Error ? err.message : String(err);
     const timedOut = abortController.signal.aborted;
@@ -146,6 +155,7 @@ export async function POST(req: NextRequest) {
 
   if (!eventsResponse.ok || !eventsResponse.body) {
     clearTimeout(timeoutHandle);
+    req.signal.removeEventListener("abort", abortFromClient);
     const errorText = await eventsResponse.text();
     if (!DEV_BYPASS) await refundTask(db, userId, creditCheck.estimate);
     return new Response(`Hermes error: ${errorText}`, { status: eventsResponse.status });
@@ -183,6 +193,8 @@ export async function POST(req: NextRequest) {
       // in-memory `activity` stream while the turn is live.
       const assistantArtifacts: { filePath: string; fileName?: string }[] = [];
       const assistantShowcases: HermesShowcaseData[] = [];
+      const researchToolCallIds = new Set<string>();
+      const researchSearchCallIds = new Set<string>();
 
       // Item 2b: mid-stream budget cutoff.
       const budgetCreditLimit = Math.min(
@@ -208,6 +220,13 @@ export async function POST(req: NextRequest) {
             if (!evt) continue;
 
             for (const aioEvent of mapper.map(evt)) {
+              if (mode === "research" && aioEvent.type === "tool.started") {
+                researchToolCallIds.add(aioEvent.toolCallId);
+                if (isWebResearchTool(aioEvent.toolName)) {
+                  researchSearchCallIds.add(aioEvent.toolCallId);
+                }
+              }
+
               if (aioEvent.type === "message.delta") {
                 if (!aioEvent.delta) continue;
                 if (!textStarted) {
@@ -263,6 +282,7 @@ export async function POST(req: NextRequest) {
         }
       } finally {
         clearTimeout(timeoutHandle);
+        req.signal.removeEventListener("abort", abortFromClient);
         if (textStarted) {
           writer.write({ type: "text-end", id: textPartId });
         }
@@ -293,7 +313,21 @@ export async function POST(req: NextRequest) {
         // New-chat/history persistence — independent of billing/DEV_BYPASS,
         // since chat history must work in dev mode too.
         await persistConversation(
-          db, userId, threadId, messages, assistantText, planMode, assistantArtifacts, assistantShowcases,
+          db,
+          userId,
+          threadId,
+          messages,
+          assistantText,
+          mode,
+          assistantArtifacts,
+          assistantShowcases,
+          mode === "research"
+            ? {
+                status: succeeded && !budgetExceeded ? "completed" : "interrupted",
+                searchCount: researchSearchCallIds.size,
+                toolCount: researchToolCallIds.size,
+              }
+            : undefined,
         );
       }
     },

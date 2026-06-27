@@ -48,11 +48,13 @@ import { DotGrid } from "@/components/app/DotGrid";
 import TextType from "@/components/app/TextType";
 import { TASK_TEMPLATES } from "@/components/app/TemplateGallery";
 import { RunTimeline, legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timeline";
+import { ResearchProgressCard } from "@/components/app/ResearchProgressCard";
+import { ChatModeMenu } from "@/components/app/ChatModeMenu";
 import { WorkspaceModules } from "@/components/app/WorkspaceModules";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
-import { SwitchGroup } from "@/components/ui/switch-group";
 import { brand } from "@/lib/brand.config";
+import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import {
   mascotStateForTool,
   type HermesActivityData,
@@ -708,7 +710,7 @@ export function AppHome({ email }: AppHomeProps) {
   const [creditUsage, setCreditUsage] = useState<HermesCreditsData | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
 
-  const { messages, sendMessage, status, setMessages, error: chatError, regenerate, clearError } = useChat<HermesUIMessage>({
+  const { messages, sendMessage, status, setMessages, stop, error: chatError, regenerate, clearError } = useChat<HermesUIMessage>({
     onData: (dataPart) => {
       if (dataPart.type === "data-aio-event") {
         setRunEvents((prev) => upsertRunEvent(prev, dataPart.data));
@@ -909,7 +911,9 @@ export function AppHome({ email }: AppHomeProps) {
   const [inputFocused, setInputFocused] = useState(false);
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [inputMultiline, setInputMultiline] = useState(false);
-  const [planMode, setPlanMode] = useState<"auto" | "plan">("auto");
+  const [chatMode, setChatMode] = useState<AioChatMode>("auto");
+  const [lastRunMode, setLastRunMode] = useState<AioChatMode>("auto");
+  const [activeResearchQuery, setActiveResearchQuery] = useState("");
   const [planOtherText, setPlanOtherText] = useState("");
 
   const composerMenuRef = useRef<HTMLDivElement>(null);
@@ -977,12 +981,15 @@ export function AppHome({ email }: AppHomeProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || status !== "ready") return;
+    const submittedText = input.trim();
     setActivity([]);
     setRunEvents([]);
     setShowcases([]);
     setPendingApproval(null);
-    setPlanAwaitingAction(planMode === "plan");
-    sendMessage({ text: input }, { body: { planMode: planMode === "plan" } });
+    setPlanAwaitingAction(chatMode === "plan");
+    setLastRunMode(chatMode);
+    if (chatMode === "research") setActiveResearchQuery(submittedText);
+    sendMessage({ text: submittedText }, { body: { mode: chatMode } });
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     setInputMultiline(false);
@@ -1008,6 +1015,13 @@ export function AppHome({ email }: AppHomeProps) {
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
+  const handleResearchStopAndEdit = (query: string) => {
+    if (status !== "ready") void stop();
+    setChatMode("research");
+    setInput(query);
+    focusComposer();
+  };
+
   const handleTodayAction = (card: TodayCard, action: TodayAction) => {
     if (action === "ignore") {
       setIgnoredTodayCards((prev) => {
@@ -1019,14 +1033,14 @@ export function AppHome({ email }: AppHomeProps) {
     }
 
     if (action === "plan") {
-      setPlanMode("plan");
+      setChatMode("plan");
       setInput(card.prompt);
       focusComposer();
       return;
     }
 
     if (action === "schedule") {
-      setPlanMode("plan");
+      setChatMode("plan");
       setInput(`Set up a scheduled Aio follow-up for this: ${card.prompt}`);
       focusComposer();
       return;
@@ -1043,7 +1057,8 @@ export function AppHome({ email }: AppHomeProps) {
     setShowcases([]);
     setPendingApproval(null);
     setPlanAwaitingAction(false);
-    sendMessage({ text: card.prompt }, { body: { planMode: false } });
+    setLastRunMode("auto");
+    sendMessage({ text: card.prompt }, { body: { mode: "auto" } });
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
 
@@ -1053,7 +1068,7 @@ export function AppHome({ email }: AppHomeProps) {
       return;
     }
     if (key === "scheduled") {
-      setPlanMode("plan");
+      setChatMode("plan");
       setInput("Review my recurring work and help me set up one useful scheduled Aio follow-up.");
       setRightPanelCollapsed(false);
       focusComposer();
@@ -1117,12 +1132,20 @@ export function AppHome({ email }: AppHomeProps) {
     setShowcases([]);
     setPendingApproval(null);
     const last = data.messages?.[data.messages.length - 1];
-    const awaitingPlan = Boolean(last?.role === "assistant" && last.metadata?.planMode);
+    const lastMode = last?.metadata?.mode ?? (last?.metadata?.planMode ? "plan" : "auto");
+    const awaitingPlan = Boolean(last?.role === "assistant" && lastMode === "plan");
+    const latestUserMessage = data.messages?.findLast((message) => message.role === "user");
+    const latestUserText = latestUserMessage?.parts
+      .filter((part) => part.type === "text")
+      .map((part) => (part.type === "text" ? part.text : ""))
+      .join("") ?? "";
     setPlanAwaitingAction(awaitingPlan);
     // Keep the composer toggle in sync — otherwise a reload mid-plan-mode
     // leaves the question/plan card on screen while the toggle silently
     // reset to "auto", so the next typed answer sends planMode:false.
-    setPlanMode(awaitingPlan ? "plan" : "auto");
+    setChatMode(lastMode);
+    setLastRunMode(lastMode);
+    setActiveResearchQuery(lastMode === "research" ? latestUserText : "");
   };
 
   // Restore the last-active conversation (and its Plan Mode card) on a hard
@@ -1163,6 +1186,8 @@ export function AppHome({ email }: AppHomeProps) {
       setShowcases([]);
       setPendingApproval(null);
       setPlanAwaitingAction(false);
+      setLastRunMode("auto");
+      setActiveResearchQuery("");
       loadConversations();
       if (window.innerWidth <= 768) setSidebarCollapsed(true);
     } catch (err) {
@@ -1215,6 +1240,8 @@ export function AppHome({ email }: AppHomeProps) {
         setShowcases([]);
         setPendingApproval(null);
         setPlanAwaitingAction(false);
+        setLastRunMode("auto");
+        setActiveResearchQuery("");
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1369,6 +1396,20 @@ export function AppHome({ email }: AppHomeProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const previousMemoryRunStatus = useRef(status);
+  useEffect(() => {
+    const wasRunning =
+      previousMemoryRunStatus.current === "submitted"
+      || previousMemoryRunStatus.current === "streaming";
+    previousMemoryRunStatus.current = status;
+    if (!wasRunning || status !== "ready") return;
+
+    const refreshTimer = window.setTimeout(() => {
+      void loadMemorySnapshot();
+    }, 2000);
+    return () => window.clearTimeout(refreshTimer);
+  }, [status]);
 
   const loadGallery = async () => {
     setGalleryError(null);
@@ -1669,14 +1710,15 @@ export function AppHome({ email }: AppHomeProps) {
   const handlePlanRun = () => {
     if (status !== "ready") return;
     setPlanAwaitingAction(false);
-    setPlanMode("auto");
+    setChatMode("auto");
+    setLastRunMode("auto");
     setActivity([]);
     setRunEvents([]);
     setShowcases([]);
     setPendingApproval(null);
     sendMessage(
       { text: "Proceed with the plan above, step by step." },
-      { body: { planMode: false } },
+      { body: { mode: "auto" } },
     );
   };
   const handlePlanAdjust = () => {
@@ -1685,7 +1727,7 @@ export function AppHome({ email }: AppHomeProps) {
   };
   const handlePlanCancel = () => {
     setPlanAwaitingAction(false);
-    setPlanMode("auto");
+    setChatMode("auto");
   };
 
   // Multi-round clarify (grill-me style): answering a question or skipping
@@ -1699,7 +1741,8 @@ export function AppHome({ email }: AppHomeProps) {
     setPendingApproval(null);
     setPlanOtherText("");
     setPlanAwaitingAction(true);
-    sendMessage({ text: answer.trim() }, { body: { planMode: true } });
+    setLastRunMode("plan");
+    sendMessage({ text: answer.trim() }, { body: { mode: "plan" } });
   };
   const handlePlanSkipToPlan = () =>
     handlePlanAnswer("Skip the remaining questions and write the final plan now, using your best judgment for anything still unclear.");
@@ -1740,10 +1783,10 @@ export function AppHome({ email }: AppHomeProps) {
         : `${brand.name} is ready`;
   const recentActivityCount = activity.length + metaLog.length;
   const memoryLine = memorySnapshot?.available
-    ? memorySnapshot.summary
-      ? memorySnapshot.summary
-      : (memorySnapshot.facts?.length ?? 0) > 0
-        ? `${memorySnapshot.facts!.length} memory note${memorySnapshot.facts!.length === 1 ? "" : "s"} available`
+    ? (memorySnapshot.facts?.length ?? 0) > 0
+      ? `${memorySnapshot.facts!.length} memory note${memorySnapshot.facts!.length === 1 ? "" : "s"} available`
+      : memorySnapshot.summary
+        ? "Memory summary available"
         : "No memory recorded yet"
     : memoryError
       ? "Memory failed to load"
@@ -2207,15 +2250,30 @@ export function AppHome({ email }: AppHomeProps) {
               </div>
             ) : (
               <>
-                {messages.map((message) => {
+                {messages.map((message, messageIndex) => {
                   const textParts = message.parts.filter(
                     (part) => part.type === "text" && part.text.length > 0,
                   );
                   if (message.role === "assistant" && textParts.length === 0) return null;
+                  const isLatestAssistant =
+                    message.role === "assistant" && message.id === lastAssistantMessage?.id;
                   const isActiveAssistant =
-                    message.role === "assistant" && isStreaming && message.id === lastAssistantMessage?.id;
+                    isLatestAssistant && isStreaming;
                   const fullText = textParts.map((part) => (part.type === "text" ? part.text : "")).join("");
                   const messageQuestion = message.role === "assistant" ? parsePlanQuestion(fullText) : null;
+                  const precedingUserMessage = message.role === "assistant"
+                    ? messages.slice(0, messageIndex).findLast((item) => item.role === "user")
+                    : null;
+                  const precedingUserText = precedingUserMessage?.parts
+                    .filter((part) => part.type === "text")
+                    .map((part) => (part.type === "text" ? part.text : ""))
+                    .join("") ?? "";
+                  const isResearchMessage = message.role === "assistant"
+                    && (
+                      message.metadata?.mode === "research"
+                      || (isLatestAssistant && lastRunMode === "research")
+                    );
+                  const researchQuery = precedingUserText || activeResearchQuery;
                   // Q14 auto-attach: persisted artifacts (metadata.artifacts) survive
                   // reload; the live turn instead reads straight off the in-memory
                   // `activity` stream since persistence only happens once the turn ends.
@@ -2240,8 +2298,22 @@ export function AppHome({ email }: AppHomeProps) {
                   return (
                     <div key={message.id} className={`message ${message.role === "user" ? "user" : "ai"}`}>
                       <div className="message-content">
-                        <div className="message-bubble">
-                          {isActiveAssistant && <MascotStatusBadge state={mascotState} />}
+                        <div className={`message-bubble${isResearchMessage ? " research-message-bubble" : ""}`}>
+                          {isResearchMessage && (
+                            <ResearchProgressCard
+                              query={researchQuery}
+                              events={isLatestAssistant ? timelineEvents : []}
+                              summary={message.metadata?.research}
+                              isRunning={isActiveAssistant}
+                              hasReportText={fullText.length > 0}
+                              onStopAndEdit={
+                                isActiveAssistant
+                                  ? () => handleResearchStopAndEdit(researchQuery)
+                                  : undefined
+                              }
+                            />
+                          )}
+                          {isActiveAssistant && !isResearchMessage && <MascotStatusBadge state={mascotState} />}
                           {message.role === "assistant" ? (
                             messageQuestion ? (
                               <p className="plan-question-recap">
@@ -2344,8 +2416,18 @@ export function AppHome({ email }: AppHomeProps) {
                 {isStreaming && !hasText && (
                   <div className="message ai">
                     <div className="message-content">
-                      <div className="message-bubble">
-                        <MascotStatusBadge state={mascotState} />
+                      <div className={`message-bubble${lastRunMode === "research" ? " research-message-bubble" : ""}`}>
+                        {lastRunMode === "research" ? (
+                          <ResearchProgressCard
+                            query={activeResearchQuery}
+                            events={timelineEvents}
+                            isRunning
+                            hasReportText={false}
+                            onStopAndEdit={() => handleResearchStopAndEdit(activeResearchQuery)}
+                          />
+                        ) : (
+                          <MascotStatusBadge state={mascotState} />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2547,10 +2629,7 @@ export function AppHome({ email }: AppHomeProps) {
                     disabled={status !== "ready"}
                     rows={1}
                   />
-                  <SwitchGroup name="plan-mode" value={planMode} onValueChange={(v) => setPlanMode(v as "auto" | "plan")}>
-                    <SwitchGroup.Control label="Auto" value="auto" defaultChecked />
-                    <SwitchGroup.Control label="Plan" value="plan" />
-                  </SwitchGroup>
+                  <ChatModeMenu value={chatMode} onValueChange={setChatMode} />
                   <button
                     type="submit"
                     className="send-btn"
@@ -2651,9 +2730,11 @@ export function AppHome({ email }: AppHomeProps) {
               <div className="panel-section">
                 <div className="panel-section-heading panel-section-heading--inline">Workspace Modules</div>
                 <WorkspaceModules
+                  key={chatMode}
                   events={timelineEvents}
                   memoryLine={memoryLine}
                   activeFileName={activeFile?.fileName ?? activeFile?.filePath?.split("/").pop()}
+                  activeMode={chatMode}
                 />
               </div>
 

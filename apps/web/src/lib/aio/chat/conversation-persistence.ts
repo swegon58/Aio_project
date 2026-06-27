@@ -1,5 +1,6 @@
 import type { UIMessage } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AioChatMode, AioResearchSummary } from "@/lib/aio/chat/chat-mode";
 import type { HermesShowcaseData } from "@/lib/hermes/chat-types";
 
 export async function persistConversation(
@@ -8,9 +9,10 @@ export async function persistConversation(
   threadId: string,
   messages: UIMessage[],
   assistantText: string,
-  planMode: boolean,
+  mode: AioChatMode,
   artifacts: { filePath: string; fileName?: string }[],
   showcases: HermesShowcaseData[],
+  research?: AioResearchSummary,
 ) {
   const assistantMessage: UIMessage | null = assistantText
     ? {
@@ -18,7 +20,9 @@ export async function persistConversation(
         role: "assistant",
         parts: [{ type: "text", text: assistantText }],
         metadata: {
-          planMode,
+          planMode: mode === "plan",
+          mode,
+          ...(research ? { research } : {}),
           ...(artifacts.length > 0 ? { artifacts } : {}),
           ...(showcases.length > 0 ? { showcases } : {}),
         },
