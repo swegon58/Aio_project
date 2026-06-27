@@ -12,6 +12,9 @@ apps/web/.env.local
 .lean-ctx/
 .firecrawl/
 
+# local agent instructions
+CLAUDE.md
+
 # secrets
 .claude/channels/discord/.env
 .mcp.json
