@@ -187,12 +187,18 @@ export function SettingsModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal settings-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-dialog-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <aside className="settings-sidebar" aria-label="Settings">
           <button className="modal-close" onClick={onClose} aria-label="Close">
             <X className="w-4 h-4" />
           </button>
-          <div className="settings-sidebar-title">Settings</div>
+          <div id="settings-dialog-title" className="settings-sidebar-title">Settings</div>
           <nav className="settings-nav">
             {SETTINGS_TABS.map(({ key, label, icon: Icon }) => (
               <button

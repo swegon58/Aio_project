@@ -18,6 +18,7 @@ import {
   Columns,
   Copy,
   Download,
+  Eye,
   File,
   FileCode,
   Folder,
@@ -25,10 +26,13 @@ import {
   Home,
   ImageIcon,
   ListChecks,
+  ListTree,
   Loader2,
   Lock,
+  Maximize2,
   Menu,
   Mic,
+  Minimize2,
   Pause,
   Paperclip,
   PenLine,
@@ -36,7 +40,6 @@ import {
   Plus,
   Send,
   SkipForward,
-  SquareSplitHorizontal,
   TerminalSquare,
   Trash2,
   Users,
@@ -50,7 +53,6 @@ import { TASK_TEMPLATES } from "@/components/app/TemplateGallery";
 import { RunTimeline, legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timeline";
 import { ResearchProgressCard } from "@/components/app/ResearchProgressCard";
 import { ChatModeMenu } from "@/components/app/ChatModeMenu";
-import { WorkspaceModules } from "@/components/app/WorkspaceModules";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
 import { brand } from "@/lib/brand.config";
@@ -183,12 +185,11 @@ interface MetaLogEntry {
   ts: number;
 }
 
-// Aio Terminal: replaces the old empty Workspace panel. "small" renders
-// inline below the panel tabs (old Workspace spot); "split" hides the
-// sidebar and gives chat + terminal ~50/50 width. Toggle button cycles
-// closed -> small -> split -> closed.
-type TerminalScale = "small" | "split";
-type TerminalTab = "code" | "results" | "data";
+// Aio Output is a human-facing inspector for the current task. Compact
+// keeps the chat primary; focus gives previews more room without turning
+// the product into a developer terminal.
+type TerminalScale = "compact" | "focus";
+type TerminalTab = "activity" | "preview";
 
 // File the agent is actively touching right now, derived from the live
 // activity stream (most recent tool entry that carries a filePath).
@@ -261,7 +262,7 @@ function PreviewPane({ file }: { file: ActiveFile | null }) {
   if (!file) {
     return (
       <div className="terminal-preview-empty">
-        Open or edit a file and its preview will show up here.
+        No preview available yet.
       </div>
     );
   }
@@ -786,18 +787,15 @@ export function AppHome({ email }: AppHomeProps) {
   const logMeta = (text: string) =>
     setMetaLog((prev) => [{ id: `${Date.now()}-${Math.random()}`, text, ts: Date.now() }, ...prev].slice(0, 20));
   const [terminalOpen, setTerminalOpen] = useState(false);
-  const [terminalScale, setTerminalScale] = useState<TerminalScale>("small");
-  const [terminalTab, setTerminalTab] = useState<TerminalTab>("code");
-  // Panel-header button just opens (small, floating) / closes the terminal.
-  // Resizing between "small" (floating card) and "split" (full-width column)
-  // happens via the scale button inside the terminal card itself.
+  const [terminalScale, setTerminalScale] = useState<TerminalScale>("compact");
+  const [terminalTab, setTerminalTab] = useState<TerminalTab>("activity");
   const cycleTerminal = () => {
     if (!terminalOpen) {
       setTerminalOpen(true);
-      setTerminalScale("small");
+      setTerminalScale("compact");
     } else {
       setTerminalOpen(false);
-      setTerminalScale("small");
+      setTerminalScale("compact");
     }
   };
   const [connections, setConnections] = useState<ConnectionStatus[] | null>(null);
@@ -2012,7 +2010,7 @@ export function AppHome({ email }: AppHomeProps) {
                 handleRailItemClick(key);
               }}
             >
-              <Icon className="w-4.5 h-4.5" />
+              <Icon className="w-5.5 h-5.5" />
               <span className="icon-rail-label" style={{ opacity: 1 }}>{label}</span>
             </button>
           ))}
@@ -2023,35 +2021,41 @@ export function AppHome({ email }: AppHomeProps) {
         </nav>
       </div>
 
-      <div className={`app-container${terminalOpen && terminalScale === "split" ? " terminal-split" : ""}`}>
+      <div className={`app-container${terminalOpen && terminalScale === "focus" ? " output-focus" : ""}`}>
         <div className="icon-rail-slot">
           <nav className="icon-rail icon-rail--compact">
-            {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active }) => (
-              <button
-                key={key}
-                type="button"
-                className={`icon-rail-item icon-rail-item--compact${active ? " active" : ""}`}
-                onClick={() => handleRailItemClick(key)}
-                title={label}
-              >
-                <Icon className="w-5.5 h-5.5" />
-                <span className="icon-rail-label">{label}</span>
-              </button>
-            ))}
+            <div className="icon-rail-main">
+              {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active }) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`icon-rail-item icon-rail-item--compact${active ? " active" : ""}`}
+                  onClick={() => handleRailItemClick(key)}
+                  aria-label={label}
+                >
+                  <Icon className="w-6 h-6" />
+                  <span className="icon-rail-label">{label}</span>
+                </button>
+              ))}
+            </div>
             <div className="icon-rail-footer">
               <div className="icon-rail-footer-avatar" title={`${username} · Pro Plan`}>{userInitial}</div>
+              <div className="icon-rail-footer-info">
+                <div className="icon-rail-footer-name">{username}</div>
+                <div className="icon-rail-footer-plan">Pro Plan</div>
+              </div>
             </div>
           </nav>
         </div>
 
         {/* ===== LEFT SIDEBAR ===== */}
-        {/* Aio Terminal's split scale force-hides the sidebar (mirrors
+        {/* Aio Output's focus scale force-hides the sidebar (mirrors
             sidebarCollapsed visuals) without touching sidebarCollapsed
             itself, so the user's prior sidebar state is restored when the
-            terminal goes back to "small" or closes. */}
+            output goes back to compact or closes. */}
         <aside
           className={`sidebar${
-            sidebarCollapsed || (terminalOpen && terminalScale === "split") ? " collapsed" : ""
+            sidebarCollapsed || (terminalOpen && terminalScale === "focus") ? " collapsed" : ""
           }`}
         >
           <div className="sidebar-header">
@@ -2647,21 +2651,22 @@ export function AppHome({ email }: AppHomeProps) {
         {/* ===== RIGHT PANEL ===== */}
         <aside
           className={`right-panel${rightPanelCollapsed ? " collapsed" : ""}${
-            terminalOpen ? ` terminal-${terminalScale}` : ""
+            terminalOpen ? ` output-${terminalScale}` : ""
           }`}
         >
           <div className="panel-header">
-            <h3>{terminalOpen ? "Aio Terminal" : "Workspace"}</h3>
+            <h3>{terminalOpen ? "Aio Output" : "Workspace"}</h3>
             <div className="panel-header-actions">
               <button
                 type="button"
                 className={`panel-action-btn panel-action-btn--terminal${terminalOpen ? " active" : ""}`}
                 onClick={cycleTerminal}
-                aria-label={!terminalOpen ? "Open Aio Terminal" : "Close Aio Terminal"}
+                aria-label={!terminalOpen ? "Open Aio Output" : "Close Aio Output"}
                 aria-pressed={terminalOpen}
-                title="Aio Terminal"
+                title={!terminalOpen ? "Open Aio Output" : "Close Aio Output"}
               >
-                <TerminalSquare className="w-3.5 h-3.5" />
+                <TerminalSquare className="w-4 h-4" />
+                <span>Output</span>
               </button>
               <button
                 type="button"
@@ -2725,17 +2730,6 @@ export function AppHome({ email }: AppHomeProps) {
                     <PanelEmpty icon={<CheckCircle2 className="w-5 h-5" />}>Today is clear.</PanelEmpty>
                   )}
                 </div>
-              </div>
-
-              <div className="panel-section">
-                <div className="panel-section-heading panel-section-heading--inline">Workspace Modules</div>
-                <WorkspaceModules
-                  key={chatMode}
-                  events={timelineEvents}
-                  memoryLine={memoryLine}
-                  activeFileName={activeFile?.fileName ?? activeFile?.filePath?.split("/").pop()}
-                  activeMode={chatMode}
-                />
               </div>
 
             </div>
@@ -2947,104 +2941,109 @@ export function AppHome({ email }: AppHomeProps) {
 
           {terminalOpen && (
             <div className={`aio-terminal aio-terminal--${terminalScale}`}>
-              <div className="aio-terminal-tabs">
+              <div className="aio-terminal-tabs" role="tablist" aria-label="Aio Output views">
                 <button
                   type="button"
-                  className={`aio-terminal-tab${terminalTab === "code" ? " active" : ""}`}
-                  onClick={() => setTerminalTab("code")}
+                  className={`aio-terminal-tab${terminalTab === "activity" ? " active" : ""}`}
+                  onClick={() => setTerminalTab("activity")}
+                  role="tab"
+                  aria-selected={terminalTab === "activity"}
                 >
-                  <FileCode className="w-3.5 h-3.5" />
-                  Code
+                  <ListTree className="w-4 h-4" />
+                  Activity
                 </button>
                 <button
                   type="button"
-                  className={`aio-terminal-tab${terminalTab === "results" ? " active" : ""}`}
-                  onClick={() => setTerminalTab("results")}
+                  className={`aio-terminal-tab${terminalTab === "preview" ? " active" : ""}`}
+                  onClick={() => setTerminalTab("preview")}
+                  role="tab"
+                  aria-selected={terminalTab === "preview"}
                 >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                  Results
-                </button>
-                <button
-                  type="button"
-                  className={`aio-terminal-tab${terminalTab === "data" ? " active" : ""}`}
-                  onClick={() => setTerminalTab("data")}
-                >
-                  <Columns className="w-3.5 h-3.5" />
-                  Data
+                  <Eye className="w-4 h-4" />
+                  Preview
                 </button>
                 <button
                   type="button"
                   className="aio-terminal-tab-expand"
-                  onClick={() => setTerminalScale(terminalScale === "split" ? "small" : "split")}
-                  aria-label="Expand terminal"
+                  onClick={() => setTerminalScale(terminalScale === "focus" ? "compact" : "focus")}
+                  aria-label={terminalScale === "focus" ? "Use compact output view" : "Focus output"}
+                  title={terminalScale === "focus" ? "Compact view" : "Focus view"}
                 >
-                  <SquareSplitHorizontal className="w-3.5 h-3.5" />
+                  {terminalScale === "focus"
+                    ? <Minimize2 className="w-4 h-4" />
+                    : <Maximize2 className="w-4 h-4" />}
                 </button>
               </div>
 
-              {terminalTab === "code" ? (
+              {terminalTab === "activity" ? (
                 <div className="aio-terminal-body">
-                  {workspaceEntries.length === 0 ? (
-                    <div className="workspace-panel-empty">Code and tool activity will show up here.</div>
+                  {workspaceEntries.length === 0 && timelineEvents.length === 0 ? (
+                    <div className="output-empty-state">
+                      <div className="output-empty-icon"><ListTree className="w-5 h-5" /></div>
+                      <h4>No activity yet</h4>
+                      <p>Current task activity will appear here.</p>
+                    </div>
                   ) : (
-                    workspaceEntries.map((entry, idx) => {
-                      const isLive = isStreaming && entry.id === lastAssistantMessage?.id;
-                      const isOpen = expandedWorkspaceId === entry.id;
-                      return (
-                        <div key={entry.id} className={`workspace-entry${isOpen ? " open" : ""}`}>
-                          <button
-                            type="button"
-                            className="workspace-entry-header"
-                            onClick={() => setExpandedWorkspaceId(isOpen ? null : entry.id)}
-                          >
-                            <ChevronRight className={`w-3.5 h-3.5 workspace-entry-chevron${isOpen ? " open" : ""}`} />
-                            <span>{isLive ? "Live" : `Turn ${idx + 1}`}</span>
-                            {isLive && <span className="workspace-entry-live-dot" aria-hidden />}
-                          </button>
-                          {isOpen && (
-                            <div className="workspace-entry-body">
-                              {isLive && <RunTimeline events={timelineEvents} compact />}
-                              {entry.blocks.map((block, i) => {
-                                const blockId = `${entry.id}-${i}`;
-                                return (
-                                  <div key={i} className="code-file-card">
-                                    <div className="code-file-card-header">
-                                      <FileCode className="w-4 h-4 code-file-card-icon" />
-                                      <div className="code-file-card-meta">
-                                        <span className="code-file-card-name">{codeBlockFileName(block.lang)}</span>
-                                        <span className="code-file-card-size">{codeBlockSize(block.code)}</span>
+                    <>
+                      {timelineEvents.length > 0 && <RunTimeline events={timelineEvents} compact />}
+                      {workspaceEntries.map((entry, idx) => {
+                        const isLive = isStreaming && entry.id === lastAssistantMessage?.id;
+                        const isOpen = expandedWorkspaceId === entry.id;
+                        return (
+                          <div key={entry.id} className={`workspace-entry${isOpen ? " open" : ""}`}>
+                            <button
+                              type="button"
+                              className="workspace-entry-header"
+                              onClick={() => setExpandedWorkspaceId(isOpen ? null : entry.id)}
+                            >
+                              <ChevronRight className={`w-3.5 h-3.5 workspace-entry-chevron${isOpen ? " open" : ""}`} />
+                              <span>{isLive ? "Live" : `Turn ${idx + 1}`}</span>
+                              {isLive && <span className="workspace-entry-live-dot" aria-hidden />}
+                            </button>
+                            {isOpen && (
+                              <div className="workspace-entry-body">
+                                {entry.blocks.map((block, i) => {
+                                  const blockId = `${entry.id}-${i}`;
+                                  return (
+                                    <div key={i} className="code-file-card">
+                                      <div className="code-file-card-header">
+                                        <FileCode className="w-4 h-4 code-file-card-icon" />
+                                        <div className="code-file-card-meta">
+                                          <span className="code-file-card-name">{codeBlockFileName(block.lang)}</span>
+                                          <span className="code-file-card-size">{codeBlockSize(block.code)}</span>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="code-file-card-copy"
+                                          onClick={() => handleCopyMessage(blockId, block.code)}
+                                        >
+                                          <Copy className="w-3 h-3" />
+                                          {copiedMessageId === blockId ? "Copied" : "Copy"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="code-file-card-download"
+                                          onClick={() => handleDownloadCodeBlock(block.lang, block.code)}
+                                        >
+                                          <Download className="w-3 h-3" />
+                                          Download
+                                        </button>
                                       </div>
-                                      <button
-                                        type="button"
-                                        className="code-file-card-copy"
-                                        onClick={() => handleCopyMessage(blockId, block.code)}
-                                      >
-                                        <Copy className="w-3 h-3" />
-                                        {copiedMessageId === blockId ? "Copied" : "Copy"}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="code-file-card-download"
-                                        onClick={() => handleDownloadCodeBlock(block.lang, block.code)}
-                                      >
-                                        <Download className="w-3 h-3" />
-                                        Download
-                                      </button>
+                                      <pre className="workspace-code-block">
+                                        <code dangerouslySetInnerHTML={{ __html: highlightCode(block.code) }} />
+                                      </pre>
                                     </div>
-                                    <pre className="workspace-code-block">
-                                      <code dangerouslySetInnerHTML={{ __html: highlightCode(block.code) }} />
-                                    </pre>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </>
                   )}
                 </div>
-              ) : terminalTab === "results" ? (
+              ) : (
                 <div className="aio-terminal-body">
                   {activeFile ? (
                     <PreviewPane file={activeFile} />
@@ -3065,10 +3064,6 @@ export function AppHome({ email }: AppHomeProps) {
                   ) : (
                     <PreviewPane file={activeFile} />
                   )}
-                </div>
-              ) : (
-                <div className="aio-terminal-body">
-                  <div className="workspace-panel-empty">Structured data output will show up here.</div>
                 </div>
               )}
             </div>

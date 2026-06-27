@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { Outfit } from "next/font/google";
 import "./globals.css";
 import { brand } from "@/lib/brand.config";
 
@@ -10,15 +9,6 @@ const libreBaskerville = localFont({
     { path: "./fonts/LibreBaskerville-Bold.ttf", weight: "700", style: "normal" },
   ],
   variable: "--font-heading",
-  display: "swap",
-});
-
-// Used by the /app product UI (mockup.css) in place of the generic
-// "Inter" the original mockup shipped with — keeps the marketing site's
-// serif/system pairing untouched.
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-outfit",
   display: "swap",
 });
 
@@ -40,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${libreBaskerville.variable} ${outfit.variable} h-full antialiased`}>
+    <html lang="en" className={`${libreBaskerville.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
