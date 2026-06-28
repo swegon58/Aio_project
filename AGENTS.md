@@ -9,16 +9,16 @@ Read these files in order before planning or editing:
 
 ## Active Work
 
-- Worktree: `/home/swegon/AI_Agent/Aio_project_r0`
-- Branch: `feat/r0-ci-production-safety`
-- Approved phase: R0 only
+- Primary worktree: `/home/swegon/AI_Agent/Aio_project`
+- Branch: `main`
+- R0 integrated in merge commit `1a21077`
+- No later phase is approved yet
 - Main owner: implementation, integration, verification, Git
-- Current blocker: historical secret-scan remediation requires product-owner
-  decision; never print detected secret values
+- Open security follow-up: historical secret-scan remediation requires
+  product-owner decision; never print detected secret values
 
 Use the R0 checklist for exact status and next commands. Update it immediately
-after verified work. Do not begin R1 until the product owner approves the R0
-gate.
+after verified work. Do not begin R1 until the product owner approves it.
 
 ## Boundaries
 

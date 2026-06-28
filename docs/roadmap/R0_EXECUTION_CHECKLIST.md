@@ -1,7 +1,7 @@
 # R0 Execution Checklist
 
-**Branch:** `feat/r0-ci-production-safety`
-**Worktree:** `/home/swegon/AI_Agent/Aio_project_r0`
+**Implementation branch:** `feat/r0-ci-production-safety`
+**Integrated target:** `main` at merge commit `1a21077`
 **Updated:** 2026-06-28
 **Owner:** Codex (implementation, integration, verification)
 
@@ -92,7 +92,7 @@ Treat this file as the execution contract for R0.
 - [ ] Clean migration verification passes.
 - [ ] Reviewer findings are resolved or documented.
 - [ ] Roadmap R0 boxes and evidence are updated.
-- [ ] Branch commits are clean and pushed.
+- [x] Branch commits are clean and pushed.
 - [ ] Existing Aio instance is online after work.
 
 Lint exits successfully with 281 pre-existing warnings and no errors. Warning

@@ -5,7 +5,7 @@
 **Implementation owner:** Main coding agent
 **Created:** 2026-06-28
 **Primary input:** `/home/swegon/Downloads/deep-research-report-for-aio.md`
-**Current branch:** `feat/r0-ci-production-safety`
+**Integrated branch:** `main` at merge commit `1a21077`
 
 This is the complete implementation plan from the current alpha to a
 production-ready consumer private beta. It translates the research report into
