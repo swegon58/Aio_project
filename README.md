@@ -152,7 +152,8 @@ See [Aio Model Supply and Gateway Strategy](docs/research/2026-06-27_model_suppl
 
 - [Current project state](AIO_PROJECT_STATE.md)
 - [Master execution plan](AIO_MASTER_EXECUTION_PLAN.md)
-- [Active R0 execution checklist](docs/roadmap/R0_EXECUTION_CHECKLIST.md)
+- [R0 closure checklist](docs/roadmap/R0_EXECUTION_CHECKLIST.md)
+- [R0 secret-scan remediation note](docs/operations/R0_SECRET_SCAN_REMEDIATION_2026-06-28.md)
 - [Runtime architecture](docs/architecture/aio_runtime_architecture.md)
 - [Run event protocol](docs/architecture/aio_run_event_protocol.md)
 - [Competitive product research](docs/research/2026-06-26_competitive_money_features.md)

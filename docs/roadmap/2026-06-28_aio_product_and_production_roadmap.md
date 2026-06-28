@@ -106,31 +106,32 @@ R2 and R3 may run in parallel after R1.
 Goal: make every later change verifiable and prevent development shortcuts
 from reaching production.
 
-- [ ] `R0.1` `XS` Change CI branch filters from `master` to `main`.
+- [x] `R0.1` `XS` Change CI branch filters from `master` to `main`.
   Done when pushes and pull requests to `main` trigger CI.
-- [ ] `R0.2` `XS` Set the workflow working directory to `apps/web` and enable
+- [x] `R0.2` `XS` Set the workflow working directory to `apps/web` and enable
   npm cache from `apps/web/package-lock.json`.
   Done when a clean GitHub runner can install and build.
-- [ ] `R0.3` `S` Add focused web unit tests to CI.
+- [x] `R0.3` `S` Add focused web unit tests to CI.
   Done when mapper, event adapter, billing normalization, and input validation
   tests run on every pull request.
-- [ ] `R0.4` `M` Add Playwright smoke tests for login/dev bypass, chat submit,
+- [x] `R0.4` `M` Add Playwright smoke tests for login/dev bypass, chat submit,
   approval, Deep Research mode, Settings, and image creation UI.
   Done when critical UI flows pass at desktop and mobile sizes.
-- [ ] `R0.5` `S` Add secret scanning and dependency review.
+- [x] `R0.5` `S` Add secret scanning and dependency review.
   Done when pull requests fail on committed credentials or newly introduced
   vulnerable production dependencies.
-- [ ] `R0.6` `S` Add a production startup guard for `DEV_AUTH_BYPASS`, inline
+- [x] `R0.6` `S` Add a production startup guard for `DEV_AUTH_BYPASS`, inline
   runtime keys, and development payment providers.
   Done when a production build refuses unsafe configuration.
-- [ ] `R0.7` `S` Add migration ordering and clean-database verification.
+- [x] `R0.7` `S` Add migration ordering and clean-database verification.
   Done when all migrations apply to an empty test database in CI.
-- [ ] `R0.8` `XS` Record baseline success, latency, and cost measurements for
+- [x] `R0.8` `XS` Record baseline success, latency, and cost measurements for
   chat, research, and image generation.
   Done when later phases have a comparison baseline.
 
 **Gate R0:** CI passes from a clean checkout and unsafe production
-configuration fails closed.
+configuration fails closed. Historical secret triage is closed for R0 by owner
+decision without a Git history rewrite.
 
 ## R1: Durable Run Foundation
 

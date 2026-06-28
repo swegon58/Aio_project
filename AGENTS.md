@@ -20,14 +20,14 @@ approved, present the next decision gate; do not infer approval from "continue".
 
 - Primary worktree: `/home/swegon/AI_Agent/Aio_project`
 - Branch: `main`
-- R0 integrated in merge commit `1a21077`
+- R0 is closed on `main`
 - No later phase is approved yet
 - Main owner: implementation, integration, verification, Git
-- Open security follow-up: historical secret-scan remediation requires
-  product-owner decision; never print detected secret values
+- Historical secret-scan triage is closed for R0; never print detected secret
+  values or restore deleted `.mcp.json` files
 
-Use the R0 checklist for exact status and next commands. Update it immediately
-after verified work. Do not begin R1 until the product owner approves it.
+Use the R0 checklist as historical closure evidence only. Do not begin R1 until
+the product owner approves it.
 
 ## Boundaries
 

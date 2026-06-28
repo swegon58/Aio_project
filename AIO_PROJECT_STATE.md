@@ -2,8 +2,8 @@
 
 **Canonical repository:** `/home/swegon/AI_Agent/Aio_project`  
 **Canonical branch:** `main`  
-**Last verified product commit:** `9af4e49` (run the context script for current HEAD)
-**Last verified CI:** GitHub Actions run `28310392676`, all jobs passed  
+**Current main status:** run `scripts/aio-context.sh` for the exact live HEAD
+**Most recent verified CI before this state update:** GitHub Actions run `28318122604`, all jobs passed
 **Updated:** 2026-06-28
 
 This is the first file an agent reads to learn current location and progress.
@@ -11,17 +11,22 @@ It is a status index, not a replacement for the master plan or phase checklist.
 
 ## Current Status
 
-- R0 implementation is merged and pushed to `main`.
+- R0 is formally closed on `main`.
 - Web quality, security, clean migrations, and desktop/mobile Playwright CI
-  pass.
+  pass on `main`.
 - Aio local services were last verified at:
   - Web: `http://localhost:3000/app`
   - Hermes: `http://localhost:8642/health`
   - LM Studio: `http://localhost:1234/v1/models`
 - No phase after R0 has been approved.
 - R1 must not start until the product owner explicitly approves it.
-- Open security follow-up: a historical GitHub token finding still requires an
-  owner decision about revocation/history treatment. Never display its value.
+- Historical secret-scan triage is closed for Aio R0.
+- Owner decision: do not rewrite Git history for the deleted historical
+  `.mcp.json` files as part of R0. Keep current-tree protection, CI scanning,
+  and documentation as the repository closure boundary.
+- Do not treat this repository note as proof of external credential revocation.
+  Secret lifecycle remains outside the repo and must never be handled by
+  exposing values in chat or commits.
 
 ## Worktree Roles
 
@@ -61,14 +66,14 @@ When the product owner says "continue building Aio":
 
 ## Next Decision Gate
 
-No feature is currently approved.
+No feature is currently approved after R0 closure.
 
-- **A. Recommended:** resolve the historical-token follow-up and formally close
-  R0.
-- **B:** approve R1 Durable Run Foundation and create its detailed execution
-  checklist before coding.
-- **C:** choose another item from the master plan for reprioritization; document
-  why dependencies can be changed.
+- **A. Recommended:** approve R1 Durable Run Foundation and create its detailed
+  execution checklist before coding.
+- **B:** choose another item from the master plan for reprioritization;
+  document why dependencies can be changed.
+- **C:** keep `main` stable and continue research only until a new product phase
+  is approved.
 
 ## Update Contract
 

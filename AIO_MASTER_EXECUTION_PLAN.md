@@ -160,7 +160,7 @@ Known gaps that agents must not misreport as complete:
 
 | Phase | Outcome | Depends on | Approval |
 |---|---|---|---|
-| R0 | CI and production safety baseline | None | Approved/in progress |
+| R0 | CI and production safety baseline | None | Closed on `main` |
 | R1 | Durable runs, replay, reconnect | R0 | Required |
 | R2 | Tool governance and durable approvals | R1 | Required |
 | R3 | Tracing, cost, SLOs, evaluations | R1 | Required |
@@ -187,7 +187,7 @@ Required outputs:
 - root CI for quality, security, database, and E2E
 - focused unit and browser smoke tests
 - no high/critical production dependency vulnerability
-- secret scan with historical credential remediation
+- secret scan with historical credential triage and owner-documented closure
 - production startup fail-closed behavior
 - clean migration verification
 - baseline chat/research/image measurements
