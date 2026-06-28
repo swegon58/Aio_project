@@ -5,7 +5,7 @@
 **Branched from:** `origin/main` at `8a8718a`
 **Updated:** 2026-06-28
 **Owner:** Main coding agent
-**Status:** Approved by product owner on 2026-06-28. R1.1 in progress.
+**Status:** Approved by product owner on 2026-06-28. R1.1–R1.3 complete and verified; R1.4 next.
 
 This file tracks active work for the R1 phase. The full product sequence lives
 in `2026-06-28_aio_product_and_production_roadmap.md`. The code-level program
@@ -148,10 +148,7 @@ except administrative repair with audit.
 
 ### R1.3 Database Schema
 
-- [~] `M` Add ordered migrations `0009_*` and `0010_*` for runs and events.
-  Migrations written 2026-06-28; **live `db reset` + `db lint` verification is
-  pending** — the local Supabase stack is currently down, so the task-specific
-  check cannot run yet (see Verification below).
+- [x] `M` Add ordered migrations `0009_*` and `0010_*` for runs and events. ✅ Done 2026-06-28
 
 **Files:**
 
@@ -198,13 +195,23 @@ npx -y supabase@2.101.0 db reset
 npx -y supabase@2.101.0 db lint --local --level warning --fail-on warning
 ```
 
-**Status (2026-06-28):** migrations `0009_aio_runs.sql` and
-`0010_aio_run_events.sql` are written and statically reviewed (FK ordering
-`0007 → 0009 → 0010` resolves; check constraints, partial unique indexes, and
-select-only RLS policies in place). The live `db reset` / `db lint` commands
-have **not** run because the local Supabase stack is down
-(`supabase_db_aio-web` absent). R1.3 stays open until those pass; R1.4
-repositories must not be written against an unverified schema.
+**Status (2026-06-28):** verified live. Local Supabase stack brought up with
+`supabase start --exclude edge-runtime,studio` (the Deno edge-runtime worker
+fails to fetch `@panva/jose` from `jsr.io` — a registry 403 unrelated to the
+schema; Postgres/auth/storage all healthy). Results:
+
+- `supabase db reset` applies migrations `0001`–`0010` in order, exit 0.
+- `supabase db lint --local --level warning --fail-on warning` →
+  "No schema errors found", exit 0.
+- Cross-tenant RLS probe (rolled back, synthetic users A/B):
+  authenticated tenant A sees exactly its own 1 `aio_runs` row and 1
+  `aio_run_events` row, **0 rows leaked** from tenant B; INSERT by A raises
+  `new row violates row-level security policy`; UPDATE and DELETE affect
+  `0` rows. Writes are service-role-only by construction (no insert/update/
+  delete policies for anon/authenticated).
+
+R1.3 complete. R1.4 repositories may now be written against the verified
+schema.
 
 Pass: migrations `0001`-`0010` apply in order; lint exits `0`; cross-tenant RLS
 test denies the wrong tenant.
@@ -312,11 +319,16 @@ migration, lockfile, or test file.
 
 ## Exact Next Step
 
-R1.1 (ADR-001) and R1.2 (versioned event contract) are committed on
-`feat/r1-durable-run-foundation`. R1.3 migrations (`0009_aio_runs.sql`,
-`0010_aio_run_events.sql`) are written but **not yet verified live** — the local
-Supabase stack is down. Next: start the local stack and run
-`supabase db reset` + `supabase db lint --local --level warning --fail-on
-warning`; fix any warnings, then commit R1.3. Do not start R1.4 repositories
-until the schema applies cleanly and the cross-tenant RLS test denies the wrong
-tenant.
+R1.1 (ADR-001), R1.2 (versioned event contract), and R1.3 (DB schema) are all
+committed and verified on `feat/r1-durable-run-foundation`. The local Supabase
+stack is up (Postgres on `127.0.0.1:54322`) with migrations `0001`–`0010`
+applied and RLS isolation confirmed.
+
+Next: **R1.4 — server repositories and the run state machine.** Build
+`run-state-machine.ts` (allowed-transition validation for the
+`queued→running→waiting_approval→…; *→cancelling→cancelled; terminal` machine
+from ADR-001 §3), then `run-repository.ts` and `run-event-repository.ts`
+(server-only, transactional append with `(run_id, sequence)` uniqueness and
+idempotent envelope-id dedupe, cursor-paginated list, run+events fetch). No
+route may contain raw lifecycle SQL. Acceptance: unit tests for the state
+machine's allowed/forbidden transitions and for idempotent append + transition.
