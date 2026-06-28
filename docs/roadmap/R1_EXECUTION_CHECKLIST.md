@@ -148,26 +148,42 @@ except administrative repair with audit.
 
 ### R1.3 Database Schema
 
-- [ ] `M` Add ordered migrations `0009_*` and `0010_*` for runs and events.
+- [~] `M` Add ordered migrations `0009_*` and `0010_*` for runs and events.
+  Migrations written 2026-06-28; **live `db reset` + `db lint` verification is
+  pending** — the local Supabase stack is currently down, so the task-specific
+  check cannot run yet (see Verification below).
 
 **Files:**
 
 - `apps/web/supabase/migrations/0009_aio_runs.sql` (new)
 - `apps/web/supabase/migrations/0010_aio_run_events.sql` (new)
 
-**`aio_runs`:** `id uuid pk`, `user_id uuid not null`, `conversation_id uuid
-null`, `thread_id text not null`, `status text not null` (incl. `cancelling`),
-`mode text not null`, `input_summary text`, `hermes_run_id text null`,
-`hermes_session_id text null`, `reserved_credits numeric`, `actual_credits
-numeric`, `error_code text null`, `error_message_redacted text null`,
+**`aio_runs`:** `id uuid pk`, `customer_id uuid not null` (see naming note),
+`conversation_id uuid null`, `thread_id text not null`, `status text not null`
+(incl. `cancelling`), `mode text not null`, `input_summary text`,
+`hermes_run_id text null`, `hermes_session_id text null`, `reserved_credits
+numeric`, `actual_credits numeric`, `error_code text null`,
+`error_message_redacted text null`,
 `created_at/started_at/updated_at/completed_at`, `cancel_requested_at`,
 `metadata jsonb` with size check.
 
-**Indexes:** `(user_id, created_at desc)`, `(user_id, status, updated_at desc)`,
-unique `hermes_run_id` when non-null, conversation/thread lookup.
+**Naming note (deviation from this draft, 2026-06-28):** the draft said
+`user_id`; the implemented migrations use `customer_id` instead. Every existing
+multi-tenant table (`hermes_registry`, `hermes_conversations`,
+`hermes_gallery_images`) and every query in the app key the owner off
+`customer_id` → `auth.users(id)`. Using `customer_id` keeps the R1.4
+repositories, joins, and RLS policies uniform with the rest of the schema.
 
-**`aio_run_events`:** envelope fields, `payload jsonb`, unique `(run_id,
-sequence)`, unique envelope `id`, index `(run_id, sequence)`.
+**Indexes:** `(customer_id, created_at desc)`, `(customer_id, status,
+updated_at desc)`, `(customer_id, thread_id)`, `(conversation_id)` partial,
+unique `hermes_run_id` when non-null (partial).
+
+**`aio_run_events`:** envelope fields (`id` pk, `schema_version`, `run_id`,
+`customer_id`, `sequence`, `type`, `occurred_at`, `received_at`, `source`,
+`payload`, `hermes`), `payload jsonb`, unique `(run_id, sequence)`, unique
+envelope `id` (pk), index `(run_id, sequence)` + `(run_id, occurred_at)` +
+`(customer_id, received_at desc)`. `customer_id` is denormalized per event so
+RLS can isolate tenants without a join.
 
 **RLS:** users read only their own runs/events; the browser cannot insert or
 mutate lifecycle rows; service role writes through the server repository;
@@ -181,6 +197,14 @@ cd apps/web
 npx -y supabase@2.101.0 db reset
 npx -y supabase@2.101.0 db lint --local --level warning --fail-on warning
 ```
+
+**Status (2026-06-28):** migrations `0009_aio_runs.sql` and
+`0010_aio_run_events.sql` are written and statically reviewed (FK ordering
+`0007 → 0009 → 0010` resolves; check constraints, partial unique indexes, and
+select-only RLS policies in place). The live `db reset` / `db lint` commands
+have **not** run because the local Supabase stack is down
+(`supabase_db_aio-web` absent). R1.3 stays open until those pass; R1.4
+repositories must not be written against an unverified schema.
 
 Pass: migrations `0001`-`0010` apply in order; lint exits `0`; cross-tenant RLS
 test denies the wrong tenant.
@@ -289,8 +313,10 @@ migration, lockfile, or test file.
 ## Exact Next Step
 
 R1.1 (ADR-001) and R1.2 (versioned event contract) are committed on
-`feat/r1-durable-run-foundation`. Begin R1.3 (Database Schema): add ordered
-migrations `0009_aio_runs.sql` and `0010_aio_run_events.sql` per the columns,
-indexes, and RLS rules above, then verify with `supabase db reset` and
-`supabase db lint --local`. Do not start R1.4 repositories until the migrations
-apply cleanly and the cross-tenant RLS test denies the wrong tenant.
+`feat/r1-durable-run-foundation`. R1.3 migrations (`0009_aio_runs.sql`,
+`0010_aio_run_events.sql`) are written but **not yet verified live** — the local
+Supabase stack is down. Next: start the local stack and run
+`supabase db reset` + `supabase db lint --local --level warning --fail-on
+warning`; fix any warnings, then commit R1.3. Do not start R1.4 repositories
+until the schema applies cleanly and the cross-tenant RLS test denies the wrong
+tenant.
