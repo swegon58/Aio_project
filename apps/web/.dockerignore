@@ -47,6 +47,9 @@ GEMINI.md
 # Docs / research (large, not needed at runtime)
 docs
 scripts
+!scripts/
+scripts/*
+!scripts/check-production-env.mjs
 
 # Docker files themselves (no need to copy into image)
 Dockerfile

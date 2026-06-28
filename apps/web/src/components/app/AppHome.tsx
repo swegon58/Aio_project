@@ -206,7 +206,7 @@ interface ActiveFile {
 const LIVE_PREVIEW_EXTS = new Set(["html", "htm", "js", "jsx", "ts", "tsx"]);
 const PDF_EXTS = new Set(["pdf"]);
 const DOC_EXTS = new Set(["doc", "docx"]);
-const SHEET_EXTS = new Set(["xls", "xlsx", "csv"]);
+const SHEET_EXTS = new Set(["xlsx", "csv"]);
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 const MARKDOWN_EXTS = new Set(["md", "markdown"]);
 
@@ -446,22 +446,39 @@ function DocPreview({ url }: { url: string }) {
 }
 
 function SheetPreview({ url, isCsv }: { url: string; isCsv: boolean }) {
-  const { data, error, loading } = useArtifactFetch(url, async (res) => {
-    const XLSX = await import("xlsx");
-    const buf = isCsv ? await res.text() : await res.arrayBuffer();
-    const wb = isCsv ? XLSX.read(buf, { type: "string" }) : XLSX.read(buf, { type: "array" });
-    const firstSheetName = wb.SheetNames[0];
-    const sheet = wb.Sheets[firstSheetName];
-    return XLSX.utils.sheet_to_html(sheet);
+  type SheetCell = string | number | boolean | Date | null;
+  type SheetRows = SheetCell[][];
+
+  const { data, error, loading } = useArtifactFetch<SheetRows>(url, async (res) => {
+    if (isCsv) {
+      const Papa = (await import("papaparse")).default;
+      const result = Papa.parse<SheetCell[]>(await res.text(), { skipEmptyLines: true });
+      if (result.errors.length > 0) throw new Error(result.errors[0].message);
+      return result.data;
+    }
+
+    const { readSheet } = await import("read-excel-file/browser");
+    return readSheet(await res.arrayBuffer()) as Promise<SheetRows>;
   });
 
   if (loading) return <div className="terminal-preview-placeholder">Loading spreadsheet…</div>;
   if (error) return <div className="terminal-preview-placeholder">Couldn&apos;t load spreadsheet: {error}</div>;
   return (
-    <div
-      className="terminal-preview-sheet"
-      dangerouslySetInnerHTML={{ __html: data ?? "" }}
-    />
+    <div className="terminal-preview-sheet">
+      <table>
+        <tbody>
+          {(data ?? []).map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {row.map((cell, cellIndex) => (
+                <td key={cellIndex}>
+                  {cell instanceof Date ? cell.toLocaleString() : String(cell ?? "")}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

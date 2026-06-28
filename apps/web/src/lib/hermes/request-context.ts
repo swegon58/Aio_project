@@ -10,6 +10,7 @@ import {
 import { ensureRunning, touchRegistryRow } from "@/lib/hermes/lifecycle";
 import { type PlanTier } from "@/lib/hermes/pricing";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isProductionDeployment } from "@/lib/aio/config/production-guard.mjs";
 
 export const THREAD_COOKIE = "hermes_thread_id";
 
@@ -36,6 +37,12 @@ const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === "true";
 const DEV_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function resolveHermesRequestContext(): Promise<HermesRequestContextResult> {
+  if (isProductionDeployment() && DEV_BYPASS) {
+    return {
+      ok: false,
+      res: new Response("Unsafe configuration: development auth bypass is disabled in production", { status: 500 }),
+    };
+  }
   if (DEV_BYPASS) {
     const apiServerKey = process.env.HERMES_DEV_API_SERVER_KEY;
     if (!apiServerKey) {
@@ -100,8 +107,20 @@ export async function resolveHermesRequestContext(): Promise<HermesRequestContex
 
   let apiServerKey: string | undefined;
   if (row.api_server_key_ref.startsWith("inline:")) {
+    if (isProductionDeployment()) {
+      return {
+        ok: false,
+        res: new Response("Unsafe configuration: inline runtime keys are disabled in production", { status: 500 }),
+      };
+    }
     apiServerKey = row.api_server_key_ref.slice("inline:".length);
   } else if (row.api_server_key_ref === "env:HERMES_DEV_API_SERVER_KEY") {
+    if (isProductionDeployment()) {
+      return {
+        ok: false,
+        res: new Response("Unsafe configuration: development runtime keys are disabled in production", { status: 500 }),
+      };
+    }
     apiServerKey = process.env.HERMES_DEV_API_SERVER_KEY;
   }
   if (!apiServerKey) {
