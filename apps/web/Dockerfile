@@ -47,6 +47,7 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 
 ENV NODE_ENV=production
+ENV AIO_DEPLOYMENT_ENV=build
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -80,6 +81,7 @@ WORKDIR /app
 
 # Set production environment variables
 ENV NODE_ENV=production
+ENV AIO_DEPLOYMENT_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
@@ -99,6 +101,8 @@ RUN chown node:node .next
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/scripts/check-production-env.mjs ./scripts/check-production-env.mjs
+COPY --from=builder --chown=node:node /app/src/lib/aio/config/production-guard.mjs ./src/lib/aio/config/production-guard.mjs
 
 # If you want to persist the fetch cache generated during the build so that
 # cached responses are available immediately on startup, uncomment this line:
@@ -111,4 +115,4 @@ USER node
 EXPOSE 3000
 
 # Start Next.js standalone server
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "node scripts/check-production-env.mjs && exec node server.js"]

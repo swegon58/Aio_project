@@ -53,12 +53,17 @@ import { TASK_TEMPLATES } from "@/components/app/TemplateGallery";
 import { RunTimeline, legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timeline";
 import { ResearchProgressCard } from "@/components/app/ResearchProgressCard";
 import { ChatModeMenu } from "@/components/app/ChatModeMenu";
+import {
+  GeneratedImageCard,
+  ImageGenerationProgress,
+} from "@/components/app/GeneratedImageCard";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
 import { brand } from "@/lib/brand.config";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import {
   mascotStateForTool,
+  type AioGeneratedImage,
   type HermesActivityData,
   type HermesApprovalData,
   type HermesCreditsData,
@@ -201,7 +206,7 @@ interface ActiveFile {
 const LIVE_PREVIEW_EXTS = new Set(["html", "htm", "js", "jsx", "ts", "tsx"]);
 const PDF_EXTS = new Set(["pdf"]);
 const DOC_EXTS = new Set(["doc", "docx"]);
-const SHEET_EXTS = new Set(["xls", "xlsx", "csv"]);
+const SHEET_EXTS = new Set(["xlsx", "csv"]);
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 const MARKDOWN_EXTS = new Set(["md", "markdown"]);
 
@@ -441,22 +446,39 @@ function DocPreview({ url }: { url: string }) {
 }
 
 function SheetPreview({ url, isCsv }: { url: string; isCsv: boolean }) {
-  const { data, error, loading } = useArtifactFetch(url, async (res) => {
-    const XLSX = await import("xlsx");
-    const buf = isCsv ? await res.text() : await res.arrayBuffer();
-    const wb = isCsv ? XLSX.read(buf, { type: "string" }) : XLSX.read(buf, { type: "array" });
-    const firstSheetName = wb.SheetNames[0];
-    const sheet = wb.Sheets[firstSheetName];
-    return XLSX.utils.sheet_to_html(sheet);
+  type SheetCell = string | number | boolean | Date | null;
+  type SheetRows = SheetCell[][];
+
+  const { data, error, loading } = useArtifactFetch<SheetRows>(url, async (res) => {
+    if (isCsv) {
+      const Papa = (await import("papaparse")).default;
+      const result = Papa.parse<SheetCell[]>(await res.text(), { skipEmptyLines: true });
+      if (result.errors.length > 0) throw new Error(result.errors[0].message);
+      return result.data;
+    }
+
+    const { readSheet } = await import("read-excel-file/browser");
+    return readSheet(await res.arrayBuffer()) as Promise<SheetRows>;
   });
 
   if (loading) return <div className="terminal-preview-placeholder">Loading spreadsheet…</div>;
   if (error) return <div className="terminal-preview-placeholder">Couldn&apos;t load spreadsheet: {error}</div>;
   return (
-    <div
-      className="terminal-preview-sheet"
-      dangerouslySetInnerHTML={{ __html: data ?? "" }}
-    />
+    <div className="terminal-preview-sheet">
+      <table>
+        <tbody>
+          {(data ?? []).map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {row.map((cell, cellIndex) => (
+                <td key={cellIndex}>
+                  {cell instanceof Date ? cell.toLocaleString() : String(cell ?? "")}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -547,6 +569,24 @@ interface GalleryImage {
   createdAt: string;
   url: string | null;
 }
+
+type ImageAspectRatio = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
+type ImageResolution = "1K" | "2K" | "4K";
+type ImageGenerationStatus = "preparing" | "generating" | "saving";
+
+const IMAGE_ASPECT_RATIOS: Array<{ value: ImageAspectRatio; label: string }> = [
+  { value: "1:1", label: "Square" },
+  { value: "16:9", label: "Landscape" },
+  { value: "9:16", label: "Portrait" },
+  { value: "4:3", label: "Classic" },
+  { value: "3:4", label: "Tall" },
+];
+
+const IMAGE_COST_USD: Record<ImageResolution, number> = {
+  "1K": 0.03,
+  "2K": 0.05,
+  "4K": 0.08,
+};
 
 interface ConnectionStatus {
   id: string;
@@ -913,6 +953,15 @@ export function AppHome({ email }: AppHomeProps) {
   const [lastRunMode, setLastRunMode] = useState<AioChatMode>("auto");
   const [activeResearchQuery, setActiveResearchQuery] = useState("");
   const [planOtherText, setPlanOtherText] = useState("");
+  const [imageComposerActive, setImageComposerActive] = useState(false);
+  const [imageAspectRatio, setImageAspectRatio] = useState<ImageAspectRatio>("1:1");
+  const [imageResolution, setImageResolution] = useState<ImageResolution>("1K");
+  const [imageReference, setImageReference] = useState<AioGeneratedImage | null>(null);
+  const [imageGenerationStatus, setImageGenerationStatus] =
+    useState<ImageGenerationStatus | null>(null);
+  const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
+  const [imageLastPrompt, setImageLastPrompt] = useState("");
+  const imageGenerationAbortRef = useRef<AbortController | null>(null);
 
   const composerMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -976,10 +1025,156 @@ export function AppHome({ email }: AppHomeProps) {
     URL.revokeObjectURL(url);
   };
 
+  const activateImageComposer = (reference: AioGeneratedImage | null = null) => {
+    setImageComposerActive(true);
+    setImageReference(reference);
+    setImageGenerationError(null);
+    setComposerMenuOpen(false);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
+  const handleGeneratedImageOpen = (image: AioGeneratedImage) => {
+    setLightboxImage({
+      id: image.id,
+      sessionId: null,
+      caption: image.prompt,
+      createdAt: image.createdAt,
+      url: image.url,
+    });
+  };
+
+  const handleGeneratedImageEdit = (image: AioGeneratedImage) => {
+    activateImageComposer(image);
+    setInput("Edit this image: ");
+  };
+
+  const handleGeneratedImageVariation = (image: AioGeneratedImage) => {
+    activateImageComposer(image);
+    setInput("Create a new variation with ");
+  };
+
+  const cancelImageGeneration = () => {
+    imageGenerationAbortRef.current?.abort();
+    imageGenerationAbortRef.current = null;
+    setImageGenerationStatus(null);
+  };
+
+  const submitImageGeneration = async (prompt: string) => {
+    setImageLastPrompt(prompt);
+    const userMessage: HermesUIMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text: prompt }],
+    };
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
+    setImageGenerationError(null);
+    setImageGenerationStatus("preparing");
+    setActivity([]);
+    setRunEvents([]);
+    setPlanAwaitingAction(false);
+
+    const controller = new AbortController();
+    imageGenerationAbortRef.current = controller;
+
+    try {
+      const response = await fetch("/api/images/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          aspectRatio: imageAspectRatio,
+          resolution: imageResolution,
+          referenceImageId: imageReference?.id ?? null,
+          messages: nextMessages,
+        }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message ?? `Image generation failed (${response.status}).`);
+      }
+      if (!response.body) throw new Error("Image generation returned no response stream.");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let resultImage: AioGeneratedImage | null = null;
+      let resultThreadId: string | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        buffer += decoder.decode(value, { stream: !done });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line) as {
+            type: "status" | "result" | "error";
+            status?: ImageGenerationStatus;
+            image?: AioGeneratedImage;
+            threadId?: string;
+            message?: string;
+          };
+          if (event.type === "status" && event.status) {
+            setImageGenerationStatus(event.status);
+          } else if (event.type === "error") {
+            throw new Error(event.message || "Image generation failed.");
+          } else if (event.type === "result" && event.image) {
+            resultImage = event.image;
+            resultThreadId = event.threadId ?? null;
+          }
+        }
+        if (done) break;
+      }
+
+      if (!resultImage) throw new Error("Image generation finished without an image.");
+      const assistantMessage: HermesUIMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        parts: [{ type: "text", text: "Your image is ready." }],
+        metadata: { mode: "auto", images: [resultImage] },
+      };
+      setMessages([...nextMessages, assistantMessage]);
+      setActiveConversationId((current) => current ?? resultThreadId);
+      setGalleryImages((current) => {
+        const galleryImage: GalleryImage = {
+          id: resultImage.id,
+          sessionId: null,
+          caption: resultImage.prompt,
+          createdAt: resultImage.createdAt,
+          url: resultImage.url,
+        };
+        return current ? [galleryImage, ...current.filter((item) => item.id !== resultImage.id)] : [galleryImage];
+      });
+      setImageReference(null);
+      logMeta(`Created a ${resultImage.resolution} image and saved it to Gallery`);
+      void loadConversations();
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    } catch (error) {
+      if (controller.signal.aborted) {
+        setImageGenerationError("Image generation cancelled.");
+      } else {
+        setImageGenerationError(error instanceof Error ? error.message : "Image generation failed.");
+      }
+    } finally {
+      if (imageGenerationAbortRef.current === controller) imageGenerationAbortRef.current = null;
+      setImageGenerationStatus(null);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || status !== "ready") return;
+    if (!input.trim() || status !== "ready" || imageGenerationStatus) return;
     const submittedText = input.trim();
+    if (imageComposerActive) {
+      setInput("");
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+      setInputMultiline(false);
+      void submitImageGeneration(submittedText);
+      return;
+    }
     setActivity([]);
     setRunEvents([]);
     setShowcases([]);
@@ -2264,6 +2459,9 @@ export function AppHome({ email }: AppHomeProps) {
                   const isActiveAssistant =
                     isLatestAssistant && isStreaming;
                   const fullText = textParts.map((part) => (part.type === "text" ? part.text : "")).join("");
+                  const messageImages = message.role === "assistant"
+                    ? message.metadata?.images ?? []
+                    : [];
                   const messageQuestion = message.role === "assistant" ? parsePlanQuestion(fullText) : null;
                   const precedingUserMessage = message.role === "assistant"
                     ? messages.slice(0, messageIndex).findLast((item) => item.role === "user")
@@ -2302,7 +2500,11 @@ export function AppHome({ email }: AppHomeProps) {
                   return (
                     <div key={message.id} className={`message ${message.role === "user" ? "user" : "ai"}`}>
                       <div className="message-content">
-                        <div className={`message-bubble${isResearchMessage ? " research-message-bubble" : ""}`}>
+                        <div
+                          className={`message-bubble${isResearchMessage ? " research-message-bubble" : ""}${
+                            messageImages.length ? " generated-image-message" : ""
+                          }`}
+                        >
                           {isResearchMessage && (
                             <ResearchProgressCard
                               query={researchQuery}
@@ -2347,6 +2549,15 @@ export function AppHome({ email }: AppHomeProps) {
                               </span>
                             ))
                           )}
+                          {messageImages.map((image) => (
+                            <GeneratedImageCard
+                              key={image.id}
+                              image={image}
+                              onEdit={handleGeneratedImageEdit}
+                              onVariation={handleGeneratedImageVariation}
+                              onOpen={handleGeneratedImageOpen}
+                            />
+                          ))}
                           {messageArtifacts.length > 0 && (
                             <div className="message-artifacts">
                               {messageArtifacts.map((artifact, i) => (
@@ -2416,6 +2627,19 @@ export function AppHome({ email }: AppHomeProps) {
                     </div>
                   );
                 })}
+
+                {imageGenerationStatus && (
+                  <div className="message ai">
+                    <div className="message-content">
+                      <div className="message-bubble generated-image-message">
+                        <ImageGenerationProgress
+                          status={imageGenerationStatus}
+                          onCancel={cancelImageGeneration}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {isStreaming && !hasText && (
                   <div className="message ai">
@@ -2588,7 +2812,103 @@ export function AppHome({ email }: AppHomeProps) {
                 </div>
               )}
 
+              {imageGenerationError && (
+                <div className="image-generation-error" role="alert">
+                  <CircleAlert className="w-4 h-4" />
+                  <span>{imageGenerationError}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInput(imageLastPrompt);
+                      setImageGenerationError(null);
+                      focusComposer();
+                    }}
+                  >
+                    Edit prompt
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-only"
+                    onClick={() => setImageGenerationError(null)}
+                    aria-label="Dismiss image generation error"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit}>
+                {imageComposerActive && (
+                  <div className="image-composer-toolbar" aria-label="Image creation options">
+                    <div className="image-composer-mode">
+                      <ImageIcon className="w-4 h-4" />
+                      <span>{imageReference ? "Edit image" : "Create image"}</span>
+                    </div>
+                    {imageReference && (
+                      <button
+                        type="button"
+                        className="image-reference-chip"
+                        onClick={() => handleGeneratedImageOpen(imageReference)}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={imageReference.url} alt="" />
+                        <span>Reference</span>
+                      </button>
+                    )}
+                    <label className="image-composer-select">
+                      <span className="sr-only">Aspect ratio</span>
+                      <select
+                        value={imageAspectRatio}
+                        onChange={(event) => setImageAspectRatio(event.target.value as ImageAspectRatio)}
+                        disabled={Boolean(imageGenerationStatus)}
+                      >
+                        {IMAGE_ASPECT_RATIOS.map((aspect) => (
+                          <option
+                            key={aspect.value}
+                            value={aspect.value}
+                            disabled={imageResolution === "4K" && aspect.value === "1:1"}
+                          >
+                            {aspect.label} · {aspect.value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="image-resolution-control" role="group" aria-label="Resolution">
+                      {(["1K", "2K", "4K"] as ImageResolution[]).map((resolution) => (
+                        <button
+                          key={resolution}
+                          type="button"
+                          className={imageResolution === resolution ? "active" : ""}
+                          disabled={Boolean(imageGenerationStatus)}
+                          onClick={() => {
+                            setImageResolution(resolution);
+                            if (resolution === "4K" && imageAspectRatio === "1:1") {
+                              setImageAspectRatio("16:9");
+                            }
+                          }}
+                        >
+                          {resolution}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="image-cost">
+                      ${IMAGE_COST_USD[imageResolution].toFixed(2)} est.
+                    </span>
+                    <button
+                      type="button"
+                      className="image-composer-close"
+                      disabled={Boolean(imageGenerationStatus)}
+                      onClick={() => {
+                        setImageComposerActive(false);
+                        setImageReference(null);
+                        setImageGenerationError(null);
+                      }}
+                      aria-label="Close image creation"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
                 <div
                   className={`input-wrapper${inputFocused ? " focused" : ""}${inputMultiline ? " multiline" : ""}`}
                 >
@@ -2605,6 +2925,15 @@ export function AppHome({ email }: AppHomeProps) {
                     </button>
                     {composerMenuOpen && (
                       <div className="composer-plus-menu" role="menu">
+                        <button
+                          type="button"
+                          className="composer-plus-menu-item"
+                          role="menuitem"
+                          onClick={() => activateImageComposer()}
+                        >
+                          <ImageIcon className="w-3.5 h-3.5" />
+                          <span>Create image</span>
+                        </button>
                         <button type="button" className="composer-plus-menu-item" role="menuitem" disabled>
                           <Paperclip className="w-3.5 h-3.5" />
                           <span>Attach</span>
@@ -2629,15 +2958,25 @@ export function AppHome({ email }: AppHomeProps) {
                       setComposerMenuOpen(false);
                     }}
                     onBlur={() => setInputFocused(false)}
-                    placeholder="Describe a task for Aio..."
-                    disabled={status !== "ready"}
+                    placeholder={
+                      imageComposerActive
+                        ? isMobileViewport
+                          ? "Describe your image..."
+                          : "Describe the image you want to create..."
+                        : "Describe a task for Aio..."
+                    }
+                    disabled={status !== "ready" || Boolean(imageGenerationStatus)}
                     rows={1}
                   />
-                  <ChatModeMenu value={chatMode} onValueChange={setChatMode} />
+                  {imageComposerActive ? (
+                    <span className="image-mode-indicator">Image</span>
+                  ) : (
+                    <ChatModeMenu value={chatMode} onValueChange={setChatMode} />
+                  )}
                   <button
                     type="submit"
                     className="send-btn"
-                    disabled={status !== "ready" || !input.trim()}
+                    disabled={status !== "ready" || Boolean(imageGenerationStatus) || !input.trim()}
                     aria-label="Send"
                   >
                     <Send className="w-4 h-4" />

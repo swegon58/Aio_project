@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AioChatMode, AioResearchSummary } from "@/lib/aio/chat/chat-mode";
-import type { HermesShowcaseData } from "@/lib/hermes/chat-types";
+import type { AioGeneratedImage, HermesShowcaseData } from "@/lib/hermes/chat-types";
 
 export async function persistConversation(
   db: SupabaseClient,
@@ -13,6 +13,7 @@ export async function persistConversation(
   artifacts: { filePath: string; fileName?: string }[],
   showcases: HermesShowcaseData[],
   research?: AioResearchSummary,
+  images?: AioGeneratedImage[],
 ) {
   const assistantMessage: UIMessage | null = assistantText
     ? {
@@ -25,6 +26,7 @@ export async function persistConversation(
           ...(research ? { research } : {}),
           ...(artifacts.length > 0 ? { artifacts } : {}),
           ...(showcases.length > 0 ? { showcases } : {}),
+          ...(images && images.length > 0 ? { images } : {}),
         },
       }
     : null;

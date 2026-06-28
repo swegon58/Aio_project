@@ -11,6 +11,7 @@
 // UI can be exercised locally without a real payment provider.
 
 import type { PlanTier } from "@/lib/hermes/pricing";
+import { isProductionDeployment } from "@/lib/aio/config/production-guard.mjs";
 
 export interface CheckoutSession {
   /** URL to redirect the customer to for hosted checkout. */
@@ -183,6 +184,9 @@ export class PaddlePaymentProvider implements PaymentProvider {
 export function getPaymentProvider(): PaymentProvider {
   if (process.env.PADDLE_API_KEY && process.env.PADDLE_WEBHOOK_SECRET) {
     return new PaddlePaymentProvider();
+  }
+  if (isProductionDeployment()) {
+    throw new Error("Paddle is required in production; development payment fallback is disabled.");
   }
   return new DevNoopPaymentProvider();
 }
