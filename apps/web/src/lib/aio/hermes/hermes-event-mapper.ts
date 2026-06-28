@@ -1,4 +1,8 @@
-import type { AioRiskLevel, AioRunEvent } from "@/lib/aio/runs/aio-run-events";
+import type {
+  AioRiskLevel,
+  AioRunEvent,
+  AdapterDiagnosticEvent,
+} from "@/lib/aio/runs/aio-run-events";
 import type { HermesRunEvent } from "./hermes-event-types";
 
 interface HermesEventMapperOptions {
@@ -7,12 +11,23 @@ interface HermesEventMapperOptions {
   artifactUrlForPath: (filePath: string) => string;
 }
 
+/**
+ * Converts a Hermes runtime event into zero or more AioRunEvent payloads.
+ *
+ * Per ADR-001 the mapper is STATELESS: it keeps no positional buffers and
+ * derives every tool/task identifier deterministically from stable Hermes
+ * fields (tool_call_id, scriptPath, timestamp). Mapping the same Hermes event
+ * twice therefore yields the same payloads, so a replay is idempotent. Unknown
+ * or malformed Hermes events become an explicit adapter.diagnostic instead of
+ * being silently dropped.
+ *
+ * The mapper emits payloads only; envelope id/sequence are assigned by the
+ * run-event repository at append time, not here.
+ */
 export class HermesEventMapper {
   private readonly runId: string;
   private readonly threadId: string;
   private readonly artifactUrlForPath: (filePath: string) => string;
-  private readonly runningToolIds = new Map<string, string[]>();
-  private activeCodeExecTaskId: string | null = null;
 
   constructor(options: HermesEventMapperOptions) {
     this.runId = options.runId;
@@ -37,19 +52,16 @@ export class HermesEventMapper {
 
     switch (evt.event) {
       case "message.delta":
+        // An empty delta carries no content; skip it rather than emit noise.
         return evt.delta ? [{ type: "message.delta", runId: this.runId, delta: evt.delta, createdAt, ts }] : [];
 
       case "tool.started": {
-        if (!evt.tool) return [];
-        const toolCallId = evt.tool_call_id ?? `${evt.tool}:${evt.timestamp ?? ts}`;
-        const stack = this.runningToolIds.get(evt.tool) ?? [];
-        stack.push(toolCallId);
-        this.runningToolIds.set(evt.tool, stack);
+        if (!evt.tool) return [this.diagnostic("malformed_event", evt, createdAt, ts)];
         return [
           {
             type: "tool.started",
             runId: this.runId,
-            toolCallId,
+            toolCallId: this.toolCallIdFor(evt, ts),
             toolName: evt.tool,
             tool: evt.tool,
             input: evt.input,
@@ -63,10 +75,8 @@ export class HermesEventMapper {
       }
 
       case "tool.completed": {
-        if (!evt.tool) return [];
-        const stack = this.runningToolIds.get(evt.tool) ?? [];
-        const toolCallId = evt.tool_call_id ?? stack.shift() ?? `${evt.tool}:${evt.timestamp ?? ts}`;
-        this.runningToolIds.set(evt.tool, stack);
+        if (!evt.tool) return [this.diagnostic("malformed_event", evt, createdAt, ts)];
+        const toolCallId = this.toolCallIdFor(evt, ts);
         const artifact =
           evt.file_path && !evt.error
             ? {
@@ -179,15 +189,11 @@ export class HermesEventMapper {
         return [{ type: "compression.started", runId: this.runId, createdAt, ts }];
 
       case "task.codeexec": {
-        const taskId = this.activeCodeExecTaskId ?? `${this.runId}:codeexec:${evt.timestamp ?? ts}`;
-        if (evt.status === "running") this.activeCodeExecTaskId = taskId;
-        else this.activeCodeExecTaskId = null;
-
         return [
           {
             type: "task.codeexec",
             runId: this.runId,
-            taskId,
+            taskId: this.codeExecTaskIdFor(evt, ts),
             status: evt.status ?? "running",
             taskData: {
               scriptPath: evt.task_data?.scriptPath,
@@ -249,8 +255,48 @@ export class HermesEventMapper {
         return [{ type: "run.cancelled", runId: evt.run_id ?? this.runId, status: "cancelled", createdAt, ts }];
 
       default:
-        return [];
+        // Unknown Hermes event — preserve as a diagnostic, never drop (ADR-001).
+        return [this.diagnostic("unknown_event", evt, createdAt, ts)];
     }
+  }
+
+  /** Deterministic tool-call id: prefer the stable Hermes id, else derive from
+   *  the event's own fields so a replay yields the same id. */
+  private toolCallIdFor(evt: HermesRunEvent, ts: number): string {
+    return evt.tool_call_id ?? `${evt.tool}:${evt.timestamp ?? ts}`;
+  }
+
+  /** Deterministic code-exec task id: prefer the stable script path, else
+   *  derive from the event's own fields so a replay pairs consistently. */
+  private codeExecTaskIdFor(evt: HermesRunEvent, ts: number): string {
+    return evt.task_data?.scriptPath ?? `${this.runId}:codeexec:${evt.timestamp ?? ts}`;
+  }
+
+  private diagnostic(
+    reason: AdapterDiagnosticEvent["reason"],
+    evt: HermesRunEvent,
+    createdAt: string,
+    ts: number,
+  ): AdapterDiagnosticEvent {
+    return {
+      type: "adapter.diagnostic",
+      runId: this.runId,
+      source: "hermes",
+      reason,
+      rawEventType: evt.event,
+      rawEventPreview: previewHermesEvent(evt),
+      createdAt,
+      ts,
+    };
+  }
+}
+
+function previewHermesEvent(evt: HermesRunEvent): string {
+  try {
+    const json = JSON.stringify(evt);
+    return json.length > 240 ? `${json.slice(0, 240)}…` : json;
+  } catch {
+    return "[unserializable]";
   }
 }
 

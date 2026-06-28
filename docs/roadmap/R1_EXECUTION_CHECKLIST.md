@@ -92,7 +92,7 @@ except administrative repair with audit.
 
 ### R1.2 Versioned Event Contract
 
-- [ ] `S` Add the V1 envelope and schema; harden the mapper.
+- [x] `S` Add the V1 envelope and schema; harden the mapper. ✅ Done 2026-06-28
 
 **Files:**
 
@@ -119,6 +119,32 @@ except administrative repair with audit.
 - duplicate Hermes event maps idempotently (no duplicate envelope `id`)
 - seconds and milliseconds timestamps normalize correctly
 - unknown Hermes event becomes an explicit diagnostic, not `[]`
+
+**Evidence (2026-06-28):**
+
+- `aio-run-events.ts`: added `cancelling` to `AioRunStatus` (ADR-001 §3),
+  added `AdapterDiagnosticEvent` to the union, exported `AioRunEventType`. All
+  additive; the three live consumers that dispatch on type use safe
+  `default`/non-exhaustive branches, so no breakage.
+- `aio-run-event-schema.ts` (new): `AIO_RUN_EVENT_SCHEMA_VERSION = 1`,
+  `normalizeTimestampToIso`/`normalizeTimestampToMs` (seconds < 10^10 rule),
+  `redactEventPayload` (secret-shaped keys → `[redacted]`, strings > 4000
+  truncated), `validateEnvelopeShape`.
+- `aio-run-event-envelope.ts` (new): `AioRunEventEnvelopeV1`, `createRunEventEnvelope`
+  (normalizes both timestamps to ISO, generates UUID id when omitted, optional
+  `hermes` metadata). Mapper emits payloads only; sequence is still assigned by
+  the R1.4 repository.
+- `hermes-event-mapper.ts`: removed positional state (`runningToolIds`,
+  `activeCodeExecTaskId`); tool/task ids now derive deterministically from
+  `tool_call_id` / `scriptPath` / timestamp; `default` now returns an
+  `adapter.diagnostic` instead of `[]`. Existing assertions still pass.
+- Tests are co-located with their source (matching the existing
+  `hermes-event-mapper.test.ts` convention), not under `__tests__`:
+  `aio-run-event-envelope.test.ts` (7) + `hermes-event-mapper.test.ts` (+3) cover
+  every required behavior.
+- Verification: `npm run typecheck` clean; `npm run test:unit` → 23/23 pass
+  (13 in the two R1.2 files, including idempotency, diagnostics, seconds/ms
+  normalization, and "every mapped payload validates against V1").
 
 ### R1.3 Database Schema
 
@@ -262,6 +288,9 @@ migration, lockfile, or test file.
 
 ## Exact Next Step
 
-Finish R1.1: complete `docs/architecture/ADR-001-aio-run-ownership.md`, then
-commit on `feat/r1-durable-run-foundation`. Do not begin R1.2 until the ADR is
-committed and re-read against the existing code anchors.
+R1.1 (ADR-001) and R1.2 (versioned event contract) are committed on
+`feat/r1-durable-run-foundation`. Begin R1.3 (Database Schema): add ordered
+migrations `0009_aio_runs.sql` and `0010_aio_run_events.sql` per the columns,
+indexes, and RLS rules above, then verify with `supabase db reset` and
+`supabase db lint --local`. Do not start R1.4 repositories until the migrations
+apply cleanly and the cross-tenant RLS test denies the wrong tenant.
