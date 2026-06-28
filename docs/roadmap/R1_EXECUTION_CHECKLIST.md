@@ -5,7 +5,7 @@
 **Branched from:** `origin/main` at `8a8718a`
 **Updated:** 2026-06-28
 **Owner:** Main coding agent
-**Status:** Approved by product owner on 2026-06-28. R1.1–R1.3 complete and verified; R1.4 next.
+**Status:** Approved by product owner on 2026-06-28. R1.1–R1.4 complete and verified; R1.5 next.
 
 This file tracks active work for the R1 phase. The full product sequence lives
 in `2026-06-28_aio_product_and_production_roadmap.md`. The code-level program
@@ -218,13 +218,17 @@ test denies the wrong tenant.
 
 ### R1.4 Server Repositories
 
-- [ ] `M` Add server-only repositories and the state machine.
+- [x] `M` Add server-only repositories and the state machine. ✅ Done 2026-06-28
 
 **Files:**
 
 - `apps/web/src/lib/aio/runs/run-state-machine.ts` (new)
 - `apps/web/src/lib/aio/runs/run-repository.ts` (new)
 - `apps/web/src/lib/aio/runs/run-event-repository.ts` (new)
+- `apps/web/supabase/migrations/0011_aio_run_event_append_fn.sql` (new)
+- `apps/web/src/lib/aio/runs/run-state-machine.test.ts` (new, 8 tests)
+- `apps/web/src/lib/aio/runs/run-repository.test.ts` (new, 2 tests)
+- `apps/web/scripts/r1-4-repo-probe.ts` (new, live probe)
 
 **Required methods:** create run; attach Hermes identity; append event
 transactionally and idempotently; transition state with allowed-transition
@@ -233,6 +237,57 @@ pagination; fetch run plus ordered events.
 
 **Rules:** server-only; no route contains raw lifecycle SQL; append and
 transition are transactional where required; errors use stable internal codes.
+
+**Deviation note (2026-06-28):** the draft listed three files; a fourth,
+`0011_aio_run_event_append_fn.sql`, was added. The Supabase JS client has no
+client-side transaction, so assigning the next monotonic `(run_id, sequence)`
+*and* inserting *and* deduping on envelope `id` must be one server-side step.
+`aio_append_run_event` (SECURITY INVOKER, service-role only) does exactly that
+and returns `(id, sequence, inserted, conflict)` so the repository can map
+`duplicate_id` -> idempotent no-op and `sequence_race` -> caller retry. This
+matches the existing RPC convention (`vault_store_openrouter_key`).
+
+**Design choices:**
+
+- `run-state-machine.ts` is pure logic; the repositories call `transition` /
+  `requestCancel` before persisting, so `aio_runs.status` never reaches an
+  illegal state. `from === to` is an idempotent no-op success in `transitionRun`;
+  every guarded update adds `.eq("status", from)` (optimistic concurrency) and
+  re-reads/re-validates once when the guard matches 0 rows.
+- Repository errors are a discriminated union (`RepoResult<T> = RepoOk<T> |
+  RepoError`) with stable `REPO_ERROR_CODE`s (`RUN_NOT_FOUND`,
+  `INVALID_TRANSITION`, `ALREADY_TERMINAL`, `SEQUENCE_RACE`, `BAD_CURSOR`,
+  `DB_ERROR`); the functions never throw for domain errors. Wrong-tenant is
+  reported as `RUN_NOT_FOUND` so existence never leaks.
+- One-directional dependency: `run-event-repository` imports shared types and
+  `getRun` from `run-repository`; `getRunWithEvents` lives in the event repo.
+- Cursor pagination is keyset over `(created_at desc, id desc)`; the cursor is
+  base64url JSON `{createdAt, id}`, decoded defensively (bad cursor ->
+  `BAD_CURSOR`). `listRuns` fetches `limit+1` to detect a next page.
+- `appendEvent` redacts the payload via `redactEventPayload` and normalizes both
+  timestamps before persistence; the producer hands payload + metadata, the
+  repository owns sequence and `schemaVersion`.
+
+**Evidence (2026-06-28):**
+
+- `npm run typecheck` clean.
+- `npm run test:unit` -> 33/33 pass (8 state-machine + 2 cursor + the prior 23).
+  The state-machine test asserts the full 7×7 transition matrix against ADR-001
+  §3, every forbidden non-terminal edge -> `INVALID_TRANSITION`, every edge out of
+  a terminal state -> `ALREADY_TERMINAL`, and `requestCancel` idempotency.
+- Live probe (`scripts/r1-4-repo-probe.ts`) against the local stack: 22/22 checks
+  pass — create/read, wrong-tenant `RUN_NOT_FOUND`, Hermes identity, queued→running
+  (+ idempotent self-transition), append seq 0, replay -> `inserted:false`,
+  append seq 1, ordered `listEvents [0,1]`, `afterSequence=0 -> [1]`,
+  `getRunWithEvents`, mark terminal (`completed_at` stamped), cancel/transition on
+  terminal -> `ALREADY_TERMINAL`, queued→completed -> `INVALID_TRANSITION`,
+  cancel queued→cancelling (+ cancelling→cancelling noop), 2-page cursor list with
+  no overlap, and bad cursor -> `BAD_CURSOR`. The synthetic tenant + its runs and
+  events are cascade-deleted at the end.
+
+Pass: state-machine + cursor unit tests pass; live probe exercises every
+repository method and the idempotent/transactional append; no route contains raw
+lifecycle SQL (none exists yet — R1.5 will route through these repositories).
 
 ### R1.5 Split Chat Orchestration From Transport
 
@@ -295,7 +350,7 @@ events. Internal IDs and debug data stay hidden from the user.
 - [ ] `npm run test:unit` passes, including new R1.2 envelope tests.
 - [ ] `npm run test:e2e` passes; existing smoke flows still green.
 - [ ] `AIO_DEPLOYMENT_ENV=development npm run build` passes.
-- [ ] Clean migration `0001`-`0010` applies and DB lint exits `0`.
+- [ ] Clean migration `0001`-`0011` applies and DB lint exits `0`.
 - [ ] Cross-tenant RLS test denies the wrong tenant.
 - [ ] Replay test: drop the stream, refresh, timeline rehydrates with no
       duplicates and no lost events.
@@ -319,16 +374,25 @@ migration, lockfile, or test file.
 
 ## Exact Next Step
 
-R1.1 (ADR-001), R1.2 (versioned event contract), and R1.3 (DB schema) are all
-committed and verified on `feat/r1-durable-run-foundation`. The local Supabase
-stack is up (Postgres on `127.0.0.1:54322`) with migrations `0001`–`0010`
-applied and RLS isolation confirmed.
+R1.1 (ADR-001), R1.2 (versioned event contract), R1.3 (DB schema), and R1.4
+(server repositories + state machine + the `0011` append RPC) are all committed
+and verified on `feat/r1-durable-run-foundation`. The local Supabase stack is up
+(Postgres on `127.0.0.1:54322`, REST on `127.0.0.1:54321`) with migrations
+`0001`–`0011` applied, RLS isolation confirmed, and the R1.4 repository probe
+22/22 green.
 
-Next: **R1.4 — server repositories and the run state machine.** Build
-`run-state-machine.ts` (allowed-transition validation for the
-`queued→running→waiting_approval→…; *→cancelling→cancelled; terminal` machine
-from ADR-001 §3), then `run-repository.ts` and `run-event-repository.ts`
-(server-only, transactional append with `(run_id, sequence)` uniqueness and
-idempotent envelope-id dedupe, cursor-paginated list, run+events fetch). No
-route may contain raw lifecycle SQL. Acceptance: unit tests for the state
-machine's allowed/forbidden transitions and for idempotent append + transition.
+Next: **R1.5 — split chat orchestration from transport.** Refactor
+`apps/web/src/app/api/chat/route.ts` into a thin route, a new orchestrator
+(`apps/web/src/lib/aio/chat/run-orchestrator.ts`), and a new transport
+(`apps/web/src/lib/aio/chat/chat-transport.ts`). The orchestrator authenticates
+and resolves tenant/runtime context, scans input, reserves credits via
+`billing/credit-guard.ts`, creates the Aio run (through `createRun`) **before**
+the Hermes call, attaches the Hermes identity (`attachHermesIdentity`), maps and
+persists events (`appendEvent`) and publishes them, settles/refunds credits
+exactly once via `billing/usage-settlement.ts`, persists conversation linkage,
+and closes the run with a stable outcome (`transitionRun` / `markTerminal`). The
+transport parses the request, converts UI messages, exposes the AI SDK/SSE
+stream, maps internal errors to HTTP, and handles client disconnect without
+corrupting durable run state. Acceptance: no lifecycle SQL in the route; the run
+row exists in Postgres before Hermes starts; credits settle exactly once;
+disconnect leaves the run in a recoverable (not corrupted) state.
