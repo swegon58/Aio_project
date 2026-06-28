@@ -18,8 +18,10 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - Web: `http://localhost:3000/app`
   - Hermes: `http://localhost:8642/health`
   - LM Studio: `http://localhost:1234/v1/models`
-- No phase after R0 has been approved.
-- R1 must not start until the product owner explicitly approves it.
+- R1 (Durable Run Foundation) was approved by the product owner on 2026-06-28.
+- R1.1 (ADR-001: Aio run ownership and lifecycle) is in progress on worktree
+  `/home/swegon/AI_Agent/Aio_project_r1` / branch `feat/r1-durable-run-foundation`.
+- R1.2-R1.7 have not started. Do not merge R1 to `main` without owner approval.
 - Historical secret-scan triage is closed for Aio R0.
 - Owner decision: do not rewrite Git history for the deleted historical
   `.mcp.json` files as part of R0. Keep current-tree protection, CI scanning,
@@ -39,6 +41,9 @@ It is a status index, not a replacement for the master plan or phase checklist.
 - `/home/swegon/AI_Agent/Aio_project_r0`
   - Historical R0 implementation worktree.
   - R0 is already merged; do not continue product work there.
+- `/home/swegon/AI_Agent/Aio_project_r1`
+  - Active R1 (Durable Run Foundation) implementation worktree.
+  - Branch `feat/r1-durable-run-foundation`. Do not run product research here.
 
 ## Required Reading Order
 
@@ -66,14 +71,14 @@ When the product owner says "continue building Aio":
 
 ## Next Decision Gate
 
-No feature is currently approved after R0 closure.
+R1 (Durable Run Foundation) is approved and in progress on
+`feat/r1-durable-run-foundation`. R1.1 (ADR-001) is the current task. The next
+owner decision points are:
 
-- **A. Recommended:** approve R1 Durable Run Foundation and create its detailed
-  execution checklist before coding.
-- **B:** choose another item from the master plan for reprioritization;
-  document why dependencies can be changed.
-- **C:** keep `main` stable and continue research only until a new product phase
-  is approved.
+- Review ADR-001 before R1.2 builds on its locked decisions.
+- Approve the R1 merge to `main` only after the R1 final gate passes; do not
+  merge earlier.
+- Reprioritize R1 scope only by documenting why dependencies change.
 
 ## Update Contract
 
