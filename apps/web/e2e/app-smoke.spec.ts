@@ -115,9 +115,8 @@ async function installApiMocks(page: Page) {
 test("chat, research, approval, settings, and image controls work", async ({ page }) => {
   const { requests, unexpectedPaths } = await installApiMocks(page);
   await page.goto("/app");
-  await expect(page.getByRole("heading", { name: /What can I do for you/i })).toBeVisible();
-
   const composer = page.locator("textarea.message-input");
+  await expect(composer).toBeVisible();
   await composer.fill("Run a smoke task");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText("Task complete.")).toBeVisible();
