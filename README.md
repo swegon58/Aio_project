@@ -150,6 +150,8 @@ See [Aio Model Supply and Gateway Strategy](docs/research/2026-06-27_model_suppl
 
 ## Documentation
 
+- [Master execution plan](AIO_MASTER_EXECUTION_PLAN.md)
+- [Active R0 execution checklist](docs/roadmap/R0_EXECUTION_CHECKLIST.md)
 - [Runtime architecture](docs/architecture/aio_runtime_architecture.md)
 - [Run event protocol](docs/architecture/aio_run_event_protocol.md)
 - [Competitive product research](docs/research/2026-06-26_competitive_money_features.md)
