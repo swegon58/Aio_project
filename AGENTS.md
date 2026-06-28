@@ -2,10 +2,19 @@
 
 Read these files in order before planning or editing:
 
-1. `AIO_MASTER_EXECUTION_PLAN.md`
-2. `docs/roadmap/R0_EXECUTION_CHECKLIST.md`
-3. `docs/roadmap/2026-06-28_aio_product_and_production_roadmap.md`
+1. `AIO_PROJECT_STATE.md`
+2. `AIO_MASTER_EXECUTION_PLAN.md`
+3. Current phase checklist under `docs/roadmap/`
 4. `README.md`
+
+Before answering "continue building Aio", run:
+
+```bash
+scripts/aio-context.sh
+```
+
+Then follow the trigger protocol in `AIO_PROJECT_STATE.md`. If no task is
+approved, present the next decision gate; do not infer approval from "continue".
 
 ## Active Work
 

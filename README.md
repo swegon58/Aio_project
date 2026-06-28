@@ -150,6 +150,7 @@ See [Aio Model Supply and Gateway Strategy](docs/research/2026-06-27_model_suppl
 
 ## Documentation
 
+- [Current project state](AIO_PROJECT_STATE.md)
 - [Master execution plan](AIO_MASTER_EXECUTION_PLAN.md)
 - [Active R0 execution checklist](docs/roadmap/R0_EXECUTION_CHECKLIST.md)
 - [Runtime architecture](docs/architecture/aio_runtime_architecture.md)

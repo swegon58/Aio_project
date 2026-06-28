@@ -29,11 +29,12 @@ code, data, UI, test, security, operations, and release tasks.
 Use documents in this order:
 
 1. Product-owner decisions in the latest conversation.
-2. This master execution plan.
-3. Current phase checklist, such as
+2. `AIO_PROJECT_STATE.md` for current location, phase, and progress.
+3. This master execution plan.
+4. Current phase checklist, such as
    `docs/roadmap/R0_EXECUTION_CHECKLIST.md`.
-4. `docs/roadmap/2026-06-28_aio_product_and_production_roadmap.md`.
-5. Research report.
+5. `docs/roadmap/2026-06-28_aio_product_and_production_roadmap.md`.
+6. Research report.
 
 The research report is input, not automatic authority. This plan deliberately
 rejects or defers recommendations that conflict with Aio's chosen direction.
