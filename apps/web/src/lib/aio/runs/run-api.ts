@@ -7,6 +7,7 @@ import type {
   RepoResult,
 } from "./run-repository";
 import type { AioRunEventRow } from "./run-event-repository";
+import type { AioApprovalRow } from "@/lib/aio/tools/approval-repository";
 
 export interface RunApiContext {
   db: ReturnType<typeof createServiceClient>;
@@ -137,5 +138,33 @@ export function serializeRunEvent(row: AioRunEventRow) {
     source: row.source,
     payload: row.payload,
     hermes: row.hermes,
+  };
+}
+
+/**
+ * Public shape for an approval row. Omits internal idempotency keys. The
+ * requested payload is already redacted at write time (redactPersistedValue).
+ */
+export function serializeApproval(row: AioApprovalRow) {
+  return {
+    id: row.id,
+    aioApprovalId: row.aio_approval_id,
+    runId: row.run_id,
+    customerId: row.customer_id,
+    aioToolCallId: row.aio_tool_call_id,
+    toolName: row.tool_name,
+    toolLabel: row.tool_label,
+    risk: row.risk,
+    approvalMode: row.approval_mode,
+    status: row.status,
+    title: row.title,
+    requestedInputRedacted: row.requested_input_redacted,
+    resolution: row.resolution,
+    resolvedBy: row.resolved_by,
+    requestedAt: row.requested_at,
+    resolvedAt: row.resolved_at,
+    expiresAt: row.expires_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }

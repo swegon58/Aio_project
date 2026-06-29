@@ -54,6 +54,7 @@ import {
 } from "@/lib/aio/runs/run-repository";
 import { appendEvent } from "@/lib/aio/runs/run-event-repository";
 import { recordToolCallEvent } from "@/lib/aio/tools/tool-call-writer";
+import { recordApprovalEvent } from "@/lib/aio/tools/approval-writer";
 import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
 import type { AioRunEventEnvelopeSource } from "@/lib/aio/runs/aio-run-event-schema";
 
@@ -419,6 +420,11 @@ export async function orchestrateAioChatRun(
             // Durable tool-call rows (R2.2): best-effort, idempotent, no-op for
             // non-tool events. Snapshots manifest risk/approval policy + redacted I/O.
             await recordToolCallEvent(db, { runId: runIdForDurable, customerId: userId }, aioEvent);
+
+            // Durable approval rows (R2.3): best-effort, idempotent, no-op for
+            // non-approval events. Snapshots risk + redacted request + TTL and
+            // keeps approval state consistent with the shared event stream.
+            await recordApprovalEvent(db, { runId: runIdForDurable, customerId: userId }, aioEvent);
 
             if (mode === "research" && aioEvent.type === "tool.started") {
               researchToolCallIds.add(aioEvent.toolCallId);
