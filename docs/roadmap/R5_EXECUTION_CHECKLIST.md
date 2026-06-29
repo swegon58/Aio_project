@@ -63,19 +63,21 @@ durable, observable, and recoverable.
 
 ### R5.6 Tests
 
-- [ ] Duplicate enqueue coverage
-- [ ] Worker crash / lease recovery coverage
-- [ ] Retry exhaustion coverage
-- [ ] Scheduled occurrence exactly-once coverage
-- [ ] Cancellation / duplicate billing-action protection coverage
+- [x] Duplicate enqueue coverage
+  - [x] `schedule-runtime.test.ts`: duplicate `createScheduleRun` is a no-op and does not create a second durable job
+- [x] Worker crash / lease recovery coverage
+  - [x] `aio-job-worker-runtime.test.ts`: stale leased jobs are requeued through the worker sweep with the configured recovery delay
+- [x] Retry exhaustion coverage
+  - [x] `aio-job-worker-runtime.test.ts`: final-attempt execution failure dead-letters instead of retrying
+- [x] Scheduled occurrence exactly-once coverage
+  - [x] `schedule-runtime.test.ts`: completed bound runs sync/return without re-orchestrating; unbound `running` runs fail closed with `SCHEDULED_RUN_UNBOUND_CRASH`
+- [~] Cancellation / duplicate billing-action protection coverage
+  - [x] Duplicate billing-action protection covered by the scheduled occurrence exactly-once tests above
+  - [ ] Add explicit unit coverage for schedule delete/pause cancellation propagation edge cases
 
 ## Exact Next Step
 
-R5.5 failure/recovery is complete: at-most-once guard (dead-letter on
-unbound-crash re-delivery) and cancel propagation (delete/pause → queued jobs
-cancelled) implemented and typecheck-verified. Probes ready for live run once
-schema cache refreshes (aio_schedules table; PostgREST restart or `NOTIFY
-pgrst, 'reload schema'`).
-
-Proceed to `R5.6` (Tests): duplicate-enqueue, crash/lease-recovery, retry
-exhaustion, scheduled exactly-once, and cancellation coverage.
+R5.6 is mostly landed and locally verified. The remaining gap is narrow:
+add explicit unit coverage for schedule delete/pause cancellation propagation so
+the existing cancelQueuedJobs safety path is covered alongside the new
+exactly-once / dead-letter tests.
