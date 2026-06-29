@@ -11,11 +11,10 @@ durable, observable, and recoverable.
 
 ## Current State
 
-- `main` now contains the merged R2-R4 baseline.
-- Product-owner approval is active for R5.
-- Active delivery branch: `feat/r5-r7-delivery-line`
-- Branch policy override for this stage: keep R5, R6, and R7 on the same
-  delivery branch unless the owner explicitly asks to split again.
+- `main` now contains the merged R2-R5 baseline.
+- R5 is complete and merged on `main`.
+- No later phase is approved yet; hold R6 until the product owner explicitly
+  approves it.
 - Local always-on stack is available through `scripts/aio-online.sh`.
 - Current runtime anchors:
   - knowledge ingestion still begins in `apps/web/src/app/api/knowledge/route.ts`
@@ -77,6 +76,5 @@ durable, observable, and recoverable.
 
 ## Exact Next Step
 
-R5 test coverage is complete on the active delivery branch. Hold R6 until the
-product owner explicitly approves it; the immediate branch work is review /
-merge preparation for the completed R5 stack.
+R5 is closed on `main`. Do not begin R6 until the product owner explicitly
+approves it.
