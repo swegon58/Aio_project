@@ -67,6 +67,7 @@ export interface AioScheduleRunRow {
   status: AioScheduleRunStatus;
   occurrence_at: string;
   aio_job_id: string | null;
+  aio_run_id: string | null;
   started_at: string | null;
   completed_at: string | null;
   error_code: string | null;
@@ -100,6 +101,7 @@ export interface CreateScheduleRunInput {
   occurrenceKey: string;
   status?: AioScheduleRunStatus;
   aioJobId?: string | null;
+  aioRunId?: string | null;
 }
 
 function dbError(message: string, detail?: unknown): ScheduleRepoError {
@@ -386,6 +388,7 @@ export async function createScheduleRun(
       status: input.status ?? "queued",
       occurrence_at: input.occurrenceAt,
       aio_job_id: input.aioJobId ?? null,
+      aio_run_id: input.aioRunId ?? null,
       created_at: createdAt,
       updated_at: createdAt,
     })
@@ -401,6 +404,246 @@ export async function createScheduleRun(
     };
   }
   return dbError("Failed to create schedule run", error.message);
+}
+
+export async function getScheduleRun(
+  db: SupabaseClient,
+  aioScheduleRunId: string,
+  customerId: string,
+): Promise<ScheduleRepoResult<AioScheduleRunRow>> {
+  const { data, error } = await db
+    .from("aio_schedule_runs")
+    .select("*")
+    .eq("aio_schedule_run_id", aioScheduleRunId)
+    .eq("customer_id", customerId)
+    .maybeSingle();
+
+  if (error) return dbError("Failed to fetch schedule run", error.message);
+  if (!data) {
+    return {
+      ok: false,
+      code: SCHEDULE_REPO_ERROR_CODE.SCHEDULE_NOT_FOUND,
+      message: `Schedule run ${aioScheduleRunId} not found.`,
+    };
+  }
+
+  return { ok: true, data: data as AioScheduleRunRow };
+}
+
+export async function listDueSchedules(
+  db: SupabaseClient,
+  now = new Date().toISOString(),
+  limit = 25,
+): Promise<ScheduleRepoResult<AioScheduleRow[]>> {
+  const { data, error } = await db
+    .from("aio_schedules")
+    .select("*")
+    .eq("enabled", true)
+    .eq("state", "scheduled")
+    .not("next_run_at", "is", null)
+    .lte("next_run_at", now)
+    .order("next_run_at", { ascending: true })
+    .limit(Math.max(1, Math.trunc(limit)));
+
+  if (error) return dbError("Failed to list due schedules", error.message);
+  return { ok: true, data: (data ?? []) as AioScheduleRow[] };
+}
+
+export async function listActiveScheduleRuns(
+  db: SupabaseClient,
+  scheduleId: string,
+): Promise<ScheduleRepoResult<AioScheduleRunRow[]>> {
+  const { data, error } = await db
+    .from("aio_schedule_runs")
+    .select("*")
+    .eq("schedule_id", scheduleId)
+    .in("status", ["queued", "running"])
+    .order("created_at", { ascending: false });
+
+  if (error) return dbError("Failed to list active schedule runs", error.message);
+  return { ok: true, data: (data ?? []) as AioScheduleRunRow[] };
+}
+
+export async function bindScheduleRunJob(
+  db: SupabaseClient,
+  aioScheduleRunId: string,
+  customerId: string,
+  aioJobId: string,
+): Promise<ScheduleRepoResult<AioScheduleRunRow>> {
+  const { data, error } = await db
+    .from("aio_schedule_runs")
+    .update({
+      aio_job_id: aioJobId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("aio_schedule_run_id", aioScheduleRunId)
+    .eq("customer_id", customerId)
+    .select("*")
+    .single();
+
+  if (error) return dbError("Failed to bind schedule run job", error.message);
+  return { ok: true, data: data as AioScheduleRunRow };
+}
+
+export async function bindScheduleRunAioRun(
+  db: SupabaseClient,
+  aioScheduleRunId: string,
+  customerId: string,
+  aioRunId: string,
+): Promise<ScheduleRepoResult<AioScheduleRunRow>> {
+  const { data, error } = await db
+    .from("aio_schedule_runs")
+    .update({
+      aio_run_id: aioRunId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("aio_schedule_run_id", aioScheduleRunId)
+    .eq("customer_id", customerId)
+    .select("*")
+    .single();
+
+  if (error) return dbError("Failed to bind schedule run durable run", error.message);
+  return { ok: true, data: data as AioScheduleRunRow };
+}
+
+export async function markScheduleRunRunning(
+  db: SupabaseClient,
+  aioScheduleRunId: string,
+  customerId: string,
+): Promise<ScheduleRepoResult<AioScheduleRunRow>> {
+  const now = new Date().toISOString();
+  const { data, error } = await db
+    .from("aio_schedule_runs")
+    .update({
+      status: "running",
+      started_at: now,
+      error_code: null,
+      error_message_redacted: null,
+      updated_at: now,
+    })
+    .eq("aio_schedule_run_id", aioScheduleRunId)
+    .eq("customer_id", customerId)
+    .select("*")
+    .single();
+
+  if (error) return dbError("Failed to mark schedule run running", error.message);
+  return { ok: true, data: data as AioScheduleRunRow };
+}
+
+export async function markScheduleRunCompleted(
+  db: SupabaseClient,
+  aioScheduleRunId: string,
+  customerId: string,
+): Promise<ScheduleRepoResult<AioScheduleRunRow>> {
+  const now = new Date().toISOString();
+  const { data, error } = await db
+    .from("aio_schedule_runs")
+    .update({
+      status: "completed",
+      completed_at: now,
+      error_code: null,
+      error_message_redacted: null,
+      updated_at: now,
+    })
+    .eq("aio_schedule_run_id", aioScheduleRunId)
+    .eq("customer_id", customerId)
+    .select("*")
+    .single();
+
+  if (error) return dbError("Failed to mark schedule run completed", error.message);
+  return { ok: true, data: data as AioScheduleRunRow };
+}
+
+export async function markScheduleRunFailed(
+  db: SupabaseClient,
+  aioScheduleRunId: string,
+  customerId: string,
+  errorCode: string,
+  errorMessageRedacted: string,
+): Promise<ScheduleRepoResult<AioScheduleRunRow>> {
+  const now = new Date().toISOString();
+  const { data, error } = await db
+    .from("aio_schedule_runs")
+    .update({
+      status: "failed",
+      completed_at: now,
+      error_code: errorCode,
+      error_message_redacted: errorMessageRedacted,
+      updated_at: now,
+    })
+    .eq("aio_schedule_run_id", aioScheduleRunId)
+    .eq("customer_id", customerId)
+    .select("*")
+    .single();
+
+  if (error) return dbError("Failed to mark schedule run failed", error.message);
+  return { ok: true, data: data as AioScheduleRunRow };
+}
+
+export async function updateScheduleAfterOccurrence(
+  db: SupabaseClient,
+  schedule: AioScheduleRow,
+  input: {
+    nextRunAt: string | null;
+    lastRunAt: string;
+    lastStatus: AioScheduleRunStatus;
+    repeatCompleted: number;
+    lastErrorMessageRedacted?: string | null;
+  },
+): Promise<ScheduleRepoResult<AioScheduleRow>> {
+  const state: AioScheduleState =
+    input.nextRunAt == null
+      ? "completed"
+      : schedule.state === "paused"
+        ? "paused"
+        : "scheduled";
+
+  const { data, error } = await db
+    .from("aio_schedules")
+    .update({
+      enabled: state === "scheduled",
+      state,
+      next_run_at: input.nextRunAt,
+      last_run_at: input.lastRunAt,
+      last_status: input.lastStatus,
+      last_error_message_redacted: input.lastErrorMessageRedacted ?? null,
+      repeat_completed: input.repeatCompleted,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("aio_schedule_id", schedule.aio_schedule_id)
+    .eq("customer_id", schedule.customer_id)
+    .select("*")
+    .single();
+
+  if (error) return dbError("Failed to update schedule after occurrence", error.message);
+  return { ok: true, data: data as AioScheduleRow };
+}
+
+export async function setScheduleExecutionState(
+  db: SupabaseClient,
+  aioScheduleId: string,
+  customerId: string,
+  input: {
+    lastStatus: AioScheduleRunStatus;
+    lastRunAt?: string | null;
+    lastErrorMessageRedacted?: string | null;
+  },
+): Promise<ScheduleRepoResult<AioScheduleRow>> {
+  const { data, error } = await db
+    .from("aio_schedules")
+    .update({
+      last_status: input.lastStatus,
+      last_run_at: input.lastRunAt ?? null,
+      last_error_message_redacted: input.lastErrorMessageRedacted ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("aio_schedule_id", aioScheduleId)
+    .eq("customer_id", customerId)
+    .select("*")
+    .single();
+
+  if (error) return dbError("Failed to update schedule execution state", error.message);
+  return { ok: true, data: data as AioScheduleRow };
 }
 
 export function serializeScheduleForUi(row: AioScheduleRow) {

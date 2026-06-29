@@ -13,6 +13,10 @@ import {
   retryJob,
   type AioJobRow,
 } from "../src/lib/aio/jobs/job-repository";
+import {
+  enqueueDueSchedules,
+  executeScheduledTaskJob,
+} from "../src/lib/aio/schedules/schedule-runtime";
 import { serviceDb } from "../src/lib/hermes/registry";
 
 const POLL_INTERVAL_MS = Number(process.env.AIO_JOB_WORKER_POLL_MS ?? 5000);
@@ -54,9 +58,11 @@ async function executeJob(job: AioJobRow): Promise<void> {
       return;
     case "knowledge_ingest":
     case "research_stage":
-    case "scheduled_task":
     case "image_generation_poll":
       throw new Error(`No handler wired yet for job type "${job.job_type}"`);
+    case "scheduled_task":
+      await executeScheduledTaskJob(job);
+      return;
     default:
       throw new Error(`Unknown job type "${job.job_type satisfies never}"`);
   }
@@ -132,6 +138,15 @@ async function processClaimedJob(job: AioJobRow): Promise<void> {
 }
 
 async function sweepQueues() {
+  const schedules = await enqueueDueSchedules({ limit: 25 }).catch((error) => {
+    throw new Error(`Failed to enqueue due schedules: ${errorSummary(error)}`);
+  });
+  if (schedules.enqueued > 0 || schedules.skippedOverlap > 0 || schedules.missedWindow > 0) {
+    console.log(
+      `[aio-job-worker] schedules enqueued=${schedules.enqueued} skipped_overlap=${schedules.skippedOverlap} missed_window=${schedules.missedWindow}`,
+    );
+  }
+
   const released = await releaseDueRetryingJobs(db);
   if (!released.ok) {
     if (isQueueBackendUnavailable(released.message)) {

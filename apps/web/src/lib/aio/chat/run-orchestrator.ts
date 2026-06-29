@@ -20,7 +20,6 @@
 //
 import { createHash } from "node:crypto";
 import type { UIMessage, UIMessageStreamWriter } from "ai";
-import { resolveHermesRequestContext } from "@/lib/hermes/request-context";
 import { checkCreditBalance, refundTask, reserveCredits } from "@/lib/aio/billing/credit-guard";
 import {
   actualCostCreditsFromUsageDelta,
@@ -59,6 +58,7 @@ import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
 import type { AioRunEventEnvelopeSource } from "@/lib/aio/runs/aio-run-event-schema";
 import { type AioTelemetry, NO_OP_TELEMETRY } from "@/lib/aio/telemetry/telemetry";
 import { SPANS, METRICS, runAttrs } from "@/lib/aio/telemetry/span-builder";
+import type { HermesRequestContext } from "@/lib/hermes/request-context";
 
 const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === "true";
 
@@ -70,11 +70,14 @@ export interface OrchestratorInput {
   planMode: boolean;
   /** Optional telemetry — defaults to no-op; never blocks the primary path. */
   telemetry?: AioTelemetry;
+  /** Optional pre-resolved runtime context for non-request callers (workers). */
+  contextOverride?: HermesRequestContext;
 }
 
 export type OrchestratorResult =
   | {
       ok: true;
+      runId: string;
       execute: (stream: {
         writer: UIMessageStreamWriter<HermesUIMessage>;
       }) => Promise<void>;
@@ -146,11 +149,22 @@ function eventForDurableRun(event: AioRunEvent, durableRunId: string): AioRunEve
 export async function orchestrateAioChatRun(
   input: OrchestratorInput,
 ): Promise<OrchestratorResult> {
-  const { clientSignal, messages, mode, planMode, telemetry = NO_OP_TELEMETRY } = input;
+  const {
+    clientSignal,
+    messages,
+    mode,
+    planMode,
+    telemetry = NO_OP_TELEMETRY,
+    contextOverride,
+  } = input;
   const { tracer, metrics } = telemetry;
 
   // ---- auth / provisioning / key resolution ----
-  const ctxResult = await resolveHermesRequestContext();
+  const ctxResult = contextOverride
+    ? { ok: true as const, ctx: contextOverride }
+    : await import("@/lib/hermes/request-context").then(({ resolveHermesRequestContext }) =>
+        resolveHermesRequestContext(),
+      );
   if (!ctxResult.ok) return { ok: false, response: ctxResult.res };
   const { db, userId, row, planTier, apiServerKey, hermesSessionId, threadId } = ctxResult.ctx;
   if (!row.endpoint || !apiServerKey) {
@@ -596,5 +610,5 @@ export async function orchestrateAioChatRun(
     }
   };
 
-  return { ok: true, execute };
+  return { ok: true, runId: aioRunId, execute };
 }
