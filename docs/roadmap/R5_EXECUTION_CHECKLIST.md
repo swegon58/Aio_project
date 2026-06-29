@@ -19,7 +19,8 @@ durable, observable, and recoverable.
 - Local always-on stack is available through `scripts/aio-online.sh`.
 - Current runtime anchors:
   - knowledge ingestion still begins in `apps/web/src/app/api/knowledge/route.ts`
-  - scheduled task APIs still proxy Hermes via `apps/web/src/app/api/cron/`
+  - scheduled task APIs now persist schedule CRUD in Aio via `apps/web/src/app/api/cron/`
+    while execution handoff still needs the durable worker path
   - Hermes scheduler/runtime logic currently lives in
     `apps/harness/hermes-agent/cron/`
 
@@ -60,5 +61,5 @@ durable, observable, and recoverable.
 
 ## Exact Next Step
 
-Continue `R5.4`: wire due-schedule claim/enqueue worker paths and migrate
-`/api/cron` from Hermes proxying onto the new Aio-owned schedule tables.
+Continue `R5.4`: wire due-schedule claim/enqueue worker paths so the new
+Aio-owned schedule tables produce durable `scheduled_task` jobs for execution.

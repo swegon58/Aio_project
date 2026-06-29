@@ -1,24 +1,18 @@
-import { resolveHermesRequestContext } from "@/lib/hermes/request-context";
-import { tierConfig } from "@/lib/hermes/pricing";
-
-// Proxies to the customer's Hermes gateway REST cron API (/api/jobs).
-// Gated to tiers with "cronjob" in their toolsets list — Hermes itself
-// doesn't enforce this at the REST layer, only at agent-tool level, so
-// Aio enforces it here before ever forwarding the request.
-function requireCronAccess(planTier: string): Response | null {
-  if (!tierConfig(planTier).toolsets.includes("cronjob")) {
-    return Response.json(
-      { error: "Scheduled tasks require the Business plan." },
-      { status: 403 },
-    );
-  }
-  return null;
-}
+import {
+  createSchedule,
+  listSchedulesForCustomer,
+  serializeScheduleForUi,
+} from "@/lib/aio/schedules/schedule-repository";
+import {
+  requireCronAccess,
+  resolveScheduleApiContext,
+  scheduleRepoErrorResponse,
+} from "@/lib/aio/schedules/schedule-api";
 
 export async function GET() {
-  const ctxResult = await resolveHermesRequestContext();
-  if (!ctxResult.ok) return ctxResult.res;
-  const { row, planTier, apiServerKey } = ctxResult.ctx;
+  const ctxResult = await resolveScheduleApiContext();
+  if (!ctxResult.ok) return ctxResult.response;
+  const { db, userId, planTier } = ctxResult.ctx;
 
   const denied = requireCronAccess(planTier);
   if (denied) {
@@ -29,50 +23,62 @@ export async function GET() {
     });
   }
 
-  let upstream: Response;
-  try {
-    upstream = await fetch(`${row.endpoint}/api/jobs`, {
-      headers: { Authorization: `Bearer ${apiServerKey}` },
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return Response.json({ error: "hermes_request_failed", message: msg }, { status: 502 });
-  }
-  const body = await upstream.text();
-  return new Response(body, {
-    status: upstream.status,
-    headers: { "Content-Type": "application/json" },
+  const result = await listSchedulesForCustomer(db, userId);
+  if (!result.ok) return scheduleRepoErrorResponse(result);
+
+  return Response.json({
+    jobs: result.data.map(serializeScheduleForUi),
   });
 }
 
 export async function POST(req: Request) {
-  const ctxResult = await resolveHermesRequestContext();
-  if (!ctxResult.ok) return ctxResult.res;
-  const { row, planTier, apiServerKey } = ctxResult.ctx;
+  const ctxResult = await resolveScheduleApiContext();
+  if (!ctxResult.ok) return ctxResult.response;
+  const { db, userId, planTier } = ctxResult.ctx;
 
   const denied = requireCronAccess(planTier);
   if (denied) return denied;
 
-  const payload = await req.text();
-  let upstream: Response;
+  let body: unknown;
   try {
-    upstream = await fetch(`${row.endpoint}/api/jobs`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiServerKey}`,
-        "Content-Type": "application/json",
-      },
-      body: payload,
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return Response.json({ error: "hermes_request_failed", message: msg }, { status: 502 });
+    body = await req.json();
+  } catch {
+    return Response.json(
+      { error: "invalid_json", message: "Request body must be valid JSON." },
+      { status: 400 },
+    );
   }
-  const body = await upstream.text();
-  return new Response(body, {
-    status: upstream.status,
-    headers: { "Content-Type": "application/json" },
+
+  const payload = body && typeof body === "object" ? body as Record<string, unknown> : null;
+  const name = typeof payload?.name === "string" ? payload.name.trim() : "";
+  const schedule = typeof payload?.schedule === "string" ? payload.schedule.trim() : "";
+  const prompt = typeof payload?.prompt === "string" ? payload.prompt.trim() : "";
+
+  if (!name) {
+    return Response.json(
+      { error: "missing_name", message: "name is required." },
+      { status: 400 },
+    );
+  }
+  if (!schedule) {
+    return Response.json(
+      { error: "missing_schedule", message: "schedule is required." },
+      { status: 400 },
+    );
+  }
+
+  const result = await createSchedule(db, {
+    customerId: userId,
+    name,
+    schedule,
+    prompt,
+    taskPayload: {
+      prompt,
+    },
+  });
+  if (!result.ok) return scheduleRepoErrorResponse(result);
+
+  return Response.json({
+    job: serializeScheduleForUi(result.data),
   });
 }

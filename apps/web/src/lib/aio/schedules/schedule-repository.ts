@@ -325,6 +325,33 @@ export async function resumeSchedule(
   return { ok: true, data: data as AioScheduleRow };
 }
 
+export async function triggerScheduleNow(
+  db: SupabaseClient,
+  aioScheduleId: string,
+  customerId: string,
+): Promise<ScheduleRepoResult<AioScheduleRow>> {
+  const current = await getSchedule(db, aioScheduleId, customerId);
+  if (!current.ok) return current;
+
+  const { data, error } = await db
+    .from("aio_schedules")
+    .update({
+      enabled: true,
+      state: "scheduled",
+      paused_at: null,
+      paused_reason: null,
+      next_run_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("aio_schedule_id", aioScheduleId)
+    .eq("customer_id", customerId)
+    .select("*")
+    .single();
+
+  if (error) return dbError("Failed to trigger schedule", error.message);
+  return { ok: true, data: data as AioScheduleRow };
+}
+
 export async function deleteSchedule(
   db: SupabaseClient,
   aioScheduleId: string,
