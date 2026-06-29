@@ -391,6 +391,43 @@ export async function executeScheduledTaskJob(job: AioJobRow): Promise<void> {
     );
   }
 
+  // R5.5 at-most-once: only a "queued" run may begin executing. A "running"
+  // run with no bound aio_run means a prior attempt crashed in the window
+  // between markScheduleRunRunning and bindScheduleRunAioRun (the orchestrator
+  // creates the run and starts Hermes inside that window). On lease-expiry
+  // re-claim we must NOT start a duplicate run: fail this occurrence and let
+  // the job dead-letter, matching the scheduled_task max_attempts=1
+  // at-most-once contract. Any other non-"queued" status is already terminal
+  // for this occurrence, so it is also skipped rather than re-executed.
+  if (scheduleRun.data.status !== "queued") {
+    if (scheduleRun.data.status === "running") {
+      const unboundMessage =
+        "Scheduled run started but did not bind a run; re-execution skipped to prevent duplicates.";
+      const failed = await markScheduleRunFailed(
+        db,
+        payload.aioScheduleRunId,
+        job.customer_id,
+        "SCHEDULED_RUN_UNBOUND_CRASH",
+        unboundMessage,
+      );
+      if (!failed.ok) throw new Error(failed.message);
+      const updated = await setScheduleExecutionState(
+        db,
+        payload.aioScheduleId,
+        job.customer_id,
+        {
+          lastStatus: "failed",
+          lastRunAt: payload.occurrenceAt,
+          lastErrorMessageRedacted: unboundMessage,
+        },
+      );
+      if (!updated.ok) throw new Error(updated.message);
+    }
+    throw new Error(
+      `Scheduled occurrence ${payload.aioScheduleRunId} is in status "${scheduleRun.data.status}" and cannot be (re)started; skipping to prevent duplicate execution.`,
+    );
+  }
+
   const prompt = schedule.data.prompt.trim();
   if (!prompt) {
     const failed = await markScheduleRunFailed(

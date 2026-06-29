@@ -10,6 +10,7 @@ import {
   type AioScheduleState,
   type AioScheduleTriggerKind,
 } from "./aio-schedule-contract";
+import { cancelQueuedJobsForSchedule } from "../jobs/job-repository";
 
 export const SCHEDULE_REPO_ERROR_CODE = {
   SCHEDULE_NOT_FOUND: "SCHEDULE_NOT_FOUND",
@@ -279,6 +280,12 @@ export async function pauseSchedule(
   const current = await getSchedule(db, aioScheduleId, customerId);
   if (!current.ok) return current;
 
+  // R5.5 cancel propagation (best-effort): cancel queued occurrences so the
+  // worker does not fire one more run for a schedule the user is pausing.
+  // In-flight runs are intentionally left running; pausing only prevents
+  // future enqueue and drops already-queued occurrences.
+  await cancelQueuedJobsForSchedule(db, customerId, aioScheduleId);
+
   const { data, error } = await db
     .from("aio_schedules")
     .update({
@@ -359,6 +366,12 @@ export async function deleteSchedule(
   aioScheduleId: string,
   customerId: string,
 ): Promise<ScheduleRepoResult<{ deleted: true }>> {
+  // R5.5 cancel propagation (best-effort): cancel queued occurrences before
+  // the schedule row is removed so a worker cannot start an occurrence for a
+  // deleted schedule. Any job claimed mid-race, or a cancel miss, still
+  // self-dead-letters via getSchedule (NOT_FOUND) in executeScheduledTaskJob.
+  await cancelQueuedJobsForSchedule(db, customerId, aioScheduleId);
+
   const { error } = await db
     .from("aio_schedules")
     .delete()

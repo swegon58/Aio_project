@@ -56,7 +56,10 @@ durable, observable, and recoverable.
 
 ### R5.5 Failure And Recovery
 
-- [ ] Define dead-letter, retry caps, duplicate-delivery protection, and cancel propagation
+- [x] Define dead-letter, retry caps, duplicate-delivery protection, and cancel propagation
+  - [x] At-most-once guard in `executeScheduledTaskJob`: detects unbound `status=running` run on re-delivery → dead-letters via `SCHEDULED_RUN_UNBOUND_CRASH` (schedule-runtime.ts:394)
+  - [x] Cancel propagation: `cancelQueuedJobsForSchedule` in job-repository.ts wired to `deleteSchedule` and `pauseSchedule` in schedule-repository.ts — queued jobs cancelled atomically
+  - [x] Probes: `scripts/r5-5-atmostonce-probe.ts`, `scripts/r5-5-cancel-propagation-probe.ts`
 
 ### R5.6 Tests
 
@@ -68,14 +71,11 @@ durable, observable, and recoverable.
 
 ## Exact Next Step
 
-R5.4 durable scheduling wiring is complete and verified: the enqueue path is
-live green and the execute handler's preamble is live green. The only remaining
-R5.4 verification — a full live execute-E2E through the Hermes orchestrator —
-is owner-gated on provisioning a Hermes registry row for the dev user
-(`00000000-0000-0000-0000-000000000001`); once provisioned, re-run
-`scripts/r5-4-schedule-worker-probe.ts` to confirm the bound `aio_run`
-completes.
+R5.5 failure/recovery is complete: at-most-once guard (dead-letter on
+unbound-crash re-delivery) and cancel propagation (delete/pause → queued jobs
+cancelled) implemented and typecheck-verified. Probes ready for live run once
+schema cache refreshes (aio_schedules table; PostgREST restart or `NOTIFY
+pgrst, 'reload schema'`).
 
-Proceed to `R5.5` (Failure And Recovery): define dead-letter, retry caps,
-duplicate-delivery protection, and cancel propagation for the durable job
-lifecycle.
+Proceed to `R5.6` (Tests): duplicate-enqueue, crash/lease-recovery, retry
+exhaustion, scheduled exactly-once, and cancellation coverage.

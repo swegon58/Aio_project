@@ -412,6 +412,57 @@ export async function cancelJob(
   });
 }
 
+/**
+ * R5.5 cancel propagation: best-effort force-cancel queued scheduled_task jobs
+ * for a schedule, without a lease token (queued -> cancelled is state-machine
+ * legal and queued jobs have no lease owner). Used when a schedule is deleted
+ * or paused so the worker does not start an occurrence for a schedule the user
+ * has removed or paused. Jobs already claimed/running are left alone: a
+ * deleted schedule makes executeScheduledTaskJob throw via getSchedule
+ * (NOT_FOUND) and dead-letter them, and pausing never aborts an in-flight run.
+ * Per-job update failures are skipped so one bad row cannot strand the rest;
+ * any orphaned queued job is still caught by the dead-letter safety net. Only
+ * a failure to list jobs is surfaced. Returns the number of jobs actually
+ * transitioned to cancelled.
+ */
+export async function cancelQueuedJobsForSchedule(
+  db: SupabaseClient,
+  customerId: string,
+  aioScheduleId: string,
+): Promise<JobRepoResult<number>> {
+  const list = await listJobsForCustomer(db, customerId, ["queued"]);
+  if (!list.ok) return list;
+
+  let cancelled = 0;
+  for (const job of list.data) {
+    if (job.job_type !== "scheduled_task") continue;
+    const preview = job.payload_ref?.preview;
+    if (!preview || typeof preview !== "object") continue;
+    if ((preview as { aioScheduleId?: unknown }).aioScheduleId !== aioScheduleId) {
+      continue;
+    }
+
+    const now = new Date().toISOString();
+    const { data, error } = await db
+      .from("aio_jobs")
+      .update({
+        status: "cancelled",
+        completed_at: now,
+        updated_at: now,
+        lease_owner: null,
+        lease_token: null,
+        lease_expires_at: null,
+        last_heartbeat_at: null,
+      })
+      .eq("aio_job_id", job.aio_job_id)
+      .eq("status", "queued")
+      .select("aio_job_id");
+    if (error) continue;
+    if (data && data.length > 0) cancelled += 1;
+  }
+  return { ok: true, data: cancelled };
+}
+
 export function nextRetryAt(attempt: number, now = Date.now()): string {
   const delaySeconds = Math.min(300, Math.max(10, 10 * 2 ** Math.max(0, attempt)));
   return new Date(now + delaySeconds * 1000).toISOString();
