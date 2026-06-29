@@ -25,7 +25,6 @@ import {
   updateScheduleAfterOccurrence,
   type AioScheduleRow,
 } from "@/lib/aio/schedules/schedule-repository";
-import type { HermesUIMessage } from "@/lib/hermes/chat-types";
 import { resolveHermesBackgroundContext } from "@/lib/hermes/background-context";
 import { serviceDb } from "@/lib/hermes/registry";
 
@@ -251,7 +250,7 @@ function createSyncScheduleRunFromRunState(deps: ScheduleRuntimeDeps) {
 }
 
 const NO_OP_WRITER = {
-  write(_message: HermesUIMessage) {},
+  write() {},
 };
 
 export function createScheduleRuntime(overrides: Partial<ScheduleRuntimeDeps> = {}) {

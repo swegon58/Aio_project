@@ -1,7 +1,7 @@
 # ADR-005: Scheduled Task Runtime And History
 
-**Status:** Accepted (R5.4 baseline)  
-**Date:** 2026-06-29  
+**Status:** Accepted (R5.4 baseline)
+**Date:** 2026-06-29
 **Phase:** R5 — Background Workers And Scheduled Work
 
 ## Context

@@ -53,14 +53,14 @@ function makeDb(options: {
     from(table: string) {
       assert.equal(table, "aio_schedules");
       return {
-        update(_payload: Record<string, unknown>) {
+        update() {
           options.onUpdate?.();
           return {
-            eq(_field1: string, _value1: string) {
+            eq() {
               return {
-                eq(_field2: string, _value2: string) {
+                eq() {
                   return {
-                    select(_columns: string) {
+                    select() {
                       return {
                         async single() {
                           return {
@@ -79,9 +79,9 @@ function makeDb(options: {
         delete() {
           options.onDelete?.();
           return {
-            eq(_field1: string, _value1: string) {
+            eq() {
               return {
-                async eq(_field2: string, _value2: string) {
+                async eq() {
                   return { error: null };
                 },
               };

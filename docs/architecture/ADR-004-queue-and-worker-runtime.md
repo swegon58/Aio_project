@@ -1,7 +1,7 @@
 # ADR-004: Queue And Worker Runtime
 
-**Status:** Accepted (R5.1)  
-**Date:** 2026-06-29  
+**Status:** Accepted (R5.1)
+**Date:** 2026-06-29
 **Phase:** R5 — Background Workers And Scheduled Work
 
 ## Context
