@@ -14,9 +14,11 @@ auditable.
 - R1 is merged to `main`.
 - R2.1 is complete and verified on `feat/r2-tool-governance-foundation`
   (typecheck, `test:unit` 47/47, eslint clean).
-- R2.2 is scaffolded: `aio_tool_calls` migration, tool-call state machine, and
-  tool-call repository exist with unit tests, but are NOT yet wired into the
-  chat orchestrator, and have no Supabase integration tests yet.
+- R2.2 is complete and verified: `recordToolCallEvent` is wired into the run
+  orchestrator (called per `tool.*` event right after `persistEvent`), and
+  `scripts/r2-2-tool-call-probe.ts` exercises the full DB path (create +
+  transition + missed-started recovery + idempotency + isolation + ordering)
+  against the local Supabase stack. typecheck clean, `test:unit` 54/54.
 - Browser approval UI currently proxies live Hermes approval state only.
 
 ## R2 Checklist
@@ -36,8 +38,9 @@ auditable.
 - [x] Add `aio_tool_calls` migration (`0012_aio_tool_calls.sql`, RLS select-only)
 - [x] Add tool-call state machine + repository with manifest snapshot
 - [x] Redact durable input/output fields (`redactPersistedValue`)
-- [~] Wire repository into run orchestrator so real runs persist tool calls
-- [ ] Add Supabase integration tests (cross-tenant, transition races)
+- [x] Wire repository into run orchestrator so real runs persist tool calls
+- [x] Add Supabase integration tests (cross-tenant, transition races)
+- [x] Verified: `npm run typecheck`, `npm run test:unit` (54/54), live `scripts/r2-2-tool-call-probe.ts` (10/10) against local Supabase stack
 
 ### R2.3 Durable Approvals
 
@@ -70,13 +73,23 @@ auditable.
 
 ## Exact Next Step
 
-R2.1 is verified and committed. The R2.2 schema + repository scaffold is
-committed but not wired into the chat orchestrator and has no integration tests.
+R2.2 is complete and verified (wiring + integration probe green). On
+`feat/r2-tool-governance-foundation`, the schema/state-machine/repository are
+committed (`df45f9c`); the R2.2 wiring slice — `tool-call-writer.ts` + its unit
+tests, the orchestrator wiring edit, and `scripts/r2-2-tool-call-probe.ts` — is
+uncommitted in the working tree.
+
+Environment note: `.env.local` (main worktree) points at a cloud Supabase
+project (`xeuvoaedwdmuhxdcoxcx`) that was never migrated — every Aio table
+404s there. The real dev DB is the local Docker stack (kong on `:54321`,
+public demo keys), where all migrations through `0012` are applied. The R2.2
+probe runs against local with env exported. Owner should later decide whether
+to retire the cloud pointer or apply migrations to that project.
 
 Next owner decision:
 
-- continue R2.2 by wiring `tool-call-repository` into the run orchestrator and
-  adding Supabase integration tests, or
-- move to R2.3 durable approvals (`aio_approvals` table + resolve API) first.
+- start R2.3 durable approvals (`aio_approvals` table + resolve API +
+  resolve-once / expiry rules), or
+- pause to commit the verified R2.2 wiring slice first.
 
 Do not push or merge without owner approval.
