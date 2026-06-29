@@ -50,7 +50,7 @@ import { MarkdownMessage } from "@/components/app/MarkdownMessage";
 import { DotGrid } from "@/components/app/DotGrid";
 import TextType from "@/components/app/TextType";
 import { TASK_TEMPLATES } from "@/components/app/TemplateGallery";
-import { RunTimeline, legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timeline";
+import { AgentStateBadge, RunTimeline, legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timeline";
 import { ResearchProgressCard } from "@/components/app/ResearchProgressCard";
 import { ChatModeMenu } from "@/components/app/ChatModeMenu";
 import {
@@ -62,6 +62,14 @@ import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
 import { brand } from "@/lib/brand.config";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import {
+  fetchConversationRuns,
+  fetchRun,
+  fetchRunEvents,
+  isRunTerminal,
+  isRunStoppable,
+  requestRunStop,
+} from "@/lib/aio/runs/run-client";
+import {
   mascotStateForTool,
   type AioGeneratedImage,
   type HermesActivityData,
@@ -71,7 +79,7 @@ import {
   type HermesUIMessage,
   type MascotImageState,
 } from "@/lib/hermes/chat-types";
-import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
+import type { AioRunEvent, AioRunStatus } from "@/lib/aio/runs/aio-run-events";
 import "@/app/(app)/app/mockup.css";
 
 // Mirrors route.ts PLAN_MODE_INSTRUCTIONS' aio-question protocol: a
@@ -169,6 +177,96 @@ function upsertRunEvent(events: AioRunEvent[], event: AioRunEvent): AioRunEvent[
   const index = events.findIndex((item) => runEventKey(item) === key);
   const next = index === -1 ? [...events, event] : events.map((item, i) => (i === index ? event : item));
   return next.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+}
+
+function isPendingRunShellEvent(event: AioRunEvent): boolean {
+  return event.type === "run.created" && event.runId.startsWith("pending:");
+}
+
+function mergeDurableRunEvents(existing: AioRunEvent[], incoming: AioRunEvent[]): AioRunEvent[] {
+  let next = existing.filter((event) => !isPendingRunShellEvent(event));
+  for (const event of incoming) {
+    next = upsertRunEvent(next, event);
+  }
+  return next;
+}
+
+function pendingApprovalFromRunEvents(
+  events: AioRunEvent[],
+): Extract<HermesApprovalData, { kind: "request" }> | null {
+  const pending = new Map<string, Extract<HermesApprovalData, { kind: "request" }>>();
+
+  for (const event of events) {
+    if (event.type === "approval.requested") {
+      const requestId = event.requestId ?? event.approvalId;
+      pending.set(requestId, {
+        kind: "request",
+        requestId,
+        runId: event.runId,
+        command: event.command,
+        description: event.description,
+        patternKey: event.patternKey,
+        allowPermanent: event.allowPermanent ?? false,
+        choices: event.choices ?? ["approve", "reject"],
+        ts: event.ts ?? Date.parse(event.createdAt),
+      });
+      continue;
+    }
+
+    if (event.type === "approval.responded") {
+      pending.delete(event.requestId ?? event.approvalId);
+    }
+  }
+
+  const unresolved = Array.from(pending.values());
+  return unresolved.length > 0 ? unresolved[unresolved.length - 1] : null;
+}
+
+function badgeStateForRunStatus(
+  status: AioRunStatus | null,
+  options: {
+    hydrating: boolean;
+    syncError: boolean;
+  },
+): "ready" | "working" | "asking" | "success" | "error" | "confused" {
+  if (options.hydrating) return "working";
+  if (options.syncError && status && !isRunTerminal(status)) return "confused";
+  switch (status) {
+    case "queued":
+    case "running":
+    case "cancelling":
+      return "working";
+    case "waiting_approval":
+      return "asking";
+    case "completed":
+    case "cancelled":
+      return "success";
+    case "failed":
+      return "error";
+    default:
+      return "ready";
+  }
+}
+
+function labelForRunStatus(status: AioRunStatus | null): string {
+  switch (status) {
+    case "queued":
+      return "Queued";
+    case "running":
+      return "Running";
+    case "waiting_approval":
+      return "Needs approval";
+    case "cancelling":
+      return "Stopping";
+    case "completed":
+      return "Completed";
+    case "failed":
+      return "Failed";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return "Ready";
+  }
 }
 
 type FilesSubTab = "gallery" | "files";
@@ -729,6 +827,12 @@ export function AppHome({ email }: AppHomeProps) {
   const [activity, setActivity] = useState<HermesActivityData[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [runEvents, setRunEvents] = useState<AioRunEvent[]>([]);
+  const [persistedRunStatus, setPersistedRunStatus] = useState<AioRunStatus | null>(null);
+  const [persistedEventSequence, setPersistedEventSequence] = useState(-1);
+  const [timelineHydrating, setTimelineHydrating] = useState(false);
+  const [timelineSyncError, setTimelineSyncError] = useState<string | null>(null);
+  const [runStopPending, setRunStopPending] = useState(false);
+  const [runStopError, setRunStopError] = useState<string | null>(null);
   // code_exec showcase cards (grill-log agent-capability-showcase-cards
   // Q2/Q4/Q8): one task in flight per turn (scope-locked), live updates land
   // here; `activeShowcaseTaskId` drives both the chat-chip lookup and the
@@ -754,7 +858,12 @@ export function AppHome({ email }: AppHomeProps) {
   const { messages, sendMessage, status, setMessages, stop, error: chatError, regenerate, clearError } = useChat<HermesUIMessage>({
     onData: (dataPart) => {
       if (dataPart.type === "data-aio-event") {
-        setRunEvents((prev) => upsertRunEvent(prev, dataPart.data));
+        setRunEvents((prev) => mergeDurableRunEvents(prev, [dataPart.data]));
+        if (dataPart.data.type === "run.created") setPersistedRunStatus(dataPart.data.status);
+        if (dataPart.data.type === "approval.requested") setPersistedRunStatus("waiting_approval");
+        if (dataPart.data.type === "run.completed") setPersistedRunStatus("completed");
+        if (dataPart.data.type === "run.failed") setPersistedRunStatus("failed");
+        if (dataPart.data.type === "run.cancelled") setPersistedRunStatus("cancelled");
         return;
       }
       if (dataPart.type === "data-aio-run" || dataPart.type === "data-hermes-run") {
@@ -764,6 +873,8 @@ export function AppHome({ email }: AppHomeProps) {
         // look up and the whole turn vanishes on refresh.
         setActiveConversationId((prev) => prev ?? dataPart.data.threadId);
         setActiveRunId(dataPart.data.runId);
+        setTimelineSyncError(null);
+        setRunEvents((prev) => prev.filter((event) => !isPendingRunShellEvent(event)));
         return;
       }
       if (dataPart.type === "data-aio-credits" || dataPart.type === "data-hermes-credits") {
@@ -905,6 +1016,35 @@ export function AppHome({ email }: AppHomeProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [accent, setAccent] = useState<AccentKey>("blue");
+  const resetRunTimeline = () => {
+    setActiveRunId(null);
+    setRunEvents([]);
+    setPersistedRunStatus(null);
+    setPersistedEventSequence(-1);
+    setTimelineSyncError(null);
+    setRunStopPending(false);
+    setRunStopError(null);
+  };
+  const primeOptimisticRun = () => {
+    const now = Date.now();
+    const createdAt = new Date(now).toISOString();
+    setActiveRunId(null);
+    setPersistedRunStatus("queued");
+    setPersistedEventSequence(-1);
+    setTimelineSyncError(null);
+    setRunStopPending(false);
+    setRunStopError(null);
+    setRunEvents([
+      {
+        type: "run.created",
+        runId: `pending:${now}`,
+        threadId: activeConversationId ?? "pending-thread",
+        status: "queued",
+        createdAt,
+        ts: now,
+      },
+    ]);
+  };
 
   // Read persisted prefs only after mount — reading localStorage during the
   // useState initializer makes the client's first render diverge from SSR
@@ -1071,7 +1211,7 @@ export function AppHome({ email }: AppHomeProps) {
     setImageGenerationError(null);
     setImageGenerationStatus("preparing");
     setActivity([]);
-    setRunEvents([]);
+    resetRunTimeline();
     setPlanAwaitingAction(false);
 
     const controller = new AbortController();
@@ -1176,7 +1316,7 @@ export function AppHome({ email }: AppHomeProps) {
       return;
     }
     setActivity([]);
-    setRunEvents([]);
+    primeOptimisticRun();
     setShowcases([]);
     setPendingApproval(null);
     setPlanAwaitingAction(chatMode === "plan");
@@ -1215,6 +1355,24 @@ export function AppHome({ email }: AppHomeProps) {
     focusComposer();
   };
 
+  const handleDurableRunStop = async () => {
+    if (!activeRunId || !persistedRunStatus || !isRunStoppable(persistedRunStatus) || runStopPending) return;
+    setRunStopPending(true);
+    setRunStopError(null);
+    try {
+      const result = await requestRunStop(activeRunId);
+      setPersistedRunStatus(result.run.status);
+      if (status !== "ready") void stop();
+      if (result.message && !result.ok) {
+        setRunStopError(result.message);
+      }
+    } catch (error) {
+      setRunStopError(error instanceof Error ? error.message : "Failed to stop the current run.");
+    } finally {
+      setRunStopPending(false);
+    }
+  };
+
   const handleTodayAction = (card: TodayCard, action: TodayAction) => {
     if (action === "ignore") {
       setIgnoredTodayCards((prev) => {
@@ -1246,7 +1404,7 @@ export function AppHome({ email }: AppHomeProps) {
     }
 
     setActivity([]);
-    setRunEvents([]);
+    primeOptimisticRun();
     setShowcases([]);
     setPendingApproval(null);
     setPlanAwaitingAction(false);
@@ -1321,7 +1479,7 @@ export function AppHome({ email }: AppHomeProps) {
     setActiveConversationId(data.id);
     setMessages(data.messages ?? []);
     setActivity([]);
-    setRunEvents([]);
+    resetRunTimeline();
     setShowcases([]);
     setPendingApproval(null);
     const last = data.messages?.[data.messages.length - 1];
@@ -1366,6 +1524,124 @@ export function AppHome({ email }: AppHomeProps) {
     else localStorage.removeItem("aio-active-conversation");
   }, [activeConversationId]);
 
+  useEffect(() => {
+    if (!activeConversationId || status === "submitted" || status === "streaming") return;
+
+    let cancelled = false;
+    setTimelineHydrating(true);
+    setTimelineSyncError(null);
+
+    (async () => {
+      try {
+        const runs = await fetchConversationRuns(activeConversationId, 1);
+        if (cancelled) return;
+
+        const latestRun = runs[0];
+        if (!latestRun) {
+          setActiveRunId(null);
+          setPersistedRunStatus(null);
+          setPersistedEventSequence(-1);
+          setRunEvents([]);
+          return;
+        }
+
+        setActiveRunId(latestRun.id);
+        setPersistedRunStatus(latestRun.status);
+
+        const envelopes = await fetchRunEvents(latestRun.id, { limit: 1000 });
+        if (cancelled) return;
+
+        setPersistedEventSequence(
+          envelopes.length > 0 ? envelopes[envelopes.length - 1].sequence : -1,
+        );
+        setRunEvents((prev) =>
+          mergeDurableRunEvents(
+            prev,
+            envelopes.map((event) => event.payload),
+          ),
+        );
+      } catch {
+        if (!cancelled) {
+          setTimelineSyncError("Could not restore the latest saved run. Try re-opening this conversation.");
+        }
+      } finally {
+        if (!cancelled) setTimelineHydrating(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeConversationId, status]);
+
+  useEffect(() => {
+    if (
+      !activeRunId ||
+      !persistedRunStatus ||
+      isRunTerminal(persistedRunStatus) ||
+      status === "submitted" ||
+      status === "streaming" ||
+      timelineHydrating
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const [run, envelopes] = await Promise.all([
+          fetchRun(activeRunId),
+          fetchRunEvents(activeRunId, {
+            afterSequence: persistedEventSequence >= 0 ? persistedEventSequence : undefined,
+            limit: 1000,
+          }),
+        ]);
+        if (cancelled) return;
+
+        setPersistedRunStatus(run.status);
+        setTimelineSyncError(null);
+        if (envelopes.length > 0) {
+          setPersistedEventSequence(envelopes[envelopes.length - 1].sequence);
+          setRunEvents((prev) =>
+            mergeDurableRunEvents(
+              prev,
+              envelopes.map((event) => event.payload),
+            ),
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setTimelineSyncError("Live updates disconnected. Aio is retrying the saved timeline automatically.");
+        }
+      }
+    };
+
+    void poll();
+    const timer = window.setInterval(() => {
+      void poll();
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeRunId, persistedEventSequence, persistedRunStatus, status, timelineHydrating]);
+
+  useEffect(() => {
+    if (status === "submitted" || status === "streaming") return;
+    const durableEvents = runEvents.filter((event) => !isPendingRunShellEvent(event));
+    if (durableEvents.length === 0) return;
+    setPendingApproval(pendingApprovalFromRunEvents(durableEvents));
+  }, [runEvents, status]);
+
+  useEffect(() => {
+    if (status !== "ready" || activeRunId) return;
+    if (!runEvents.some((event) => isPendingRunShellEvent(event))) return;
+    setRunEvents((prev) => prev.filter((event) => !isPendingRunShellEvent(event)));
+    setPersistedRunStatus(null);
+  }, [activeRunId, runEvents, status]);
+
   const handleNewChat = async () => {
     try {
       const res = await fetch("/api/conversations", { method: "POST" });
@@ -1375,7 +1651,7 @@ export function AppHome({ email }: AppHomeProps) {
       setActiveConversationId(data.id);
       setMessages([]);
       setActivity([]);
-      setRunEvents([]);
+      resetRunTimeline();
       setShowcases([]);
       setPendingApproval(null);
       setPlanAwaitingAction(false);
@@ -1429,7 +1705,7 @@ export function AppHome({ email }: AppHomeProps) {
         setActiveConversationId(null);
         setMessages([]);
         setActivity([]);
-        setRunEvents([]);
+        resetRunTimeline();
         setShowcases([]);
         setPendingApproval(null);
         setPlanAwaitingAction(false);
@@ -1906,7 +2182,7 @@ export function AppHome({ email }: AppHomeProps) {
     setChatMode("auto");
     setLastRunMode("auto");
     setActivity([]);
-    setRunEvents([]);
+    primeOptimisticRun();
     setShowcases([]);
     setPendingApproval(null);
     sendMessage(
@@ -1929,7 +2205,7 @@ export function AppHome({ email }: AppHomeProps) {
   const handlePlanAnswer = (answer: string) => {
     if (status !== "ready" || !answer.trim()) return;
     setActivity([]);
-    setRunEvents([]);
+    primeOptimisticRun();
     setShowcases([]);
     setPendingApproval(null);
     setPlanOtherText("");
@@ -1971,6 +2247,10 @@ export function AppHome({ email }: AppHomeProps) {
     ? `${brand.name} is using ${runningTool.label ?? runningTool.tool}…`
     : isStreaming
       ? `${brand.name} is thinking…`
+      : timelineHydrating
+        ? `${brand.name} is restoring the latest run…`
+        : persistedRunStatus && !isRunTerminal(persistedRunStatus)
+          ? `${brand.name} is reconnecting to the current run…`
       : lastCompletedTool
         ? `${brand.name} last ran ${lastCompletedTool.label ?? lastCompletedTool.tool}`
         : `${brand.name} is ready`;
@@ -1999,6 +2279,92 @@ export function AppHome({ email }: AppHomeProps) {
             runId: activeRunId ?? activeConversationId ?? "current-run",
           }),
     [activity, activeConversationId, activeRunId, pendingApproval, runEvents, showcases],
+  );
+  const durableRunVisible =
+    timelineHydrating
+    || Boolean(activeRunId)
+    || Boolean(persistedRunStatus)
+    || timelineEvents.length > 0;
+  const currentRunStatusLabel = labelForRunStatus(persistedRunStatus);
+  const currentRunBadgeState = badgeStateForRunStatus(persistedRunStatus, {
+    hydrating: timelineHydrating,
+    syncError: Boolean(timelineSyncError),
+  });
+  const currentRunNote = timelineHydrating
+    ? "Restoring the latest saved run after reload."
+    : runStopPending
+      ? "Sending a durable stop request to the current run."
+      : runStopError
+        ? runStopError
+        : timelineSyncError
+          ? timelineSyncError
+          : persistedRunStatus === "cancelling"
+            ? "Stop requested. Waiting for the worker to confirm cancellation."
+            : persistedRunStatus === "waiting_approval"
+              ? "This run is paused until you respond to the approval request."
+              : persistedRunStatus && !isRunTerminal(persistedRunStatus)
+                ? "This view stays in sync with the persisted run history."
+                : timelineEvents.length > 0
+                  ? "Latest saved activity is ready to review."
+                  : "Start a task to create a durable run.";
+  const currentRunTone = runStopError || timelineSyncError
+    ? "warning"
+    : timelineHydrating || runStopPending
+      ? "working"
+      : persistedRunStatus === "waiting_approval"
+        ? "approval"
+        : "default";
+  const currentRunCanStop =
+    Boolean(activeRunId)
+    && Boolean(persistedRunStatus)
+    && persistedRunStatus !== null
+    && isRunStoppable(persistedRunStatus)
+    && !runStopPending;
+  const renderCurrentRunCard = (className?: string) => (
+    <section className={`current-run-card${className ? ` ${className}` : ""}`} aria-label="Current run">
+      <div className="current-run-card-topline">
+        <span className="current-run-label">Current Run</span>
+        <AgentStateBadge state={currentRunBadgeState} />
+      </div>
+      <div className="current-run-head">
+        <div>
+          <h4>{currentRunStatusLabel}</h4>
+          <p>{currentRunNote}</p>
+        </div>
+        {currentRunCanStop && (
+          <button
+            type="button"
+            className="approval-btn deny current-run-stop-btn"
+            onClick={() => void handleDurableRunStop()}
+            disabled={runStopPending}
+          >
+            {runStopPending ? <Loader2 className="w-3.5 h-3.5 icon-spin" /> : <Pause className="w-3.5 h-3.5" />}
+            {runStopPending ? "Stopping…" : "Stop run"}
+          </button>
+        )}
+      </div>
+      <div className={`current-run-banner current-run-banner--${currentRunTone}`}>
+        {timelineHydrating || runStopPending ? (
+          <Loader2 className="w-3.5 h-3.5 icon-spin" />
+        ) : timelineSyncError || runStopError ? (
+          <CircleAlert className="w-3.5 h-3.5" />
+        ) : persistedRunStatus === "waiting_approval" ? (
+          <Clock className="w-3.5 h-3.5" />
+        ) : (
+          <CheckCircle2 className="w-3.5 h-3.5" />
+        )}
+        <span>{currentRunNote}</span>
+      </div>
+      {timelineEvents.length > 0 ? (
+        <div className="current-run-timeline">
+          <RunTimeline events={timelineEvents} compact />
+        </div>
+      ) : (
+        <PanelEmpty icon={<ListTree className="w-5 h-5" />}>
+          Durable run activity will appear here.
+        </PanelEmpty>
+      )}
+    </section>
   );
   const activeTodayCards = TODAY_CARDS.filter((card) => !ignoredTodayCards.has(card.id));
   const renderTodayCard = (card: TodayCard) => (
@@ -2414,12 +2780,15 @@ export function AppHome({ email }: AppHomeProps) {
                   showCursor
                   cursorCharacter="|"
                 />
-                {isMobileViewport && activeTodayCards.length > 0 && (
+                {isMobileViewport && (activeTodayCards.length > 0 || durableRunVisible) && (
                   <section className="mobile-today-panel" aria-label="Today">
                     <div className="mobile-today-heading">Today</div>
-                    <div className="mobile-today-strip">
-                      {activeTodayCards.map(renderTodayCard)}
-                    </div>
+                    {durableRunVisible && renderCurrentRunCard("current-run-card--mobile")}
+                    {activeTodayCards.length > 0 && (
+                      <div className="mobile-today-strip">
+                        {activeTodayCards.map(renderTodayCard)}
+                      </div>
+                    )}
                   </section>
                 )}
                 <div className="quick-actions">
@@ -3042,6 +3411,7 @@ export function AppHome({ email }: AppHomeProps) {
                     <span>{activityLine}</span>
                   </div>
                 </div>
+                {durableRunVisible && renderCurrentRunCard()}
                 {usedPercentLabel && (
                   <div className={`usage-meter${usageLevel !== "normal" ? ` usage-meter--${usageLevel}` : ""}`}>
                     <div className="usage-meter-bar">

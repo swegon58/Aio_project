@@ -5,7 +5,7 @@
 **Branched from:** `origin/main` at `8a8718a`
 **Updated:** 2026-06-28
 **Owner:** Main coding agent
-**Status:** Approved by product owner on 2026-06-28. R1.1–R1.4 complete and verified; R1.5 next.
+**Status:** Approved by product owner on 2026-06-28. R1.1–R1.6 complete and verified; R1.7 next.
 
 This file tracks active work for the R1 phase. The full product sequence lives
 in `2026-06-28_aio_product_and_production_roadmap.md`. The code-level program
@@ -81,8 +81,7 @@ The R1 code is not a greenfield. These findings anchor every task below:
 
 ### R1.1 Architecture Decision
 
-- [-] `XS` Write `docs/architecture/ADR-001-aio-run-ownership.md`.
-  - Status: draft in progress in this worktree.
+- [x] `XS` Write `docs/architecture/ADR-001-aio-run-ownership.md`. ✅ Done 2026-06-28
 
 The ADR must lock: Aio run ID ownership, Hermes run/session ID mapping, run
 state machine (including `cancelling`), event ordering and idempotency,
@@ -291,7 +290,7 @@ lifecycle SQL (none exists yet — R1.5 will route through these repositories).
 
 ### R1.5 Split Chat Orchestration From Transport
 
-- [ ] `M` Refactor the chat route into a thin route, orchestrator, and transport.
+- [x] `M` Refactor the chat route into a thin route, orchestrator, and transport. ✅ Done 2026-06-28
 
 **Files:**
 
@@ -311,9 +310,32 @@ linkage; close the run with a stable outcome.
 map internal errors to HTTP; handle client disconnect **without corrupting
 durable run state**.
 
+**Evidence (2026-06-28):**
+
+- `apps/web/src/app/api/chat/route.ts` is now transport-only and delegates to
+  `handleChatRequest`.
+- `apps/web/src/lib/aio/chat/chat-transport.ts` owns request parsing,
+  empty-message rejection, and UI-message-stream response wiring only.
+- `apps/web/src/lib/aio/chat/run-orchestrator.ts` now owns auth/context,
+  credit reserve/refund/settlement, input scanning, knowledge context, the
+  Hermes run lifecycle, durable run creation before the Hermes call, Hermes
+  identity attachment, durable event persistence, and final conversation
+  persistence.
+- `createRun` now fails closed before Hermes starts, matching the R1.5
+  acceptance rule that the Aio-owned run row must exist first.
+- `conversation_id` is linked at run creation time via the existing `threadId`.
+- Persisted events now use deterministic envelope ids plus source-aware Hermes
+  metadata, and preserve their source timestamps instead of writing `Date.now()`
+  for every event.
+- Verification: `npm run typecheck` passes, `npm run test:unit` passes
+  (`33/33`), `npm run lint` reports the same `281` pre-existing warnings and no
+  errors, and `AIO_DEPLOYMENT_ENV=development npm run build` passes in the R1
+  worktree after replacing the invalid `node_modules` symlink with a local
+  install.
+
 ### R1.6 Run APIs
 
-- [ ] `S` Add run read/stop APIs and the OpenAPI document.
+- [x] `S` Add run read/stop APIs and the OpenAPI document. ✅ Done 2026-06-28
 
 **Files:**
 
@@ -322,20 +344,65 @@ durable run state**.
 - `apps/web/src/app/api/runs/[runId]/events/route.ts`
   (`GET .../events?afterSequence=`)
 - `apps/web/src/app/api/runs/[runId]/stop/route.ts` (`POST .../stop`)
+- `apps/web/src/lib/aio/runs/run-api.ts` (auth/context, serialization, stable API errors)
+- `apps/web/src/lib/aio/runs/run-api.test.ts` (helper/unit coverage)
+- `apps/web/scripts/r1-6-runs-api-probe.ts` (live HTTP probe)
 - `docs/api/aio-runs.openapi.yaml` (OpenAPI 3.1, new)
 
 **Contracts:** authenticated, tenant-scoped, cursor pagination, stable error
 schema, event replay supports `afterSequence`, stop is idempotent.
 
+**Evidence (2026-06-28):**
+
+- `apps/web/src/lib/aio/runs/run-api.ts` now mirrors the app's local-dev auth
+  behavior: when `NEXT_PUBLIC_DEV_AUTH_BYPASS=true`, the run APIs resolve the
+  fixed dev tenant instead of returning `401`, while still hard-failing if that
+  bypass is enabled in production.
+- `parseBoundedInt` is strict (`^-?\d+$`) so inputs like `1.5` and `12px` are
+  rejected instead of being truncated silently.
+- `apps/web/src/lib/aio/runs/run-api.test.ts` covers bounded integer parsing,
+  stable repository-error-to-HTTP mapping, and the public serialization shape
+  for both runs and run events.
+- `apps/web/scripts/r1-6-runs-api-probe.ts` hits the live Next server over HTTP
+  and proves the four contracts against the real repositories:
+  - `GET /api/runs` returns the newest tenant-scoped runs and rejects bad
+    `limit` / `cursor` values.
+  - `GET /api/runs/[runId]` returns a run shell and reports missing runs as
+    `RUN_NOT_FOUND`.
+  - `GET /api/runs/[runId]/events` replays the ordered timeline and honors
+    `afterSequence`.
+  - `POST /api/runs/[runId]/stop` is correct for queued/not-started runs,
+    terminal/no-op runs, and Hermes-forwarded runs where Hermes returns `404`.
+- Verification:
+  - `npm run typecheck` passes.
+  - `npm run test:unit` passes (`36/36`).
+  - `AIO_DEPLOYMENT_ENV=development npm run build` passes with the run routes.
+  - `npx tsx scripts/r1-6-runs-api-probe.ts` passes against a local R1 server
+    after:
+    - `supabase db reset` reapplies migrations `0001`-`0011`
+    - the app is started with local Supabase JWT keys from
+      `supabase status -o env`
+    - the shared hosted `.env.local` symlink is moved aside for that local-only
+      probe process so Next does not override the local runtime env
+    - a minimal local stub on `127.0.0.1:8642` answers `POST /v1/runs/:id/stop`
+      with `404` to verify the missing-Hermes-run branch explicitly
+  - The probe now proves all four contracts live:
+    - list/detail/events routes
+    - queued stop before Hermes starts
+    - missing-Hermes-run stop tolerance (`run_not_found`)
+    - terminal stop idempotency (`noop: true`, status unchanged)
+
 ### R1.7 Timeline Replay And Reconnect
 
-- [ ] `M` Reconnect the run timeline to persisted history.
+- [x] `M` Reconnect the run timeline to persisted history. ✅ Completed 2026-06-29
 
 **Files:**
 
 - `apps/web/src/components/app/run-timeline/` (update)
 - `apps/web/src/components/app/AppHome.tsx` (update)
 - run state hooks under `apps/web/src/lib` or `apps/web/src/hooks`
+- `apps/web/src/lib/aio/runs/run-client.ts` (new, browser fetch helpers)
+- `apps/web/e2e/app-smoke.spec.ts` (extended reload/restore smoke)
 
 **Behavior:** optimistic run shell after submit; hydrate persisted history; merge
 live events by ID/sequence without duplicates; reconnect after refresh; render
@@ -343,20 +410,62 @@ running, waiting approval, completed, failed, cancelled; stop control appears
 only for stoppable states; loading/reconnect/error states never erase existing
 events. Internal IDs and debug data stay hidden from the user.
 
+**Status (2026-06-29): completed**
+
+- `AppHome.tsx` now primes an optimistic `run.created` shell on submit, then
+  drops that shell once a real durable run/event stream takes over or the turn
+  completes without a durable run id.
+- The active conversation restore flow now hydrates the latest durable run via
+  `GET /api/runs?conversationId=...&limit=1`, then replays its persisted events
+  from `GET /api/runs/[runId]/events`.
+- Non-terminal runs now poll `GET /api/runs/[runId]` +
+  `GET /api/runs/[runId]/events?afterSequence=` every 3 seconds when no live
+  stream is attached, so a refresh no longer strands the timeline in an empty
+  state.
+- `apps/web/e2e/app-smoke.spec.ts` now includes a durable reload smoke that
+  proves the client re-requests `/api/conversations/:id`, `/api/runs` with the
+  `conversationId` filter, and `/api/runs/:id/events` both on initial load and
+  after a browser refresh.
+- The restored timeline now appears in a visible `Current Run` surface by
+  default:
+  - desktop: inside the right-side Aio panel
+  - mobile: inside the Today strip area above the suggestion cards
+- That `Current Run` surface now renders:
+  - a durable run-status badge (`Queued`, `Running`, `Needs approval`,
+    `Stopping`, `Completed`, `Failed`, `Cancelled`)
+  - reconnect / restore / stop-request messaging that never clears saved events
+  - a durable `Stop run` control shown only for stoppable states, wired to
+    `POST /api/runs/[runId]/stop`
+  - the compact persisted `RunTimeline` so restored history is visible without
+    opening the output drawer
+- `apps/web/e2e/app-smoke.spec.ts` now also proves the UI surface itself:
+  - restored `Current Run` appears after reload on both desktop and mobile
+  - `Stop run` issues the durable stop request and transitions the visible run
+    surface to `Stopping`
+
+**Verification (2026-06-29):**
+
+- `npm run typecheck` passes.
+- `npm run test:unit` passes (`36/36`).
+- `AIO_DEPLOYMENT_ENV=development npm run build` passes.
+- `npm run test:e2e -- app-smoke.spec.ts` passes (`6/6`).
+- `npm run test:e2e` passes (`6/6`).
+- `git diff --check` passes.
+
 ## Final Gate (must all pass before requesting merge)
 
-- [ ] `npm run lint` exits with no new errors.
-- [ ] `npm run typecheck` passes.
-- [ ] `npm run test:unit` passes, including new R1.2 envelope tests.
-- [ ] `npm run test:e2e` passes; existing smoke flows still green.
-- [ ] `AIO_DEPLOYMENT_ENV=development npm run build` passes.
-- [ ] Clean migration `0001`-`0011` applies and DB lint exits `0`.
-- [ ] Cross-tenant RLS test denies the wrong tenant.
-- [ ] Replay test: drop the stream, refresh, timeline rehydrates with no
+- [x] `npm run lint` exits with no new errors.
+- [x] `npm run typecheck` passes.
+- [x] `npm run test:unit` passes, including new R1.2 envelope tests.
+- [x] `npm run test:e2e` passes; existing smoke flows still green.
+- [x] `AIO_DEPLOYMENT_ENV=development npm run build` passes.
+- [x] Clean migration `0001`-`0011` applies and DB lint exits `0`.
+- [x] Cross-tenant RLS test denies the wrong tenant.
+- [x] Replay test: drop the stream, refresh, timeline rehydrates with no
       duplicates and no lost events.
-- [ ] Stop is idempotent (second call on a terminal run is a no-op).
-- [ ] `git diff --check` clean; no secrets in diff.
-- [ ] Aio is online at `http://localhost:3000/app` after work.
+- [x] Stop is idempotent (second call on a terminal run is a no-op).
+- [x] `git diff --check` clean; no secrets in diff.
+- [x] Aio is online at `http://localhost:3000/app` after work.
 
 ## Delegation Map
 
@@ -381,18 +490,7 @@ and verified on `feat/r1-durable-run-foundation`. The local Supabase stack is up
 `0001`–`0011` applied, RLS isolation confirmed, and the R1.4 repository probe
 22/22 green.
 
-Next: **R1.5 — split chat orchestration from transport.** Refactor
-`apps/web/src/app/api/chat/route.ts` into a thin route, a new orchestrator
-(`apps/web/src/lib/aio/chat/run-orchestrator.ts`), and a new transport
-(`apps/web/src/lib/aio/chat/chat-transport.ts`). The orchestrator authenticates
-and resolves tenant/runtime context, scans input, reserves credits via
-`billing/credit-guard.ts`, creates the Aio run (through `createRun`) **before**
-the Hermes call, attaches the Hermes identity (`attachHermesIdentity`), maps and
-persists events (`appendEvent`) and publishes them, settles/refunds credits
-exactly once via `billing/usage-settlement.ts`, persists conversation linkage,
-and closes the run with a stable outcome (`transitionRun` / `markTerminal`). The
-transport parses the request, converts UI messages, exposes the AI SDK/SSE
-stream, maps internal errors to HTTP, and handles client disconnect without
-corrupting durable run state. Acceptance: no lifecycle SQL in the route; the run
-row exists in Postgres before Hermes starts; credits settle exactly once;
-disconnect leaves the run in a recoverable (not corrupted) state.
+Next: finish the merge-readiness handoff:
+
+- summarize R1 evidence for the product owner and request merge approval
+- merge `feat/r1-durable-run-foundation` after approval

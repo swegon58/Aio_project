@@ -169,6 +169,7 @@ export interface ListRunsInput {
   limit?: number;
   /** Opaque cursor from a previous ListRunsOutput.nextCursor. */
   cursor?: string;
+  conversationId?: string;
 }
 
 export interface ListRunsOutput {
@@ -187,6 +188,9 @@ export async function listRuns(
     .from("aio_runs")
     .select("*")
     .eq("customer_id", input.customerId);
+  if (input.conversationId) {
+    query = query.eq("conversation_id", input.conversationId);
+  }
 
   if (input.cursor) {
     const cur = decodeRunsCursor(input.cursor);

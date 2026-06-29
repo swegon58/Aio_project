@@ -2620,6 +2620,109 @@
   opacity: 0.9;
 }
 
+.current-run-card {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 56%, transparent);
+  background: var(--surface-tertiary-opaque);
+}
+
+.current-run-card-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.current-run-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.current-run-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.current-run-head h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.current-run-head p {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.current-run-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  white-space: nowrap;
+}
+
+.current-run-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 9px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  border: 1px solid color-mix(in srgb, var(--border-color) 56%, transparent);
+  color: var(--text-secondary);
+  background: var(--surface-card-opaque);
+}
+
+.current-run-banner svg {
+  flex: 0 0 auto;
+}
+
+.current-run-banner--working {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 34%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 82%, var(--accent-primary) 18%);
+}
+
+.current-run-banner--warning {
+  color: color-mix(in srgb, var(--text-primary) 82%, var(--accent-orange));
+  border-color: color-mix(in srgb, var(--accent-orange) 32%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 84%, var(--accent-orange) 16%);
+}
+
+.current-run-banner--approval {
+  color: color-mix(in srgb, var(--text-primary) 84%, var(--accent-orange));
+  border-color: color-mix(in srgb, var(--accent-orange) 28%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 86%, var(--accent-orange) 14%);
+}
+
+.current-run-timeline {
+  margin-top: 10px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.current-run-timeline .rounded-lg {
+  background: var(--surface-card-opaque);
+}
+
+.current-run-card--mobile {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
 .panel-section--today {
   padding: 10px;
   background: color-mix(in srgb, var(--bg-secondary) 94%, var(--accent-primary) 6%);

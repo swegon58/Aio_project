@@ -104,7 +104,7 @@ async function main() {
       runId,
       customerId,
       source: "hermes",
-      payload: { type: "message.delta", runId, ts: Date.now(), delta: "hi", messageId: "m1" },
+      payload: { type: "message.delta", runId, createdAt: new Date().toISOString(), ts: Date.now(), delta: "hi" },
       occurredAt: Date.now(),
     });
     assert.ok(e0.ok && e0.data.inserted && e0.data.sequence === 0);
@@ -116,7 +116,7 @@ async function main() {
       runId,
       customerId,
       source: "hermes",
-      payload: { type: "message.delta", runId, ts: Date.now(), delta: "hi", messageId: "m1" },
+      payload: { type: "message.delta", runId, createdAt: new Date().toISOString(), ts: Date.now(), delta: "hi" },
       occurredAt: Date.now(),
     });
     assert.ok(e0Replay.ok && !e0Replay.data.inserted && e0Replay.data.sequence === 0);
@@ -127,7 +127,7 @@ async function main() {
       runId,
       customerId,
       source: "aio",
-      payload: { type: "tool.started", runId, ts: Date.now(), toolCallId: "tc1", toolName: "search", label: "Search" },
+      payload: { type: "tool.started", runId, createdAt: new Date().toISOString(), ts: Date.now(), toolCallId: "tc1", toolName: "search", label: "Search" },
       occurredAt: Date.now(),
     });
     assert.ok(e1.ok && e1.data.inserted && e1.data.sequence === 1);
