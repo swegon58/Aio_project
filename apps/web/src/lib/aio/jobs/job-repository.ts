@@ -60,7 +60,7 @@ export interface AioJobRow {
   updated_at: string;
 }
 
-export interface CreateJobInput extends CreateAioJobEnvelopeInput {}
+export type CreateJobInput = CreateAioJobEnvelopeInput;
 
 export interface ClaimNextJobInput {
   workerId: string;
