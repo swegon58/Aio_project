@@ -364,7 +364,7 @@ test("shows the durable current run surface and issues a stop request", async ({
     updatedAt: "2026-06-29T09:00:05.000Z",
     cancelRequestedAt: "2026-06-29T09:00:05.000Z",
   };
-  let latestRun = runningRun;
+  let latestRun: typeof runningRun | typeof cancellingRun = runningRun;
   const events = [
     {
       id: "evt-running-1",

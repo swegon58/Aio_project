@@ -4,7 +4,7 @@
 **Canonical branch:** `main`  
 **Current main status:** run `scripts/aio-context.sh` for the exact live HEAD
 **Most recent verified CI before this state update:** GitHub Actions run `28318122604`, all jobs passed
-**Updated:** 2026-06-28
+**Updated:** 2026-06-29
 
 This is the first file an agent reads to learn current location and progress.
 It is a status index, not a replacement for the master plan or phase checklist.
@@ -12,16 +12,26 @@ It is a status index, not a replacement for the master plan or phase checklist.
 ## Current Status
 
 - R0 is formally closed on `main`.
-- Web quality, security, clean migrations, and desktop/mobile Playwright CI
-  pass on `main`.
+- R1 (Durable Run Foundation) is now merged into `main`.
+- Main now contains:
+  - durable run lifecycle ADR and event contract
+  - `aio_runs` / `aio_run_events` schema and append RPC
+  - run repository + state machine
+  - authenticated run APIs and stop route
+  - restored timeline replay / reconnect UI
+  - automated live probe script for R1 verification
+- The most recent local verification before this update passed:
+  - `npm run typecheck`
+  - `npm run test:unit`
+  - `AIO_DEPLOYMENT_ENV=development npm run build`
+  - `npm run test:e2e`
+  - `apps/web/scripts/r1-live-probes.sh`
 - Aio local services were last verified at:
   - Web: `http://localhost:3000/app`
-  - Hermes: `http://localhost:8642/health`
+  - Local Supabase API: `http://127.0.0.1:54321`
   - LM Studio: `http://localhost:1234/v1/models`
-- R1 (Durable Run Foundation) was approved by the product owner on 2026-06-28.
-- R1.1 (ADR-001: Aio run ownership and lifecycle) is in progress on worktree
-  `/home/swegon/AI_Agent/Aio_project_r1` / branch `feat/r1-durable-run-foundation`.
-- R1.2-R1.7 have not started. Do not merge R1 to `main` without owner approval.
+- The next planned delivery phase is R2 (Tool Governance And Durable
+  Approvals) on a fresh worktree from updated `origin/main`.
 - Historical secret-scan triage is closed for Aio R0.
 - Owner decision: do not rewrite Git history for the deleted historical
   `.mcp.json` files as part of R0. Keep current-tree protection, CI scanning,
@@ -42,8 +52,8 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - Historical R0 implementation worktree.
   - R0 is already merged; do not continue product work there.
 - `/home/swegon/AI_Agent/Aio_project_r1`
-  - Active R1 (Durable Run Foundation) implementation worktree.
-  - Branch `feat/r1-durable-run-foundation`. Do not run product research here.
+  - Historical R1 implementation worktree.
+  - R1 is already merged; do not continue product work there.
 
 ## Required Reading Order
 
@@ -61,24 +71,23 @@ When the product owner says "continue building Aio":
 2. Confirm the canonical repo, branch, local/remote commit, dirty state, CI, and
    service status.
 3. Read this state file and the current phase checklist.
-4. If an approved task is marked in progress, continue that exact task.
-5. If no task is approved, do not start coding. Present the next decision gate
+4. If a phase is already merged, do not keep coding in its old worktree.
+5. If an approved task is marked in progress, continue that exact task.
+6. If no task is approved, do not start coding. Present the next decision gate
    with concise A/B/C options and mark the recommended option.
-6. After approval, create a dedicated branch/worktree from current
+7. After approval, create a dedicated branch/worktree from current
    `origin/main`; never implement a feature in the research worktree.
-7. Implement, test, review, push, and put Aio online.
-8. Update this file and the phase checklist after merge.
+8. Implement, test, review, push, and put Aio online.
+9. Update this file and the phase checklist after merge.
 
 ## Next Decision Gate
 
-R1 (Durable Run Foundation) is approved and in progress on
-`feat/r1-durable-run-foundation`. R1.1 (ADR-001) is the current task. The next
-owner decision points are:
+R1 is complete and merged. The next owner decision points are:
 
-- Review ADR-001 before R1.2 builds on its locked decisions.
-- Approve the R1 merge to `main` only after the R1 final gate passes; do not
-  merge earlier.
-- Reprioritize R1 scope only by documenting why dependencies change.
+- approve the first scoped R2 task to start from updated `main`
+- decide whether R2 should begin with tool manifests, durable approvals, or
+  audit logging first
+- keep any new implementation out of the research worktree
 
 ## Update Contract
 

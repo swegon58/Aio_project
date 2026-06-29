@@ -17,6 +17,7 @@ apps/web/.env.local
 
 # local agent instructions
 CLAUDE.md
+AIO_GIAI_THICH_DE_HIEU/
 
 # secrets
 .claude/channels/discord/.env
@@ -26,3 +27,10 @@ CLAUDE.md
 .env.*
 !.env.example
 !.env.local.example
+
+# local runtime artifacts
+apps/web/.tmp/
+apps/harness/aio-home/kanban.db.dispatch.lock
+apps/harness/aio-home/profiles/aio/skills/.curator_backups/
+apps/harness/aio-home/profiles/aio/skills/computer-use/
+apps/harness/aio-home/profiles/aio/skills/productivity/petdex/
