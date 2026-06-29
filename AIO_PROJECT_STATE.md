@@ -50,6 +50,8 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - TypeScript schedule parser/next-run helpers for one-shot, interval, and
     cron schedules
   - Aio schedule repository layer for durable schedule CRUD/history wiring
+  - local schedule probe verified create/list/pause/resume/update/delete and
+    duplicate-occurrence rejection against the local Supabase stack
 - The next planned delivery phase is R5 (Background Workers And Scheduled Work)
   from the current `main` baseline, with R5.4 scheduled next on the active
   delivery branch.
