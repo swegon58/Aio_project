@@ -43,8 +43,8 @@ durable, observable, and recoverable.
 
 ### R5.4 Scheduled Tasks
 
-- [ ] Move scheduled tasks onto Aio-owned durable scheduling/history
-- [ ] Define missed-run and concurrency policy
+- [~] Move scheduled tasks onto Aio-owned durable scheduling/history
+- [x] Define missed-run and concurrency policy
 
 ### R5.5 Failure And Recovery
 
@@ -60,5 +60,5 @@ durable, observable, and recoverable.
 
 ## Exact Next Step
 
-Start `R5.4`: move scheduled tasks onto the new Aio-owned durable queue and
-record durable schedule/run history with missed-run and concurrency policy.
+Continue `R5.4`: wire due-schedule claim/enqueue worker paths and migrate
+`/api/cron` from Hermes proxying onto the new Aio-owned schedule tables.

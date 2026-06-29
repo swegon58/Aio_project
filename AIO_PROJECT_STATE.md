@@ -44,6 +44,12 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - `aio-job-worker.service` added to the local always-on stack on this branch
   - local queue probe verified create -> claim -> running -> complete, retry
     release, and stale-lease requeue paths
+- R5.4 is now in progress on `feat/r5-r7-delivery-line` with the first durable
+  scheduling foundation landed locally:
+  - `aio_schedules` and `aio_schedule_runs` migrations
+  - TypeScript schedule parser/next-run helpers for one-shot, interval, and
+    cron schedules
+  - Aio schedule repository layer for durable schedule CRUD/history wiring
 - The next planned delivery phase is R5 (Background Workers And Scheduled Work)
   from the current `main` baseline, with R5.4 scheduled next on the active
   delivery branch.

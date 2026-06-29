@@ -46,6 +46,7 @@
     "ai": "^6.0.205",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cron-parser": "^5.6.1",
     "gsap": "^3.15.0",
     "lucide-react": "^1.6.0",
     "mammoth": "^1.12.0",
