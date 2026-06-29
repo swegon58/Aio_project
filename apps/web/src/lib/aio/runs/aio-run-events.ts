@@ -2,6 +2,7 @@ export type AioRunStatus =
   | "queued"
   | "running"
   | "waiting_approval"
+  | "cancelling"
   | "completed"
   | "failed"
   | "cancelled";
@@ -183,6 +184,23 @@ export type RunCancelledEvent = {
   ts?: number;
 };
 
+/**
+ * Adapter diagnostic for an event the runtime emitted that Aio does not
+ * recognize, or a payload that could not be mapped. Per ADR-001 these are
+ * preserved as diagnostics, never dropped silently. Mostly ops/debug; the
+ * timeline keeps internal IDs and debug data hidden from users.
+ */
+export type AdapterDiagnosticEvent = {
+  type: "adapter.diagnostic";
+  runId: string;
+  source: "hermes" | "worker";
+  reason: "unknown_event" | "malformed_event" | "redacted_payload";
+  rawEventType?: string;
+  rawEventPreview?: string;
+  createdAt: string;
+  ts?: number;
+};
+
 export type AioRunEvent =
   | RunCreatedEvent
   | MessageDeltaEvent
@@ -198,4 +216,8 @@ export type AioRunEvent =
   | CompressionStartedEvent
   | RunCompletedEvent
   | RunFailedEvent
-  | RunCancelledEvent;
+  | RunCancelledEvent
+  | AdapterDiagnosticEvent;
+
+/** Discriminator for an AioRunEvent. Re-exported by the envelope module. */
+export type AioRunEventType = AioRunEvent["type"];
