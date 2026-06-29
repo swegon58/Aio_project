@@ -35,6 +35,7 @@
     "check": "npm run lint && npm run typecheck && npm run test:unit && npm run build",
     "check:prod-env": "node scripts/check-production-env.mjs",
     "hermes:supervisor": "node --env-file=.env.local --import tsx scripts/hermes-supervisor.ts",
+    "jobs:worker": "node --env-file=.env.local --import tsx scripts/aio-job-worker.ts",
     "screenshot": "node --env-file=.env.local --import tsx scripts/screenshot.ts"
   },
   "dependencies": {
@@ -45,6 +46,7 @@
     "ai": "^6.0.205",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cron-parser": "^5.6.1",
     "gsap": "^3.15.0",
     "lucide-react": "^1.6.0",
     "mammoth": "^1.12.0",

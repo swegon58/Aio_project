@@ -138,8 +138,8 @@ scripts/aio-online.sh logs
 scripts/aio-online.sh stop
 ```
 
-This manages the local web app, the `aio` Hermes gateway profile, and the
-Hermes supervisor together.
+This manages the local web app, the `aio` Hermes gateway profile, the Hermes
+supervisor, and the durable job worker together.
 
 ## Verification
 

@@ -1,83 +1,81 @@
-import { resolveHermesRequestContext } from "@/lib/hermes/request-context";
-import { tierConfig } from "@/lib/hermes/pricing";
+import {
+  deleteSchedule,
+  pauseSchedule,
+  resumeSchedule,
+  serializeScheduleForUi,
+  triggerScheduleNow,
+  updateSchedule,
+} from "@/lib/aio/schedules/schedule-repository";
+import {
+  requireCronAccess,
+  resolveScheduleApiContext,
+  scheduleRepoErrorResponse,
+} from "@/lib/aio/schedules/schedule-api";
 
-function requireCronAccess(planTier: string): Response | null {
-  if (!tierConfig(planTier).toolsets.includes("cronjob")) {
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ jobId: string }> },
+) {
+  const { jobId } = await params;
+  const ctxResult = await resolveScheduleApiContext();
+  if (!ctxResult.ok) return ctxResult.response;
+  const { db, userId, planTier } = ctxResult.ctx;
+
+  const denied = requireCronAccess(planTier);
+  if (denied) return denied;
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
     return Response.json(
-      { error: "Scheduled tasks require the Business plan." },
-      { status: 403 },
+      { error: "invalid_json", message: "Request body must be valid JSON." },
+      { status: 400 },
     );
   }
-  return null;
+
+  const payload = body && typeof body === "object" ? (body as Record<string, unknown>) : null;
+  const result = await updateSchedule(db, jobId, userId, {
+    name: typeof payload?.name === "string" ? payload.name.trim() : undefined,
+    schedule:
+      typeof payload?.schedule === "string" ? payload.schedule.trim() : undefined,
+    prompt: typeof payload?.prompt === "string" ? payload.prompt.trim() : undefined,
+    taskPayload:
+      typeof payload?.prompt === "string"
+        ? { prompt: payload.prompt.trim() }
+        : undefined,
+  });
+  if (!result.ok) return scheduleRepoErrorResponse(result);
+
+  return Response.json({ job: serializeScheduleForUi(result.data) });
 }
 
-// Sub-action proxy for /api/jobs/{id}/{pause,resume,run} — action comes from
-// the `action` query param since Hermes exposes these as separate POST
-// routes per action, not a single PATCH body field.
-export async function PATCH(req: Request, { params }: { params: Promise<{ jobId: string }> }) {
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ jobId: string }> },
+) {
   const { jobId } = await params;
-  const ctxResult = await resolveHermesRequestContext();
-  if (!ctxResult.ok) return ctxResult.res;
-  const { row, planTier, apiServerKey } = ctxResult.ctx;
+  const ctxResult = await resolveScheduleApiContext();
+  if (!ctxResult.ok) return ctxResult.response;
+  const { db, userId, planTier } = ctxResult.ctx;
 
   const denied = requireCronAccess(planTier);
   if (denied) return denied;
 
-  const payload = await req.text();
-  let upstream: Response;
-  try {
-    upstream = await fetch(`${row.endpoint}/api/jobs/${jobId}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${apiServerKey}`,
-        "Content-Type": "application/json",
-      },
-      body: payload,
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return Response.json({ error: "hermes_request_failed", message: msg }, { status: 502 });
-  }
-  const body = await upstream.text();
-  return new Response(body, {
-    status: upstream.status,
-    headers: { "Content-Type": "application/json" },
-  });
+  const result = await deleteSchedule(db, jobId, userId);
+  if (!result.ok) return scheduleRepoErrorResponse(result);
+
+  return Response.json({ ok: true });
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ jobId: string }> }) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ jobId: string }> },
+) {
   const { jobId } = await params;
-  const ctxResult = await resolveHermesRequestContext();
-  if (!ctxResult.ok) return ctxResult.res;
-  const { row, planTier, apiServerKey } = ctxResult.ctx;
-
-  const denied = requireCronAccess(planTier);
-  if (denied) return denied;
-
-  let upstream: Response;
-  try {
-    upstream = await fetch(`${row.endpoint}/api/jobs/${jobId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${apiServerKey}` },
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return Response.json({ error: "hermes_request_failed", message: msg }, { status: 502 });
-  }
-  const body = await upstream.text();
-  return new Response(body, {
-    status: upstream.status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-export async function POST(req: Request, { params }: { params: Promise<{ jobId: string }> }) {
-  const { jobId } = await params;
-  const ctxResult = await resolveHermesRequestContext();
-  if (!ctxResult.ok) return ctxResult.res;
-  const { row, planTier, apiServerKey } = ctxResult.ctx;
+  const ctxResult = await resolveScheduleApiContext();
+  if (!ctxResult.ok) return ctxResult.response;
+  const { db, userId, planTier } = ctxResult.ctx;
 
   const denied = requireCronAccess(planTier);
   if (denied) return denied;
@@ -85,23 +83,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ jobId: 
   const url = new URL(req.url);
   const action = url.searchParams.get("action");
   if (!["pause", "resume", "run"].includes(action ?? "")) {
-    return Response.json({ error: "Invalid action" }, { status: 400 });
+    return Response.json({ error: "invalid_action", message: "Invalid action." }, { status: 400 });
   }
 
-  let upstream: Response;
-  try {
-    upstream = await fetch(`${row.endpoint}/api/jobs/${jobId}/${action}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiServerKey}` },
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return Response.json({ error: "hermes_request_failed", message: msg }, { status: 502 });
-  }
-  const body = await upstream.text();
-  return new Response(body, {
-    status: upstream.status,
-    headers: { "Content-Type": "application/json" },
-  });
+  const result =
+    action === "pause"
+      ? await pauseSchedule(db, jobId, userId, "paused from Aio")
+      : action === "resume"
+        ? await resumeSchedule(db, jobId, userId)
+        : await triggerScheduleNow(db, jobId, userId);
+
+  if (!result.ok) return scheduleRepoErrorResponse(result);
+
+  return Response.json({ job: serializeScheduleForUi(result.data) });
 }

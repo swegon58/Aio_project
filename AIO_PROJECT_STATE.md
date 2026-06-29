@@ -13,9 +13,9 @@ It is a status index, not a replacement for the master plan or phase checklist.
 
 - R0 is formally closed on `main`.
 - R1 is formally merged on `main`.
-- The latest integrated product stack on `main` is commit `a66d2f1`
-  (`feat(r4): durable deep research and knowledge center`), fast-forwarded from
-  the R4 line on 2026-06-29.
+- The latest integrated product stack on `main` is commit `a0c126c`
+  (`ops: keep local Aio stack online via systemd`), layered on top of the
+  merged R2-R4 product stack on 2026-06-29.
 - Main now contains the merged R2-R4 implementation stack:
   - R2 tool manifest/policy, durable tool calls, durable approvals, approval UI,
     and audit-log groundwork
@@ -37,8 +37,53 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - `aio-hermes.service`
   - `aio-hermes-supervisor.service`
   - `aio-app.service`
-- The next planned delivery phase is R5 (Background Workers And Scheduled Work)
-  from the current `main` baseline.
+- The active R5 delivery branch `feat/r5-r7-delivery-line` has now completed
+  the R5.3 durable queue/worker foundation locally:
+  - `aio_jobs` table plus claim/retry/lease-recovery RPC helpers
+  - Aio job repository and worker poll loop
+  - `aio-job-worker.service` added to the local always-on stack on this branch
+  - local queue probe verified create -> claim -> running -> complete, retry
+    release, and stale-lease requeue paths
+- R5.4 durable scheduling wiring is complete on `feat/r5-r7-delivery-line`
+  (full live execute-E2E still owner-gated on a dev-user Hermes registry row):
+  - `aio_schedules` and `aio_schedule_runs` migrations
+  - TypeScript schedule parser/next-run helpers for one-shot, interval, and
+    cron schedules
+  - Aio schedule repository layer for durable schedule CRUD/history wiring
+  - local schedule probe verified create/list/pause/resume/update/delete and
+    duplicate-occurrence rejection against the local Supabase stack
+  - `/api/cron` now reads and mutates Aio-owned schedule rows instead of
+    proxying Hermes-local cron storage
+  - due-schedule enqueue + execute wiring landed: `enqueueDueSchedules` and
+    `executeScheduledTaskJob` in `apps/web/src/lib/aio/schedules/schedule-runtime.ts`
+    turn due schedules into durable `scheduled_task` jobs and drive the
+    orchestrator; `aio-job-worker` sweeps and dispatches them; migration
+    `0019_aio_schedule_run_links` links runs to `aio_runs`
+  - enqueue path verified live (`r5-4-schedule-enqueue-probe` green) and execute
+    preamble verified live (`r5-4-schedule-worker-probe` green to the Hermes
+    boundary); full live execute-E2E is gated on a provisioned dev-user Hermes
+    registry row
+- R5.5 failure/recovery is complete on `feat/r5-r7-delivery-line`:
+  - at-most-once guard fails closed on unbound `running` schedule runs with
+    `SCHEDULED_RUN_UNBOUND_CRASH`
+  - delete/pause cancel propagation drops queued scheduled-task jobs best-effort
+    before the schedule mutation continues
+  - live probes cover the unbound-crash and cancel-propagation paths
+- R5.6 test coverage is now complete locally on `feat/r5-r7-delivery-line`:
+  - duplicate enqueue coverage for `enqueueDueSchedules`
+  - worker crash / stale-lease recovery coverage for the durable worker sweep
+  - retry exhaustion coverage for dead-letter on final-attempt failure
+  - scheduled occurrence exactly-once coverage for bound-run sync and unbound
+    running-run duplicate prevention
+  - explicit pause/delete cancellation-propagation unit coverage, including the
+    best-effort path where internal cancel attempts fail but the user-facing
+    schedule mutation still completes
+- The next planned work on this branch is merge prep / owner review for R5; do
+  not begin R6 until the product owner explicitly approves it.
+- Product-owner approval is now active for R5 on branch
+  `feat/r5-r7-delivery-line`.
+- Product-owner branch policy override: keep R5, R6, and R7 on the same
+  delivery branch unless the owner explicitly asks to split again.
 - Historical secret-scan triage is closed for Aio R0.
 - Owner decision: do not rewrite Git history for the deleted historical
   `.mcp.json` files as part of R0. Keep current-tree protection, CI scanning,
@@ -87,11 +132,10 @@ When the product owner says "continue building Aio":
 
 ## Next Decision Gate
 
-R2-R4 are now integrated on `main`. The next owner decision points are:
+R5 is now approved. The active execution path is:
 
-- start R5 (Background Workers And Scheduled Work) from the current `main`
-  baseline
-- decide whether to harden/push the merged R2-R4 stack before opening R5
+- continue R5 on `feat/r5-r7-delivery-line`
+- keep R6 and R7 on the same branch unless the owner explicitly changes that
 - keep any new implementation out of the research worktree
 
 ## Update Contract
