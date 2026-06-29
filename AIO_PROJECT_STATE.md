@@ -39,6 +39,10 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - `aio-app.service`
 - The next planned delivery phase is R5 (Background Workers And Scheduled Work)
   from the current `main` baseline.
+- Product-owner approval is now active for R5 on branch
+  `feat/r5-r7-delivery-line`.
+- Product-owner branch policy override: keep R5, R6, and R7 on the same
+  delivery branch unless the owner explicitly asks to split again.
 - Historical secret-scan triage is closed for Aio R0.
 - Owner decision: do not rewrite Git history for the deleted historical
   `.mcp.json` files as part of R0. Keep current-tree protection, CI scanning,
@@ -87,11 +91,10 @@ When the product owner says "continue building Aio":
 
 ## Next Decision Gate
 
-R2-R4 are now integrated on `main`. The next owner decision points are:
+R5 is now approved. The active execution path is:
 
-- start R5 (Background Workers And Scheduled Work) from the current `main`
-  baseline
-- decide whether to harden/push the merged R2-R4 stack before opening R5
+- continue R5 on `feat/r5-r7-delivery-line`
+- keep R6 and R7 on the same branch unless the owner explicitly changes that
 - keep any new implementation out of the research worktree
 
 ## Update Contract
