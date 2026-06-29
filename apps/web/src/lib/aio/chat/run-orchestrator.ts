@@ -57,6 +57,8 @@ import { recordToolCallEvent } from "@/lib/aio/tools/tool-call-writer";
 import { recordApprovalEvent } from "@/lib/aio/tools/approval-writer";
 import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
 import type { AioRunEventEnvelopeSource } from "@/lib/aio/runs/aio-run-event-schema";
+import { type AioTelemetry, NO_OP_TELEMETRY } from "@/lib/aio/telemetry/telemetry";
+import { SPANS, METRICS, runAttrs } from "@/lib/aio/telemetry/span-builder";
 
 const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === "true";
 
@@ -66,6 +68,8 @@ export interface OrchestratorInput {
   messages: UIMessage[];
   mode: AioChatMode;
   planMode: boolean;
+  /** Optional telemetry — defaults to no-op; never blocks the primary path. */
+  telemetry?: AioTelemetry;
 }
 
 export type OrchestratorResult =
@@ -142,7 +146,8 @@ function eventForDurableRun(event: AioRunEvent, durableRunId: string): AioRunEve
 export async function orchestrateAioChatRun(
   input: OrchestratorInput,
 ): Promise<OrchestratorResult> {
-  const { clientSignal, messages, mode, planMode } = input;
+  const { clientSignal, messages, mode, planMode, telemetry = NO_OP_TELEMETRY } = input;
+  const { tracer, metrics } = telemetry;
 
   // ---- auth / provisioning / key resolution ----
   const ctxResult = await resolveHermesRequestContext();
@@ -249,8 +254,13 @@ export async function orchestrateAioChatRun(
     }
   };
 
+  // Increment run-started counter as soon as the durable row exists.
+  metrics.increment(METRICS.RUNS_STARTED, { mode, plan_tier: planTier });
+
   // ---- start the Hermes run ----
   let startResponse: Response;
+  const hermesStartSpan = tracer.startSpan(SPANS.HERMES_START, { "aio.run_id": aioRunId, "aio.mode": mode });
+  const hermesStartT = Date.now();
   try {
     startResponse = await startHermesRun({
       endpoint: row.endpoint,
@@ -265,7 +275,11 @@ export async function orchestrateAioChatRun(
         .join(" "),
       signal: abortController.signal,
     });
+    metrics.histogram(METRICS.HERMES_START_LATENCY_MS, Date.now() - hermesStartT, { mode });
+    hermesStartSpan.end();
   } catch (err) {
+    hermesStartSpan.setError(err instanceof Error ? err.constructor.name : "UnknownError");
+    hermesStartSpan.end();
     teardown();
     if (!DEV_BYPASS) await refundTask(db, userId, creditCheck.estimate);
     await failRun("hermes_request_failed", "Hermes run could not be started.");
@@ -360,6 +374,12 @@ export async function orchestrateAioChatRun(
   };
 
   const execute = async ({ writer }: { writer: UIMessageStreamWriter<HermesUIMessage> }) => {
+    const turnSpan = tracer.startSpan(
+      SPANS.CHAT_TURN,
+      runAttrs({ runId: runIdForDurable, userId, modelName: row.profile_name ?? undefined, status: "running" }),
+    );
+    const turnStart = Date.now();
+
     const mapper = new HermesEventMapper({
       runId: runIdForLegacy,
       threadId,
@@ -555,6 +575,24 @@ export async function orchestrateAioChatRun(
             }
           : undefined,
       );
+
+      // Telemetry: close the turn span + record outcome metrics. Best-effort —
+      // never throws. Placed after all other work to capture total wall-clock time.
+      try {
+        const latency = Date.now() - turnStart;
+        const outcome = succeeded && !budgetExceeded ? "completed" : budgetExceeded ? "budget_exceeded" : "failed";
+        turnSpan.setAttribute("aio.run.outcome", outcome);
+        turnSpan.setAttribute("aio.mode", mode);
+        turnSpan.end();
+        metrics.histogram(METRICS.CHAT_TURN_LATENCY_MS, latency, { mode, outcome });
+        if (succeeded && !budgetExceeded) {
+          metrics.increment(METRICS.RUNS_COMPLETED, { mode, plan_tier: planTier });
+        } else {
+          metrics.increment(METRICS.RUNS_FAILED, { mode, plan_tier: planTier, reason: outcome });
+        }
+      } catch {
+        // telemetry must never surface to the user
+      }
     }
   };
 
