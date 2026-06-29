@@ -38,8 +38,8 @@ durable, observable, and recoverable.
 
 ### R5.3 Worker Services
 
-- [ ] Add worker entrypoints/services for queue claim and execution
-- [ ] Define heartbeat, lease, graceful shutdown, and retry behavior
+- [x] Add worker entrypoints/services for queue claim and execution
+- [x] Define heartbeat, lease, graceful shutdown, and retry behavior
 
 ### R5.4 Scheduled Tasks
 
@@ -60,5 +60,5 @@ durable, observable, and recoverable.
 
 ## Exact Next Step
 
-Start `R5.3`: add durable queue tables/repositories and worker claim/lease
-entrypoints around the new Aio job contract.
+Start `R5.4`: move scheduled tasks onto the new Aio-owned durable queue and
+record durable schedule/run history with missed-run and concurrency policy.

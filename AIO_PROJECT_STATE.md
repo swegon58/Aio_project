@@ -13,9 +13,9 @@ It is a status index, not a replacement for the master plan or phase checklist.
 
 - R0 is formally closed on `main`.
 - R1 is formally merged on `main`.
-- The latest integrated product stack on `main` is commit `a66d2f1`
-  (`feat(r4): durable deep research and knowledge center`), fast-forwarded from
-  the R4 line on 2026-06-29.
+- The latest integrated product stack on `main` is commit `a0c126c`
+  (`ops: keep local Aio stack online via systemd`), layered on top of the
+  merged R2-R4 product stack on 2026-06-29.
 - Main now contains the merged R2-R4 implementation stack:
   - R2 tool manifest/policy, durable tool calls, durable approvals, approval UI,
     and audit-log groundwork
@@ -37,8 +37,16 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - `aio-hermes.service`
   - `aio-hermes-supervisor.service`
   - `aio-app.service`
+- The active R5 delivery branch `feat/r5-r7-delivery-line` has now completed
+  the R5.3 durable queue/worker foundation locally:
+  - `aio_jobs` table plus claim/retry/lease-recovery RPC helpers
+  - Aio job repository and worker poll loop
+  - `aio-job-worker.service` added to the local always-on stack on this branch
+  - local queue probe verified create -> claim -> running -> complete, retry
+    release, and stale-lease requeue paths
 - The next planned delivery phase is R5 (Background Workers And Scheduled Work)
-  from the current `main` baseline.
+  from the current `main` baseline, with R5.4 scheduled next on the active
+  delivery branch.
 - Product-owner approval is now active for R5 on branch
   `feat/r5-r7-delivery-line`.
 - Product-owner branch policy override: keep R5, R6, and R7 on the same

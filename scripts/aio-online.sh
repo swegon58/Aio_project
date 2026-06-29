@@ -7,6 +7,7 @@ UNIT_DST_DIR="$HOME/.config/systemd/user"
 SERVICES=(
   aio-hermes.service
   aio-hermes-supervisor.service
+  aio-job-worker.service
   aio-app.service
 )
 
@@ -29,9 +30,14 @@ install_units() {
   mkdir -p "$UNIT_DST_DIR"
   install -m 0644 "$UNIT_SRC_DIR/aio-hermes.service" "$UNIT_DST_DIR/aio-hermes.service"
   install -m 0644 "$UNIT_SRC_DIR/aio-hermes-supervisor.service" "$UNIT_DST_DIR/aio-hermes-supervisor.service"
+  install -m 0644 "$UNIT_SRC_DIR/aio-job-worker.service" "$UNIT_DST_DIR/aio-job-worker.service"
   install -m 0644 "$UNIT_SRC_DIR/aio-app.service" "$UNIT_DST_DIR/aio-app.service"
   install -m 0644 "$UNIT_SRC_DIR/aio-online.target" "$UNIT_DST_DIR/aio-online.target"
-  chmod +x "$ROOT/scripts/run-aio-app.sh" "$ROOT/scripts/run-aio-hermes.sh" "$ROOT/scripts/run-aio-hermes-supervisor.sh"
+  chmod +x \
+    "$ROOT/scripts/run-aio-app.sh" \
+    "$ROOT/scripts/run-aio-hermes.sh" \
+    "$ROOT/scripts/run-aio-hermes-supervisor.sh" \
+    "$ROOT/scripts/run-aio-job-worker.sh"
   systemctl --user daemon-reload
 }
 
@@ -40,13 +46,14 @@ start_stack() {
   systemctl --user enable "${SERVICES[@]}"
   systemctl --user start aio-hermes.service
   systemctl --user start aio-hermes-supervisor.service
+  systemctl --user start aio-job-worker.service
   systemctl --user start aio-app.service
   wait_for_http "http://127.0.0.1:8642/health" "Hermes health"
   wait_for_http "http://127.0.0.1:3000/app" "Aio web"
 }
 
 stop_stack() {
-  systemctl --user stop aio-app.service aio-hermes-supervisor.service aio-hermes.service
+  systemctl --user stop aio-app.service aio-job-worker.service aio-hermes-supervisor.service aio-hermes.service
 }
 
 status_stack() {
@@ -55,11 +62,11 @@ status_stack() {
 }
 
 logs_stack() {
-  journalctl --user -u aio-hermes.service -u aio-hermes-supervisor.service -u aio-app.service -n 200 --no-pager
+  journalctl --user -u aio-hermes.service -u aio-hermes-supervisor.service -u aio-job-worker.service -u aio-app.service -n 200 --no-pager
 }
 
 restart_stack() {
-  systemctl --user restart aio-hermes.service aio-hermes-supervisor.service aio-app.service
+  systemctl --user restart aio-hermes.service aio-hermes-supervisor.service aio-job-worker.service aio-app.service
 }
 
 case "${1:-install}" in
