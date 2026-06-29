@@ -1,8 +1,8 @@
 # R5 Merge-Ready Summary
 
-**Branch:** `feat/r5-r7-delivery-line`  
-**Worktree:** `/home/swegon/AI_Agent/Aio_project`  
-**Status:** Verification-complete, awaiting product-owner merge approval  
+**Branch:** `feat/r5-r7-delivery-line`
+**Worktree:** `/home/swegon/AI_Agent/Aio_project`
+**Status:** Verification-complete, awaiting product-owner merge approval
 **Updated:** 2026-06-29
 
 This note is the shortest path for any follow-up agent or reviewer.
