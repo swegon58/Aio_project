@@ -19,8 +19,11 @@ durable, observable, and recoverable.
 - Local always-on stack is available through `scripts/aio-online.sh`.
 - Current runtime anchors:
   - knowledge ingestion still begins in `apps/web/src/app/api/knowledge/route.ts`
-  - scheduled task APIs now persist schedule CRUD in Aio via `apps/web/src/app/api/cron/`
-    while execution handoff still needs the durable worker path
+  - scheduled task APIs persist schedule CRUD in Aio via `apps/web/src/app/api/cron/`;
+    due schedules are now turned into durable `scheduled_task` jobs by the Aio
+    queue worker (`apps/web/scripts/aio-job-worker.ts`) via
+    `enqueueDueSchedules`/`executeScheduledTaskJob` in
+    `apps/web/src/lib/aio/schedules/schedule-runtime.ts`
   - Hermes scheduler/runtime logic currently lives in
     `apps/harness/hermes-agent/cron/`
 
@@ -44,7 +47,11 @@ durable, observable, and recoverable.
 
 ### R5.4 Scheduled Tasks
 
-- [~] Move scheduled tasks onto Aio-owned durable scheduling/history
+- [x] Move scheduled tasks onto Aio-owned durable scheduling/history
+  - [x] `enqueueDueSchedules` turns a due schedule into a durable `scheduled_task` job bound to a queued schedule run, with catch-up / overlap-skip / missed-window policy and no double-fire (verified live via `r5-4-schedule-enqueue-probe`)
+  - [x] `executeScheduledTaskJob` re-derives the run, resolves the Hermes background context, drives the orchestrator, and binds + syncs the resulting `aio_run` (execute preamble verified live via `r5-4-schedule-worker-probe`; full live execute-E2E is gated on a provisioned dev-user Hermes registry row)
+  - [x] `aio-job-worker` is self-contained: each sweep calls `enqueueDueSchedules` and dispatches `scheduled_task` jobs
+  - [x] migration `0019_aio_schedule_run_links` links `aio_schedule_runs.aio_run_id` to `aio_runs`
 - [x] Define missed-run and concurrency policy
 
 ### R5.5 Failure And Recovery
@@ -61,5 +68,14 @@ durable, observable, and recoverable.
 
 ## Exact Next Step
 
-Continue `R5.4`: wire due-schedule claim/enqueue worker paths so the new
-Aio-owned schedule tables produce durable `scheduled_task` jobs for execution.
+R5.4 durable scheduling wiring is complete and verified: the enqueue path is
+live green and the execute handler's preamble is live green. The only remaining
+R5.4 verification — a full live execute-E2E through the Hermes orchestrator —
+is owner-gated on provisioning a Hermes registry row for the dev user
+(`00000000-0000-0000-0000-000000000001`); once provisioned, re-run
+`scripts/r5-4-schedule-worker-probe.ts` to confirm the bound `aio_run`
+completes.
+
+Proceed to `R5.5` (Failure And Recovery): define dead-letter, retry caps,
+duplicate-delivery protection, and cancel propagation for the durable job
+lifecycle.

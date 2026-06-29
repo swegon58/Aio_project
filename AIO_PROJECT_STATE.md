@@ -44,8 +44,8 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - `aio-job-worker.service` added to the local always-on stack on this branch
   - local queue probe verified create -> claim -> running -> complete, retry
     release, and stale-lease requeue paths
-- R5.4 is now in progress on `feat/r5-r7-delivery-line` with the first durable
-  scheduling foundation landed locally:
+- R5.4 durable scheduling wiring is complete on `feat/r5-r7-delivery-line`
+  (full live execute-E2E still owner-gated on a dev-user Hermes registry row):
   - `aio_schedules` and `aio_schedule_runs` migrations
   - TypeScript schedule parser/next-run helpers for one-shot, interval, and
     cron schedules
@@ -54,9 +54,17 @@ It is a status index, not a replacement for the master plan or phase checklist.
     duplicate-occurrence rejection against the local Supabase stack
   - `/api/cron` now reads and mutates Aio-owned schedule rows instead of
     proxying Hermes-local cron storage
-- The next planned delivery phase is R5 (Background Workers And Scheduled Work)
-  from the current `main` baseline, with R5.4 scheduled next on the active
-  delivery branch.
+  - due-schedule enqueue + execute wiring landed: `enqueueDueSchedules` and
+    `executeScheduledTaskJob` in `apps/web/src/lib/aio/schedules/schedule-runtime.ts`
+    turn due schedules into durable `scheduled_task` jobs and drive the
+    orchestrator; `aio-job-worker` sweeps and dispatches them; migration
+    `0019_aio_schedule_run_links` links runs to `aio_runs`
+  - enqueue path verified live (`r5-4-schedule-enqueue-probe` green) and execute
+    preamble verified live (`r5-4-schedule-worker-probe` green to the Hermes
+    boundary); full live execute-E2E is gated on a provisioned dev-user Hermes
+    registry row
+- R5.4 code-complete; the next planned work is R5.5 (Failure And Recovery) on
+  the active `feat/r5-r7-delivery-line` branch.
 - Product-owner approval is now active for R5 on branch
   `feat/r5-r7-delivery-line`.
 - Product-owner branch policy override: keep R5, R6, and R7 on the same
