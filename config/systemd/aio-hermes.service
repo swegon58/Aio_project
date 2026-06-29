@@ -1,0 +1,17 @@
+[Unit]
+Description=Aio Hermes gateway (aio profile)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/swegon/AI_Agent/Aio_project
+ExecStart=/home/swegon/AI_Agent/Aio_project/scripts/run-aio-hermes.sh
+Restart=always
+RestartSec=5
+TimeoutStopSec=240
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

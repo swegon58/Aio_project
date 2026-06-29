@@ -28,9 +28,15 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - `npm run test:unit`
   - `AIO_DEPLOYMENT_ENV=development npm run build`
 - Current local service status from the latest `scripts/aio-context.sh` run:
-  - Web: `offline`
-  - Hermes: `offline`
+  - Web: `200`
+  - Hermes: `200`
   - LM Studio: `200`
+- The local always-on stack is now managed by user services plus one helper
+  command:
+  - `scripts/aio-online.sh install|start|restart|status|logs|stop`
+  - `aio-hermes.service`
+  - `aio-hermes-supervisor.service`
+  - `aio-app.service`
 - The next planned delivery phase is R5 (Background Workers And Scheduled Work)
   from the current `main` baseline.
 - Historical secret-scan triage is closed for Aio R0.
@@ -49,6 +55,7 @@ It is a status index, not a replacement for the master plan or phase checklist.
 - `/home/swegon/AI_Agent/Aio_project`
   - Canonical product repository.
   - Use for `main`, integration, verification, and running Aio.
+  - Use `scripts/aio-online.sh status` to confirm the local always-on stack.
 - `/home/swegon/AI_Agent/Aio_project_onyx_openmanus_lab`
   - Research-only worktree for Onyx/OpenManus.
   - Keep it isolated from product implementation.

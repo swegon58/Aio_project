@@ -121,6 +121,26 @@ npm run dev
 
 Open [http://localhost:3000/app](http://localhost:3000/app).
 
+### Keep Aio Online Locally
+
+To keep the local Aio stack running under `systemd --user`:
+
+```bash
+scripts/aio-online.sh install
+```
+
+Useful follow-ups:
+
+```bash
+scripts/aio-online.sh status
+scripts/aio-online.sh restart
+scripts/aio-online.sh logs
+scripts/aio-online.sh stop
+```
+
+This manages the local web app, the `aio` Hermes gateway profile, and the
+Hermes supervisor together.
+
 ## Verification
 
 Run the complete frontend check before merging:

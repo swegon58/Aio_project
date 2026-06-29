@@ -1,0 +1,16 @@
+[Unit]
+Description=Aio web app (Next.js dev server)
+After=network-online.target aio-hermes.service
+Wants=network-online.target aio-hermes.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/swegon/AI_Agent/Aio_project
+ExecStart=/home/swegon/AI_Agent/Aio_project/scripts/run-aio-app.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

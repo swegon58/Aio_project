@@ -1,0 +1,7 @@
+[Unit]
+Description=Aio always-online stack
+Wants=aio-hermes.service aio-hermes-supervisor.service aio-app.service
+After=aio-hermes.service aio-hermes-supervisor.service aio-app.service
+
+[Install]
+WantedBy=default.target
