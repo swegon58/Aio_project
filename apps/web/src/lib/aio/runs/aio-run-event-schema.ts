@@ -57,7 +57,11 @@ const MAX_STRING_FIELD = 4000;
  * repository calls this before writing an envelope (ADR-001 retention rule).
  */
 export function redactEventPayload(event: AioRunEvent): AioRunEvent {
-  return redactValue(event) as AioRunEvent;
+  return redactPersistedValue(event);
+}
+
+export function redactPersistedValue<T>(value: T): T {
+  return redactValue(value) as T;
 }
 
 function redactValue(value: unknown, keyHint?: string): unknown {
