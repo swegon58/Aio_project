@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { CreditCard, Database, FileText, KeyRound, Lock, Palette, Plug, Server, Trash2, X } from "lucide-react";
 import { ALL_GATEABLE_TOOLSETS, TIERS, type PlanTier } from "@/lib/hermes/pricing";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
+import { KnowledgeCenterPanel } from "@/components/app/KnowledgeCenterPanel";
 
 type Theme = "dark" | "light";
 type AccentKey = "purple" | "green" | "blue" | "pink" | "orange" | "cyan" | "red";
@@ -396,66 +397,7 @@ export function SettingsModal({
 
         {tab === "knowledge" && (
           <div className="setting-group" style={{ borderBottom: "none" }}>
-            {knowledgeError && (
-              <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
-                Failed to load: {knowledgeError}
-              </div>
-            )}
-
-            {knowledgeFiles === null && !knowledgeError && <PanelLoading />}
-
-            {knowledgeFiles?.length === 0 && (
-              <PanelEmpty icon={<FileText className="w-5 h-5" />}>
-                No documents yet. Upload one for the agent to reference.
-              </PanelEmpty>
-            )}
-
-            {knowledgeFiles?.map((f) => (
-              <div key={f.id} className="mcp-server-item">
-                <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
-                  <FileText className="w-3.5 h-3.5" />
-                </div>
-                <div className="mcp-server-info">
-                  <div className="mcp-server-name">{f.filename}</div>
-                  <div className="mcp-server-url">
-                    {f.status === "ready"
-                      ? `${f.chunkCount} chunks`
-                      : f.status === "failed"
-                        ? f.error ?? "Failed"
-                        : "Processing…"}
-                  </div>
-                </div>
-                <div className={`mcp-server-status ${f.status === "ready" ? "connected" : "disconnected"}`} />
-                <button
-                  type="button"
-                  className="mcp-add-btn"
-                  style={
-                    confirmRemoveId === f.id
-                      ? { marginLeft: 8, padding: "4px 8px", background: "rgba(226, 92, 92, 0.12)", color: "#e25c5c" }
-                      : { marginLeft: 8, padding: "4px 8px" }
-                  }
-                  onClick={() => requestConfirm(f.id, () => onKnowledgeDelete(f.id))}
-                  aria-label={confirmRemoveId === f.id ? "Confirm delete document" : "Delete document"}
-                  title={confirmRemoveId === f.id ? "Click again to delete" : "Delete document"}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-
-            <div className="panel-section-title" style={{ marginTop: 16 }}>
-              Add Document
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <button
-                type="button"
-                className="mcp-add-btn"
-                disabled={knowledgeUploading}
-                onClick={onKnowledgeUploadClick}
-              >
-                {knowledgeUploading ? "Uploading…" : "Upload .txt / .md / .csv"}
-              </button>
-            </div>
+            <KnowledgeCenterPanel />
           </div>
         )}
 

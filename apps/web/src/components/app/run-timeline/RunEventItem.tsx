@@ -3,6 +3,7 @@ import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
 import { ApprovalCard, type ApprovalResolveHandler } from "./ApprovalCard";
 import { ArtifactCard } from "./ArtifactCard";
 import { ToolCallCard } from "./ToolCallCard";
+import { ResearchProgressCard } from "./ResearchProgressCard";
 
 type Props = {
   event: AioRunEvent;
@@ -18,6 +19,9 @@ export function RunEventItem({ event, onResolve }: Props) {
   }
   if (event.type === "artifact.created") {
     return <ArtifactCard event={event} />;
+  }
+  if (event.type === "research.stage") {
+    return <ResearchProgressCard event={event} />;
   }
 
   const { icon, label, summary } = genericEventMeta(event);
@@ -57,6 +61,8 @@ function genericEventMeta(event: AioRunEvent) {
       return { icon: <CircleAlert className="h-3 w-3" />, label: "Run failed", summary: event.error };
     case "run.cancelled":
       return { icon: <Circle className="h-3 w-3" />, label: "Run cancelled", summary: undefined };
+    case "research.stage":
+      return { icon: <Clock className="h-3 w-3" />, label: event.label, summary: undefined };
     default:
       return { icon: <Circle className="h-3 w-3" />, label: event.type, summary: undefined };
   }

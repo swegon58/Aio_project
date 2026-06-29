@@ -201,6 +201,31 @@ export type AdapterDiagnosticEvent = {
   ts?: number;
 };
 
+// R4: research pipeline stage progress event
+export type ResearchStage =
+  | "understand"
+  | "plan"
+  | "discover"
+  | "inspect"
+  | "synthesize"
+  | "verify"
+  | "report";
+
+export type ResearchStageEvent = {
+  type: "research.stage";
+  runId: string;
+  stage: ResearchStage;
+  /** 1-based stage index (1=understand … 7=report) */
+  stageIndex: number;
+  totalStages: 7;
+  sourceCount?: number;
+  claimCount?: number;
+  /** Short human-readable label for the progress frame */
+  label: string;
+  createdAt: string;
+  ts?: number;
+};
+
 export type AioRunEvent =
   | RunCreatedEvent
   | MessageDeltaEvent
@@ -217,7 +242,8 @@ export type AioRunEvent =
   | RunCompletedEvent
   | RunFailedEvent
   | RunCancelledEvent
-  | AdapterDiagnosticEvent;
+  | AdapterDiagnosticEvent
+  | ResearchStageEvent;
 
 /** Discriminator for an AioRunEvent. Re-exported by the envelope module. */
 export type AioRunEventType = AioRunEvent["type"];
