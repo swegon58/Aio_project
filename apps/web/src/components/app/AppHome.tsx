@@ -2171,6 +2171,25 @@ export function AppHome({ email }: AppHomeProps) {
     }
   };
 
+  // Timeline approval resolve: called from ApprovalCard inside RunTimeline.
+  // Maps "approve"→"session" and "reject"→"deny" for the Hermes gateway, then
+  // clears the floating input-area approval card if it matches by runId.
+  const handleTimelineApprovalResolve = async (approvalId: string, runId: string, choice: "approve" | "reject") => {
+    const hermesChoice = choice === "approve" ? "session" : "deny";
+    const res = await fetch("/api/chat/approval", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ runId, choice: hermesChoice }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error((data as { message?: string }).message ?? `Request failed: ${res.status}`);
+    }
+    setPendingApproval((prev) =>
+      prev && (prev.requestId === approvalId || prev.runId === runId) ? null : prev,
+    );
+  };
+
   // Plan-gate actions. Run = confirm and execute (next turn sent with
   // planMode off; the plan itself is already in conversation history, so the
   // agent picks it up). Adjust = hand focus to the composer so the user can
@@ -2357,7 +2376,7 @@ export function AppHome({ email }: AppHomeProps) {
       </div>
       {timelineEvents.length > 0 ? (
         <div className="current-run-timeline">
-          <RunTimeline events={timelineEvents} compact />
+          <RunTimeline events={timelineEvents} compact onResolveApproval={handleTimelineApprovalResolve} />
         </div>
       ) : (
         <PanelEmpty icon={<ListTree className="w-5 h-5" />}>
@@ -3694,7 +3713,7 @@ export function AppHome({ email }: AppHomeProps) {
                     </div>
                   ) : (
                     <>
-                      {timelineEvents.length > 0 && <RunTimeline events={timelineEvents} compact />}
+                      {timelineEvents.length > 0 && <RunTimeline events={timelineEvents} compact onResolveApproval={handleTimelineApprovalResolve} />}
                       {workspaceEntries.map((entry, idx) => {
                         const isLive = isStreaming && entry.id === lastAssistantMessage?.id;
                         const isOpen = expandedWorkspaceId === entry.id;
@@ -3805,7 +3824,7 @@ export function AppHome({ email }: AppHomeProps) {
               </button>
             </div>
             <div className="workspace-entry-body">
-              {mobileWorkspaceIsLive && <RunTimeline events={timelineEvents} compact />}
+              {mobileWorkspaceIsLive && <RunTimeline events={timelineEvents} compact onResolveApproval={handleTimelineApprovalResolve} />}
               {mobileWorkspaceEntry.blocks.map((block, i) => (
                 <pre key={i} className="workspace-code-block">
                   <code>{block.code}</code>

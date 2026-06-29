@@ -1,15 +1,20 @@
 import { Bot, Brain, CheckCircle2, Circle, CircleAlert, Clock, MessageSquareText } from "lucide-react";
 import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
-import { ApprovalCard } from "./ApprovalCard";
+import { ApprovalCard, type ApprovalResolveHandler } from "./ApprovalCard";
 import { ArtifactCard } from "./ArtifactCard";
 import { ToolCallCard } from "./ToolCallCard";
 
-export function RunEventItem({ event }: { event: AioRunEvent }) {
+type Props = {
+  event: AioRunEvent;
+  onResolve?: ApprovalResolveHandler;
+};
+
+export function RunEventItem({ event, onResolve }: Props) {
   if (event.type === "tool.started" || event.type === "tool.completed" || event.type === "tool.failed") {
     return <ToolCallCard event={event} />;
   }
   if (event.type === "approval.requested" || event.type === "approval.responded") {
-    return <ApprovalCard event={event} />;
+    return <ApprovalCard event={event} onResolve={onResolve} />;
   }
   if (event.type === "artifact.created") {
     return <ArtifactCard event={event} />;

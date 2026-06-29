@@ -1,15 +1,17 @@
 import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
 import { cn } from "@/lib/utils";
 import { AgentStateBadge } from "./AgentStateBadge";
+import type { ApprovalResolveHandler } from "./ApprovalCard";
 import { getMascotStateFromRunEvents } from "./MascotStateMapper";
 import { RunEventItem } from "./RunEventItem";
 
 export type RunTimelineProps = {
   events: AioRunEvent[];
   compact?: boolean;
+  onResolveApproval?: ApprovalResolveHandler;
 };
 
-export function RunTimeline({ events, compact = false }: RunTimelineProps) {
+export function RunTimeline({ events, compact = false, onResolveApproval }: RunTimelineProps) {
   const state = getMascotStateFromRunEvents(events);
 
   if (events.length === 0) {
@@ -28,7 +30,7 @@ export function RunTimeline({ events, compact = false }: RunTimelineProps) {
       </div>
       <div className={cn("flex flex-col", compact ? "gap-1.5" : "gap-2")}>
         {events.map((event, index) => (
-          <RunEventItem key={eventKey(event, index)} event={event} />
+          <RunEventItem key={eventKey(event, index)} event={event} onResolve={onResolveApproval} />
         ))}
       </div>
     </section>
