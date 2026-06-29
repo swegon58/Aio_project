@@ -53,6 +53,7 @@ import {
   transitionRun,
 } from "@/lib/aio/runs/run-repository";
 import { appendEvent } from "@/lib/aio/runs/run-event-repository";
+import { recordToolCallEvent } from "@/lib/aio/tools/tool-call-writer";
 import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
 import type { AioRunEventEnvelopeSource } from "@/lib/aio/runs/aio-run-event-schema";
 
@@ -414,6 +415,10 @@ export async function orchestrateAioChatRun(
             // publishing to the legacy UI stream, so the stored sequence mirrors
             // the order the UI saw.
             await persistEvent(aioEvent, "hermes");
+
+            // Durable tool-call rows (R2.2): best-effort, idempotent, no-op for
+            // non-tool events. Snapshots manifest risk/approval policy + redacted I/O.
+            await recordToolCallEvent(db, { runId: runIdForDurable, customerId: userId }, aioEvent);
 
             if (mode === "research" && aioEvent.type === "tool.started") {
               researchToolCallIds.add(aioEvent.toolCallId);
