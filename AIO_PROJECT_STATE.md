@@ -63,8 +63,23 @@ It is a status index, not a replacement for the master plan or phase checklist.
     preamble verified live (`r5-4-schedule-worker-probe` green to the Hermes
     boundary); full live execute-E2E is gated on a provisioned dev-user Hermes
     registry row
-- R5.4 code-complete; the next planned work is R5.5 (Failure And Recovery) on
-  the active `feat/r5-r7-delivery-line` branch.
+- R5.5 failure/recovery is complete on `feat/r5-r7-delivery-line`:
+  - at-most-once guard fails closed on unbound `running` schedule runs with
+    `SCHEDULED_RUN_UNBOUND_CRASH`
+  - delete/pause cancel propagation drops queued scheduled-task jobs best-effort
+    before the schedule mutation continues
+  - live probes cover the unbound-crash and cancel-propagation paths
+- R5.6 test coverage is now complete locally on `feat/r5-r7-delivery-line`:
+  - duplicate enqueue coverage for `enqueueDueSchedules`
+  - worker crash / stale-lease recovery coverage for the durable worker sweep
+  - retry exhaustion coverage for dead-letter on final-attempt failure
+  - scheduled occurrence exactly-once coverage for bound-run sync and unbound
+    running-run duplicate prevention
+  - explicit pause/delete cancellation-propagation unit coverage, including the
+    best-effort path where internal cancel attempts fail but the user-facing
+    schedule mutation still completes
+- The next planned work on this branch is merge prep / owner review for R5; do
+  not begin R6 until the product owner explicitly approves it.
 - Product-owner approval is now active for R5 on branch
   `feat/r5-r7-delivery-line`.
 - Product-owner branch policy override: keep R5, R6, and R7 on the same

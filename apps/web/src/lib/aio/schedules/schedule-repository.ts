@@ -31,6 +31,11 @@ export type ScheduleRepoError = {
 export type ScheduleRepoOk<T> = { ok: true; data: T };
 export type ScheduleRepoResult<T> = ScheduleRepoOk<T> | ScheduleRepoError;
 
+interface ScheduleMutationDeps {
+  getSchedule: typeof getSchedule;
+  cancelQueuedJobsForSchedule: typeof cancelQueuedJobsForSchedule;
+}
+
 export interface AioScheduleRow {
   id: string;
   aio_schedule_id: string;
@@ -271,37 +276,78 @@ export async function updateSchedule(
   return { ok: true, data: data as AioScheduleRow };
 }
 
+export function createScheduleMutationRuntime(
+  deps: ScheduleMutationDeps = {
+    getSchedule,
+    cancelQueuedJobsForSchedule,
+  },
+) {
+  return {
+    async pauseSchedule(
+      db: SupabaseClient,
+      aioScheduleId: string,
+      customerId: string,
+      reason?: string,
+    ): Promise<ScheduleRepoResult<AioScheduleRow>> {
+      const current = await deps.getSchedule(db, aioScheduleId, customerId);
+      if (!current.ok) return current;
+
+      // R5.5 cancel propagation (best-effort): cancel queued occurrences so the
+      // worker does not fire one more run for a schedule the user is pausing.
+      // In-flight runs are intentionally left running; pausing only prevents
+      // future enqueue and drops already-queued occurrences.
+      await deps.cancelQueuedJobsForSchedule(db, customerId, aioScheduleId);
+
+      const { data, error } = await db
+        .from("aio_schedules")
+        .update({
+          enabled: false,
+          state: "paused",
+          paused_at: new Date().toISOString(),
+          paused_reason: reason ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("aio_schedule_id", aioScheduleId)
+        .eq("customer_id", customerId)
+        .select("*")
+        .single();
+
+      if (error) return dbError("Failed to pause schedule", error.message);
+      return { ok: true, data: data as AioScheduleRow };
+    },
+
+    async deleteSchedule(
+      db: SupabaseClient,
+      aioScheduleId: string,
+      customerId: string,
+    ): Promise<ScheduleRepoResult<{ deleted: true }>> {
+      // R5.5 cancel propagation (best-effort): cancel queued occurrences before
+      // the schedule row is removed so a worker cannot start an occurrence for a
+      // deleted schedule. Any job claimed mid-race, or a cancel miss, still
+      // self-dead-letters via getSchedule (NOT_FOUND) in executeScheduledTaskJob.
+      await deps.cancelQueuedJobsForSchedule(db, customerId, aioScheduleId);
+
+      const { error } = await db
+        .from("aio_schedules")
+        .delete()
+        .eq("aio_schedule_id", aioScheduleId)
+        .eq("customer_id", customerId);
+
+      if (error) return dbError("Failed to delete schedule", error.message);
+      return { ok: true, data: { deleted: true } };
+    },
+  };
+}
+
+const scheduleMutationRuntime = createScheduleMutationRuntime();
+
 export async function pauseSchedule(
   db: SupabaseClient,
   aioScheduleId: string,
   customerId: string,
   reason?: string,
 ): Promise<ScheduleRepoResult<AioScheduleRow>> {
-  const current = await getSchedule(db, aioScheduleId, customerId);
-  if (!current.ok) return current;
-
-  // R5.5 cancel propagation (best-effort): cancel queued occurrences so the
-  // worker does not fire one more run for a schedule the user is pausing.
-  // In-flight runs are intentionally left running; pausing only prevents
-  // future enqueue and drops already-queued occurrences.
-  await cancelQueuedJobsForSchedule(db, customerId, aioScheduleId);
-
-  const { data, error } = await db
-    .from("aio_schedules")
-    .update({
-      enabled: false,
-      state: "paused",
-      paused_at: new Date().toISOString(),
-      paused_reason: reason ?? null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("aio_schedule_id", aioScheduleId)
-    .eq("customer_id", customerId)
-    .select("*")
-    .single();
-
-  if (error) return dbError("Failed to pause schedule", error.message);
-  return { ok: true, data: data as AioScheduleRow };
+  return scheduleMutationRuntime.pauseSchedule(db, aioScheduleId, customerId, reason);
 }
 
 export async function resumeSchedule(
@@ -366,20 +412,7 @@ export async function deleteSchedule(
   aioScheduleId: string,
   customerId: string,
 ): Promise<ScheduleRepoResult<{ deleted: true }>> {
-  // R5.5 cancel propagation (best-effort): cancel queued occurrences before
-  // the schedule row is removed so a worker cannot start an occurrence for a
-  // deleted schedule. Any job claimed mid-race, or a cancel miss, still
-  // self-dead-letters via getSchedule (NOT_FOUND) in executeScheduledTaskJob.
-  await cancelQueuedJobsForSchedule(db, customerId, aioScheduleId);
-
-  const { error } = await db
-    .from("aio_schedules")
-    .delete()
-    .eq("aio_schedule_id", aioScheduleId)
-    .eq("customer_id", customerId);
-
-  if (error) return dbError("Failed to delete schedule", error.message);
-  return { ok: true, data: { deleted: true } };
+  return scheduleMutationRuntime.deleteSchedule(db, aioScheduleId, customerId);
 }
 
 export async function createScheduleRun(

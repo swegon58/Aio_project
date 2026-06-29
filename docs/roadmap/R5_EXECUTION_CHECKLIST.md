@@ -71,13 +71,12 @@ durable, observable, and recoverable.
   - [x] `aio-job-worker-runtime.test.ts`: final-attempt execution failure dead-letters instead of retrying
 - [x] Scheduled occurrence exactly-once coverage
   - [x] `schedule-runtime.test.ts`: completed bound runs sync/return without re-orchestrating; unbound `running` runs fail closed with `SCHEDULED_RUN_UNBOUND_CRASH`
-- [~] Cancellation / duplicate billing-action protection coverage
+- [x] Cancellation / duplicate billing-action protection coverage
   - [x] Duplicate billing-action protection covered by the scheduled occurrence exactly-once tests above
-  - [ ] Add explicit unit coverage for schedule delete/pause cancellation propagation edge cases
+  - [x] `schedule-repository.test.ts`: pause/delete cancellation propagation runs before the schedule mutation, and remains best-effort when internal cancel attempts fail
 
 ## Exact Next Step
 
-R5.6 is mostly landed and locally verified. The remaining gap is narrow:
-add explicit unit coverage for schedule delete/pause cancellation propagation so
-the existing cancelQueuedJobs safety path is covered alongside the new
-exactly-once / dead-letter tests.
+R5 test coverage is complete on the active delivery branch. Hold R6 until the
+product owner explicitly approves it; the immediate branch work is review /
+merge preparation for the completed R5 stack.
