@@ -12,26 +12,27 @@ It is a status index, not a replacement for the master plan or phase checklist.
 ## Current Status
 
 - R0 is formally closed on `main`.
-- R1 (Durable Run Foundation) is now merged into `main`.
-- Main now contains:
-  - durable run lifecycle ADR and event contract
-  - `aio_runs` / `aio_run_events` schema and append RPC
-  - run repository + state machine
-  - authenticated run APIs and stop route
-  - restored timeline replay / reconnect UI
-  - automated live probe script for R1 verification
+- R1 is formally merged on `main`.
+- The latest integrated product stack on `main` is commit `a66d2f1`
+  (`feat(r4): durable deep research and knowledge center`), fast-forwarded from
+  the R4 line on 2026-06-29.
+- Main now contains the merged R2-R4 implementation stack:
+  - R2 tool manifest/policy, durable tool calls, durable approvals, approval UI,
+    and audit-log groundwork
+  - R3 correlation context, telemetry helpers, internal metrics surface, SLO
+    document, golden fixtures, and runbooks
+  - R4 research-stage durability helpers, knowledge ingestion pipeline/docs
+    APIs, knowledge center panel, and research progress UI
 - The most recent local verification before this update passed:
   - `npm run typecheck`
   - `npm run test:unit`
   - `AIO_DEPLOYMENT_ENV=development npm run build`
-  - `npm run test:e2e`
-  - `apps/web/scripts/r1-live-probes.sh`
-- Aio local services were last verified at:
-  - Web: `http://localhost:3000/app`
-  - Local Supabase API: `http://127.0.0.1:54321`
-  - LM Studio: `http://localhost:1234/v1/models`
-- The next planned delivery phase is R2 (Tool Governance And Durable
-  Approvals) on a fresh worktree from updated `origin/main`.
+- Current local service status from the latest `scripts/aio-context.sh` run:
+  - Web: `offline`
+  - Hermes: `offline`
+  - LM Studio: `200`
+- The next planned delivery phase is R5 (Background Workers And Scheduled Work)
+  from the current `main` baseline.
 - Historical secret-scan triage is closed for Aio R0.
 - Owner decision: do not rewrite Git history for the deleted historical
   `.mcp.json` files as part of R0. Keep current-tree protection, CI scanning,
@@ -39,21 +40,18 @@ It is a status index, not a replacement for the master plan or phase checklist.
 - Do not treat this repository note as proof of external credential revocation.
   Secret lifecycle remains outside the repo and must never be handled by
   exposing values in chat or commits.
+- Owner preference: keep the active product line consolidated on `main` after
+  the R4 integration. Do not recreate phase-specific implementation worktrees
+  unless the owner explicitly asks for them.
 
 ## Worktree Roles
 
 - `/home/swegon/AI_Agent/Aio_project`
   - Canonical product repository.
-  - Use for `main`, integration, final verification, and running Aio.
+  - Use for `main`, integration, verification, and running Aio.
 - `/home/swegon/AI_Agent/Aio_project_onyx_openmanus_lab`
   - Research-only worktree for Onyx/OpenManus.
-  - Do not implement product features here.
-- `/home/swegon/AI_Agent/Aio_project_r0`
-  - Historical R0 implementation worktree.
-  - R0 is already merged; do not continue product work there.
-- `/home/swegon/AI_Agent/Aio_project_r1`
-  - Historical R1 implementation worktree.
-  - R1 is already merged; do not continue product work there.
+  - Keep it isolated from product implementation.
 
 ## Required Reading Order
 
@@ -82,11 +80,11 @@ When the product owner says "continue building Aio":
 
 ## Next Decision Gate
 
-R1 is complete and merged. The next owner decision points are:
+R2-R4 are now integrated on `main`. The next owner decision points are:
 
-- approve the first scoped R2 task to start from updated `main`
-- decide whether R2 should begin with tool manifests, durable approvals, or
-  audit logging first
+- start R5 (Background Workers And Scheduled Work) from the current `main`
+  baseline
+- decide whether to harden/push the merged R2-R4 stack before opening R5
 - keep any new implementation out of the research worktree
 
 ## Update Contract
