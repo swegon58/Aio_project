@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { resolveHermesRequestContext } from "@/lib/hermes/request-context";
 import { createServiceClient } from "@/lib/supabase/service";
 import { chunkText, embedTexts, resolveOpenRouterKeyForProfile } from "@/lib/hermes/knowledge";
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 
 const BUCKET = "aio-knowledge";
 // MVP: plain-text formats only. PDF/docx extraction needs a parser library
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest) {
   const ctxResult = await resolveHermesRequestContext();
   if (!ctxResult.ok) return ctxResult.res;
   const { userId, row } = ctxResult.ctx;
+
+  const knowledgeRateLimit = checkRateLimit(`knowledge:${userId}`, 10, 60_000);
+  if (!knowledgeRateLimit.allowed) return rateLimitResponse(knowledgeRateLimit.retryAfterSeconds);
 
   const form = await req.formData();
   const file = form.get("file");

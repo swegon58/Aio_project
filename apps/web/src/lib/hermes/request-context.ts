@@ -63,6 +63,8 @@ export async function resolveHermesRequestContext(): Promise<HermesRequestContex
       credit_balance: 9999,
       plan_tier: "pro",
       free_grant_used: true,
+      onboarded_at: new Date().toISOString(),
+      activated_at: new Date().toISOString(),
     };
     const cookieStore = await cookies();
     let threadId = cookieStore.get(THREAD_COOKIE)?.value;

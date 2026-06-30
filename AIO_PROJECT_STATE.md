@@ -4,7 +4,7 @@
 **Canonical branch:** `main`  
 **Current main status:** run `scripts/aio-context.sh` for the exact live HEAD
 **Most recent verified CI before this state update:** GitHub Actions run `28318122604`, all jobs passed
-**Updated:** 2026-06-29
+**Updated:** 2026-06-30
 
 This is the first file an agent reads to learn current location and progress.
 It is a status index, not a replacement for the master plan or phase checklist.
@@ -78,10 +78,57 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - explicit pause/delete cancellation-propagation unit coverage, including the
     best-effort path where internal cancel attempts fail but the user-facing
     schedule mutation still completes
-- The next planned work on this branch is merge prep / owner review for R5; do
-  not begin R6 until the product owner explicitly approves it.
-- Product-owner approval is now active for R5 on branch
-  `feat/r5-r7-delivery-line`.
+- R6.1 onboarding is implemented on `feat/r5-r7-delivery-line`:
+  - `hermes_registry` gains `onboarded_at`/`activated_at`
+    (migration `0020_aio_onboarding_state.sql`)
+  - `markActivatedIfNeeded` flips `activated_at` once, on first successful
+    run only (idempotent DB-level guard)
+  - `/api/onboarding` (GET/POST) and `OnboardingOverlay.tsx` on the
+    welcome screen; activation wired into `run-orchestrator.ts`'s success
+    branch, emitting `METRICS.USERS_ACTIVATED`
+  - `npm run typecheck` clean, `npm run test:unit` 157/157 passing
+  - manual dev-server verification is gated: the running dev server points
+    at the remote Supabase project (`xeuvoaedwdmuhxdcoxcx.supabase.co`) and
+    migration `0020` is not yet pushed there (no CLI access token in this
+    environment); owner must run
+    `npx supabase link --project-ref xeuvoaedwdmuhxdcoxcx && npx supabase db push`
+    before live verification; see `docs/roadmap/R6_EXECUTION_CHECKLIST.md`
+- R6.2 auth/tenant security audit is complete on `feat/r5-r7-delivery-line`:
+  - origin/CSRF check (`apps/web/src/lib/security/origin-check.ts`), wired
+    into `apps/web/src/middleware.ts`: rejects cross-origin unsafe-method
+    `/api/*` requests, exempts `/api/billing/webhook`
+  - in-memory per-user rate limiter (`apps/web/src/lib/security/rate-limit.ts`)
+    applied to chat, image generation, knowledge upload, schedule creation,
+    and checkout
+  - `npm run typecheck` clean, `npm run test:unit` 165/165 passing
+- R6.3 Paddle webhook idempotency is complete on `feat/r5-r7-delivery-line`:
+  - `aio_paddle_webhook_events` table (migration `0021`), unique on
+    `paddle_event_id`
+  - webhook route inserts the event id before granting credits/plan tier and
+    skips processing on conflict (no double-credit on Paddle redelivery)
+  - `PaddlePaymentProvider.handleWebhook` parses Paddle's `event_id`
+  - `npm run typecheck` clean, `npm run test:unit` 167/167 passing
+  - live verification gated on a configured Paddle seller account
+    (`PADDLE_API_KEY`/`PADDLE_WEBHOOK_SECRET`), same gate as prior surveys
+- R6.4 usage/plan UX is complete on `feat/r5-r7-delivery-line`:
+  - plan/credits/upgrade were already surfaced on `SettingsModal.tsx` and via
+    `/api/credits`; per-toolset entitlements already shown
+  - per-task credit ceiling surfaced as plain language on the "Plan" tab
+    (`caps.creditBudget`, `SettingsModal.tsx`); the architecture has no
+    per-operation cost model, so the per-task ceiling is the honest estimate
+  - fixed a real UX bug: the chat transport threw Paddle's raw 402 JSON body
+    as `error.message` (ai-sdk `DefaultChatTransport`), so an
+    `insufficient_credits` rejection rendered as raw JSON with a dead "Retry".
+    `AppHome.tsx` now detects that shape and renders a clean message with a
+    "View plans" CTA opening `SettingsModal` to the "Plan" tab (new
+    `initialTab` prop); other chat errors keep the original banner
+  - `npm run typecheck` clean, `npm run test:unit` 167/167 passing
+  - synthetic `resetAt` (`nextMonthlyResetAt()` in `pricing.ts`) is still a
+    "1st of next UTC month" placeholder, not a real Paddle billing-cycle date
+    — documented limitation, same gate as R6.3's live Paddle verification
+- Product-owner approval is active for R6/R7 on
+  `feat/r5-r7-delivery-line`, proceeding strictly in order R6.1 -> R6.8 then
+  R7.
 - Product-owner branch policy override: keep R5, R6, and R7 on the same
   delivery branch unless the owner explicitly asks to split again.
 - Historical secret-scan triage is closed for Aio R0.
@@ -132,9 +179,22 @@ When the product owner says "continue building Aio":
 
 ## Next Decision Gate
 
-R5 is now approved. The active execution path is:
+R6/R7 are now approved, proceeding strictly in order. The active execution
+path is:
 
-- continue R5 on `feat/r5-r7-delivery-line`
+- R6.1 onboarding implemented; manual dev-server verification still pending
+  (remote migration push gate)
+- R6.2 (CSRF/origin checks, expanded rate limiting) implemented and verified
+- R6.3 (Paddle webhook idempotency) implemented and verified; live Paddle
+  redelivery check gated on a configured seller account
+- R6.4 (usage/plan UX + `insufficient_credits` error surfacing) implemented
+  and verified; 167/167 unit tests passing
+- next: **R6.5** (Privacy, Legal, And Data Controls — see
+  `AIO_MASTER_EXECUTION_PLAN.md` for scope). The legal text is gated on
+  qualified legal review; the product controls (data export, account/data
+  deletion, knowledge-source + derived-content deletion, retention) are
+  implementable now.
+- continue on `feat/r5-r7-delivery-line`
 - keep R6 and R7 on the same branch unless the owner explicitly changes that
 - keep any new implementation out of the research worktree
 

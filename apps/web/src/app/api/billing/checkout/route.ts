@@ -5,6 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getPaymentProvider } from "@/lib/billing/payment-provider";
 import type { PlanTier } from "@/lib/hermes/pricing";
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -12,6 +13,9 @@ export async function POST(req: Request) {
   if (!user?.email) {
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const checkoutRateLimit = checkRateLimit(`checkout:${user.id}`, 10, 60_000);
+  if (!checkoutRateLimit.allowed) return rateLimitResponse(checkoutRateLimit.retryAfterSeconds);
 
   const body = await req.json().catch(() => null);
   const kind = body?.kind === "topup" ? "topup" : "plan";

@@ -21,6 +21,22 @@ export async function POST(req: Request) {
 
   if (event.type === "checkout.completed" && event.customerId) {
     const db = serviceDb();
+
+    // Paddle retries webhook deliveries on a non-2xx response, which would
+    // otherwise re-run the credit grant below. Insert the event id first and
+    // skip processing on conflict so a redelivery is a no-op.
+    if (event.eventId) {
+      const { error: insertError } = await db
+        .from("aio_paddle_webhook_events")
+        .insert({ paddle_event_id: event.eventId, event_type: event.type });
+      if (insertError) {
+        if (insertError.code === "23505") {
+          return new Response("ok", { status: 200 });
+        }
+        return new Response(`Webhook event tracking failed: ${insertError.message}`, { status: 500 });
+      }
+    }
+
     if (event.planTier) {
       await db.from("hermes_registry").update({ plan_tier: event.planTier }).eq("customer_id", event.customerId);
       await adjustCredits(db, event.customerId, tierConfig(event.planTier as PlanTier).monthlyCredits);

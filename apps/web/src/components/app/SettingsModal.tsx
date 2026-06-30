@@ -73,6 +73,7 @@ interface KnowledgeFile {
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+  initialTab?: SettingsTab;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   accent: AccentKey;
@@ -116,6 +117,7 @@ interface SettingsModalProps {
 export function SettingsModal({
   open,
   onClose,
+  initialTab,
   theme,
   onThemeChange,
   accent,
@@ -146,7 +148,7 @@ export function SettingsModal({
   onKnowledgeDelete,
   currentPlanTier,
 }: SettingsModalProps) {
-  const [tab, setTab] = useState<SettingsTab>("general");
+  const [tab, setTab] = useState<SettingsTab>(initialTab ?? "general");
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const confirmRemoveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [upgradingTier, setUpgradingTier] = useState<PlanTier | null>(null);
@@ -410,6 +412,10 @@ export function SettingsModal({
                 <>
                   <div className="panel-section-title" style={{ marginTop: 0 }}>
                     Current plan: {tierCfg.label} (${tierCfg.monthlyPriceUsd}/mo)
+                  </div>
+                  <div className="memory-text" style={{ marginBottom: 12 }}>
+                    Each task can use up to {tierCfg.caps.creditBudget.toLocaleString()} credits
+                    before Aio pauses it — you can reply to keep going or start a new task.
                   </div>
 
                   {ALL_GATEABLE_TOOLSETS.map((id) => {

@@ -57,20 +57,15 @@ export function GeneratedImageCard({
           <Maximize2 className="w-4 h-4" />
         </span>
       </button>
-      <figcaption className="generated-image-meta">
-        <span>
-          GPT Image 2 · {image.aspectRatio} · {image.resolution}
-        </span>
-        <span>${image.estimatedCostUsd.toFixed(2)} estimated</span>
-      </figcaption>
       <div className="generated-image-actions">
-        <button type="button" onClick={() => onEdit(stableImage)}>
+        <button type="button" className="generated-image-action" onClick={() => onEdit(stableImage)}>
           <PenLine className="w-3.5 h-3.5" /> Edit
         </button>
-        <button type="button" onClick={() => onVariation(stableImage)}>
+        <button type="button" className="generated-image-action" onClick={() => onVariation(stableImage)}>
           <RefreshCw className="w-3.5 h-3.5" /> Variations
         </button>
         <a
+          className="generated-image-action"
           href={`${stableUrl}&download=1`}
           download={`aio-${image.id}.png`}
         >
@@ -88,8 +83,8 @@ interface ImageGenerationProgressProps {
 
 const STATUS_COPY = {
   preparing: "Preparing your image",
-  generating: "Creating with GPT Image 2",
-  saving: "Saving to your Gallery",
+  generating: "Creating your image",
+  saving: "Saving to your library",
 } as const;
 
 export function ImageGenerationProgress({

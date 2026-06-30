@@ -27,6 +27,8 @@ import {
   settleTask,
 } from "@/lib/aio/billing/usage-settlement";
 import { BUDGET_EXCEEDED_MARGIN, nextMonthlyResetAt, tierConfig, usedPercentForTier } from "@/lib/hermes/pricing";
+import { markActivatedIfNeeded } from "@/lib/hermes/registry";
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import type { HermesShowcaseData, HermesUIMessage } from "@/lib/hermes/chat-types";
 import { buildRuntimeMessages } from "@/lib/aio/chat/chat-route-handler";
@@ -169,6 +171,12 @@ export async function orchestrateAioChatRun(
   const { db, userId, row, planTier, apiServerKey, hermesSessionId, threadId } = ctxResult.ctx;
   if (!row.endpoint || !apiServerKey) {
     return { ok: false, response: Response.json({ error: "runtime_not_configured" }, { status: 503 }) };
+  }
+
+  // ---- rate limit (per user, before any credit reservation) ----
+  const chatRateLimit = checkRateLimit(`chat:${userId}`, 20, 60_000);
+  if (!chatRateLimit.allowed) {
+    return { ok: false, response: rateLimitResponse(chatRateLimit.retryAfterSeconds) };
   }
 
   // ---- credit balance check + speculative reservation ----
@@ -545,6 +553,12 @@ export async function orchestrateAioChatRun(
           );
           settledActualCredits = actualCredits;
           await settleTask(db, userId, creditCheck.estimate, actualCredits);
+
+          // R6.1 activation: first successful run only (idempotent guard
+          // lives in markActivatedIfNeeded — later runs are no-ops).
+          if (await markActivatedIfNeeded(db, userId)) {
+            metrics.increment(METRICS.USERS_ACTIVATED, { plan_tier: planTier });
+          }
         } else {
           await refundTask(db, userId, creditCheck.estimate);
         }

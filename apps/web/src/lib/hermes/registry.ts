@@ -23,6 +23,8 @@ export interface HermesRegistryRow {
   credit_balance: number;
   plan_tier: string;
   free_grant_used: boolean;
+  onboarded_at: string | null;
+  activated_at: string | null;
 }
 
 export interface HermesThreadRow {
@@ -98,6 +100,8 @@ export async function updateRegistryRow(
       | "commit_pin"
       | "pid"
       | "last_active_at"
+      | "onboarded_at"
+      | "activated_at"
     >
   >,
 ): Promise<HermesRegistryRow> {
@@ -109,6 +113,23 @@ export async function updateRegistryRow(
     .single();
   if (error) throw new Error(`Registry update failed: ${error.message}`);
   return data as HermesRegistryRow;
+}
+
+// R6.1 activation: flips activated_at on first successful run only. The
+// `is null` guard makes this idempotent — later successful runs are no-ops
+// and return false so callers don't re-fire the activation event.
+export async function markActivatedIfNeeded(
+  db: SupabaseClient,
+  customerId: string,
+): Promise<boolean> {
+  const { data, error } = await db
+    .from("hermes_registry")
+    .update({ activated_at: new Date().toISOString() })
+    .eq("customer_id", customerId)
+    .is("activated_at", null)
+    .select("customer_id");
+  if (error) throw new Error(`Activation update failed: ${error.message}`);
+  return (data ?? []).length > 0;
 }
 
 export async function getAllPorts(db: SupabaseClient): Promise<number[]> {

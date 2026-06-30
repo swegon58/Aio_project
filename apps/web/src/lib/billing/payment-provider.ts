@@ -32,6 +32,8 @@ export interface CreateCheckoutParams {
 
 export interface WebhookEvent {
   type: "checkout.completed" | "subscription.updated" | "subscription.cancelled" | "unknown";
+  /** Provider-stable per-delivery id, used to dedup retried webhook deliveries. */
+  eventId: string | null;
   customerId: string | null;
   planTier?: PlanTier;
   creditsGranted?: number;
@@ -67,7 +69,7 @@ export class DevNoopPaymentProvider implements PaymentProvider {
   }
 
   async handleWebhook(): Promise<WebhookEvent> {
-    return { type: "unknown", customerId: null, raw: null };
+    return { type: "unknown", eventId: null, customerId: null, raw: null };
   }
 }
 
@@ -139,19 +141,20 @@ export class PaddlePaymentProvider implements PaymentProvider {
     }
 
     const payload = JSON.parse(rawBody);
+    const eventId: string | null = payload.event_id ?? null;
     const customerId: string | null = payload.data?.custom_data?.customerId ?? null;
     const planTier: PlanTier | undefined = payload.data?.custom_data?.planTier;
     const creditsGranted: number | undefined = payload.data?.custom_data?.topupCredits;
 
     switch (payload.event_type) {
       case "transaction.completed":
-        return { type: "checkout.completed", customerId, planTier, creditsGranted, raw: payload };
+        return { type: "checkout.completed", eventId, customerId, planTier, creditsGranted, raw: payload };
       case "subscription.updated":
-        return { type: "subscription.updated", customerId, planTier, raw: payload };
+        return { type: "subscription.updated", eventId, customerId, planTier, raw: payload };
       case "subscription.canceled":
-        return { type: "subscription.cancelled", customerId, planTier, raw: payload };
+        return { type: "subscription.cancelled", eventId, customerId, planTier, raw: payload };
       default:
-        return { type: "unknown", customerId, raw: payload };
+        return { type: "unknown", eventId, customerId, raw: payload };
     }
   }
 
