@@ -53,12 +53,14 @@ import { TASK_TEMPLATES } from "@/components/app/TemplateGallery";
 import { AgentStateBadge, RunTimeline, legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timeline";
 import { ResearchProgressCard } from "@/components/app/ResearchProgressCard";
 import { ChatModeMenu } from "@/components/app/ChatModeMenu";
+import { SavedAgentMenu } from "@/components/app/SavedAgentMenu";
 import {
   GeneratedImageCard,
   ImageGenerationProgress,
 } from "@/components/app/GeneratedImageCard";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
+import { OnboardingOverlay } from "@/components/app/OnboardingOverlay";
 import { brand } from "@/lib/brand.config";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import {
@@ -1012,8 +1014,13 @@ export function AppHome({ email }: AppHomeProps) {
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const [knowledgeUploading, setKnowledgeUploading] = useState(false);
   const knowledgeFileInputRef = useRef<HTMLInputElement>(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
   const [ignoredTodayCards, setIgnoredTodayCards] = useState<Set<string>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "plan" | "data">("general");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [accent, setAccent] = useState<AccentKey>("blue");
   const resetRunTimeline = () => {
@@ -1078,6 +1085,18 @@ export function AppHome({ email }: AppHomeProps) {
       .catch(() => {});
   }, []);
 
+  // R6.1 onboarding: fetched once on mount so the welcome-screen overlay only
+  // shows for accounts that haven't completed (or skipped) it yet.
+  const [onboardedAt, setOnboardedAt] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    fetch("/api/onboarding")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { onboardedAt: string | null } | null) => {
+        setOnboardedAt(data ? data.onboardedAt : null);
+      })
+      .catch(() => setOnboardedAt(null));
+  }, []);
+
   useEffect(() => {
     if (prefsHydrated) localStorage.setItem("aio-theme", theme);
   }, [theme, prefsHydrated]);
@@ -1090,6 +1109,7 @@ export function AppHome({ email }: AppHomeProps) {
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [inputMultiline, setInputMultiline] = useState(false);
   const [chatMode, setChatMode] = useState<AioChatMode>("auto");
+  const [activeSavedAgentId, setActiveSavedAgentId] = useState<string | null>(null);
   const [lastRunMode, setLastRunMode] = useState<AioChatMode>("auto");
   const [activeResearchQuery, setActiveResearchQuery] = useState("");
   const [planOtherText, setPlanOtherText] = useState("");
@@ -1322,7 +1342,7 @@ export function AppHome({ email }: AppHomeProps) {
     setPlanAwaitingAction(chatMode === "plan");
     setLastRunMode(chatMode);
     if (chatMode === "research") setActiveResearchQuery(submittedText);
-    sendMessage({ text: submittedText }, { body: { mode: chatMode } });
+    sendMessage({ text: submittedText }, { body: { mode: chatMode, savedAgentId: activeSavedAgentId } });
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     setInputMultiline(false);
@@ -1823,6 +1843,53 @@ export function AppHome({ email }: AppHomeProps) {
       const msg = err instanceof Error ? err.message : String(err);
       setKnowledgeError(msg);
       await loadKnowledgeFiles();
+    }
+  };
+
+  const handleExportData = async () => {
+    setExportLoading(true);
+    setExportStatus(null);
+    try {
+      const res = await fetch("/api/account/export");
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "aio-account-export.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setExportStatus("Download started.");
+      logMeta("Exported account data");
+    } catch (err) {
+      setExportStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    setDeleteStatus(null);
+    try {
+      const res = await fetch("/api/account/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "DELETE" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message ?? `status ${res.status}`);
+      }
+      const { createClient } = await import("@/lib/supabase/client");
+      await createClient().auth.signOut();
+      window.location.href = "/";
+    } catch (err) {
+      setDeleteStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -2548,6 +2615,19 @@ export function AppHome({ email }: AppHomeProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [mobileWorkspaceEntry]);
 
+  // The chat transport throws the raw response body as the error message
+  // (see ai-sdk's DefaultChatTransport), so a 402 insufficient_credits
+  // rejection arrives here as a JSON string rather than plain text.
+  let insufficientCreditsError: { message?: string } | null = null;
+  if (chatError) {
+    try {
+      const parsed = JSON.parse(chatError.message);
+      if (parsed && parsed.error === "insufficient_credits") insufficientCreditsError = parsed;
+    } catch {
+      // not a JSON payload, treat as a regular chat error below
+    }
+  }
+
   return (
     <div className="aio-mockup" data-theme={theme} data-accent={accent} suppressHydrationWarning>
       <div className="particles-bg" aria-hidden>
@@ -2783,6 +2863,9 @@ export function AppHome({ email }: AppHomeProps) {
           </div>
 
           <div className="chat-area" ref={chatAreaRef} onScroll={handleChatScroll}>
+            {onboardedAt === null && messages.length === 0 && (
+              <OnboardingOverlay onDismiss={() => setOnboardedAt(new Date().toISOString())} />
+            )}
             {messages.length === 0 ? (
               <div className="welcome-screen">
                 <div className="mascot-container">
@@ -3172,7 +3255,36 @@ export function AppHome({ email }: AppHomeProps) {
                 </div>
               )}
 
-              {chatError && (
+              {chatError && insufficientCreditsError && (
+                <div
+                  className="memory-text"
+                  style={{ color: "var(--accent-secondary)", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}
+                >
+                  <span>{insufficientCreditsError.message || "Not enough credits for this task. Top up your balance to continue."}</span>
+                  <button
+                    type="button"
+                    className="approval-btn approve"
+                    style={{ padding: "2px 10px", fontSize: 12 }}
+                    onClick={() => {
+                      clearError();
+                      setSettingsInitialTab("plan");
+                      setSettingsOpen(true);
+                    }}
+                  >
+                    View plans
+                  </button>
+                  <button
+                    type="button"
+                    className="approval-btn deny"
+                    style={{ padding: "2px 10px", fontSize: 12 }}
+                    onClick={() => clearError()}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
+              {chatError && !insufficientCreditsError && (
                 <div
                   className="memory-text"
                   style={{ color: "var(--accent-secondary)", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}
@@ -3359,7 +3471,10 @@ export function AppHome({ email }: AppHomeProps) {
                   {imageComposerActive ? (
                     <span className="image-mode-indicator">Image</span>
                   ) : (
-                    <ChatModeMenu value={chatMode} onValueChange={setChatMode} />
+                    <>
+                      <ChatModeMenu value={chatMode} onValueChange={setChatMode} />
+                      <SavedAgentMenu value={activeSavedAgentId} onValueChange={setActiveSavedAgentId} />
+                    </>
                   )}
                   <button
                     type="submit"
@@ -3932,7 +4047,11 @@ export function AppHome({ email }: AppHomeProps) {
 
       <SettingsModal
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => {
+          setSettingsOpen(false);
+          setSettingsInitialTab("general");
+        }}
+        initialTab={settingsInitialTab}
         theme={theme}
         onThemeChange={setTheme}
         accent={accent}
@@ -3961,6 +4080,12 @@ export function AppHome({ email }: AppHomeProps) {
         knowledgeUploading={knowledgeUploading}
         onKnowledgeUploadClick={() => knowledgeFileInputRef.current?.click()}
         onKnowledgeDelete={handleKnowledgeDelete}
+        onExportData={handleExportData}
+        exportLoading={exportLoading}
+        exportStatus={exportStatus}
+        onDeleteAccount={handleDeleteAccount}
+        deleteLoading={deleteLoading}
+        deleteStatus={deleteStatus}
         currentPlanTier={creditUsage?.planTier ?? null}
       />
       <input

@@ -57,6 +57,26 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Proves the production required-secrets set (production-guard.mjs) stays
+      # satisfiable: a production-shaped env with obviously-fake, NON-SECRET
+      # placeholders must pass. The fail-closed path (missing/forbidden var) is
+      # covered by production-guard.test.ts. Step env overrides the job-wide
+      # AIO_DEPLOYMENT_ENV=development and blanks the dev-only HERMES key.
+      - name: Production env guard
+        env:
+          AIO_DEPLOYMENT_ENV: production
+          HERMES_DEV_API_SERVER_KEY: ""
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+          PADDLE_API_KEY: ci-placeholder-paddle-api-key
+          PADDLE_WEBHOOK_SECRET: ci-placeholder-paddle-webhook-secret
+          PADDLE_PRICE_ID_STARTER: ci-placeholder-price-starter
+          PADDLE_PRICE_ID_PRO: ci-placeholder-price-pro
+          PADDLE_PRICE_ID_BUSINESS: ci-placeholder-price-business
+          PADDLE_PRICE_ID_TOPUP: ci-placeholder-price-topup
+        run: node scripts/check-production-env.mjs
+
   security:
     name: Security checks
     runs-on: ubuntu-latest

@@ -11,6 +11,7 @@ import {
 import { resolveHermesRequestContext } from "@/lib/hermes/request-context";
 import { resolveProfileSecret } from "@/lib/hermes/profile-secrets";
 import { readCredentialFromVault } from "@/lib/hermes/registry";
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -38,6 +39,9 @@ export async function POST(req: Request) {
   const ctxResult = await resolveHermesRequestContext();
   if (!ctxResult.ok) return ctxResult.res;
   const { db, userId, row, hermesSessionId, threadId } = ctxResult.ctx;
+
+  const imageRateLimit = checkRateLimit(`images:${userId}`, 10, 60_000);
+  if (!imageRateLimit.allowed) return rateLimitResponse(imageRateLimit.retryAfterSeconds);
 
   const body = (await req.json().catch(() => null)) as GenerateImageBody | null;
   const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";

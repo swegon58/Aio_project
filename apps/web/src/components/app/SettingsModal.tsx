@@ -1,21 +1,24 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CreditCard, Database, FileText, KeyRound, Lock, Palette, Plug, Server, Trash2, X } from "lucide-react";
+import { Bot, CreditCard, Database, FileText, KeyRound, Lock, Palette, Plug, Server, Shield, Trash2, X } from "lucide-react";
 import { ALL_GATEABLE_TOOLSETS, TIERS, type PlanTier } from "@/lib/hermes/pricing";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { KnowledgeCenterPanel } from "@/components/app/KnowledgeCenterPanel";
+import { SavedAgentsPanel } from "@/components/app/SavedAgentsPanel";
 
 type Theme = "dark" | "light";
 type AccentKey = "purple" | "green" | "blue" | "pink" | "orange" | "cyan" | "red";
-type SettingsTab = "general" | "connections" | "credentials" | "knowledge" | "plan";
+type SettingsTab = "general" | "connections" | "credentials" | "knowledge" | "savedAgents" | "plan" | "data";
 
 const SETTINGS_TABS = [
   { key: "general", label: "Personalization", icon: Palette },
   { key: "connections", label: "Connected Apps", icon: Plug },
   { key: "credentials", label: "Model Providers", icon: KeyRound },
   { key: "knowledge", label: "Knowledge", icon: Database },
+  { key: "savedAgents", label: "Saved Agents", icon: Bot },
   { key: "plan", label: "Plan", icon: CreditCard },
+  { key: "data", label: "Data & Privacy", icon: Shield },
 ] satisfies { key: SettingsTab; label: string; icon: typeof Palette }[];
 
 // Human-readable labels for the gateable Hermes toolset IDs (Q2 of the
@@ -73,6 +76,7 @@ interface KnowledgeFile {
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+  initialTab?: SettingsTab;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   accent: AccentKey;
@@ -105,6 +109,13 @@ interface SettingsModalProps {
   onKnowledgeUploadClick: () => void;
   onKnowledgeDelete: (id: string) => void;
 
+  onExportData: () => void;
+  exportLoading: boolean;
+  exportStatus: string | null;
+  onDeleteAccount: () => void;
+  deleteLoading: boolean;
+  deleteStatus: string | null;
+
   currentPlanTier: string | null;
 }
 
@@ -116,6 +127,7 @@ interface SettingsModalProps {
 export function SettingsModal({
   open,
   onClose,
+  initialTab,
   theme,
   onThemeChange,
   accent,
@@ -144,12 +156,20 @@ export function SettingsModal({
   knowledgeUploading,
   onKnowledgeUploadClick,
   onKnowledgeDelete,
+  onExportData,
+  exportLoading,
+  exportStatus,
+  onDeleteAccount,
+  deleteLoading,
+  deleteStatus,
   currentPlanTier,
 }: SettingsModalProps) {
-  const [tab, setTab] = useState<SettingsTab>("general");
+  const [tab, setTab] = useState<SettingsTab>(initialTab ?? "general");
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const confirmRemoveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [upgradingTier, setUpgradingTier] = useState<PlanTier | null>(null);
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deletePhrase, setDeletePhrase] = useState("");
 
   const handleUpgrade = async (targetTier: PlanTier) => {
     setUpgradingTier(targetTier);
@@ -401,6 +421,12 @@ export function SettingsModal({
           </div>
         )}
 
+        {tab === "savedAgents" && (
+          <div className="setting-group" style={{ borderBottom: "none" }}>
+            <SavedAgentsPanel />
+          </div>
+        )}
+
         {tab === "plan" && (
           <div className="setting-group" style={{ borderBottom: "none" }}>
             {(() => {
@@ -410,6 +436,10 @@ export function SettingsModal({
                 <>
                   <div className="panel-section-title" style={{ marginTop: 0 }}>
                     Current plan: {tierCfg.label} (${tierCfg.monthlyPriceUsd}/mo)
+                  </div>
+                  <div className="memory-text" style={{ marginBottom: 12 }}>
+                    Each task can use up to {tierCfg.caps.creditBudget.toLocaleString()} credits
+                    before Aio pauses it — you can reply to keep going or start a new task.
                   </div>
 
                   {ALL_GATEABLE_TOOLSETS.map((id) => {
@@ -451,6 +481,83 @@ export function SettingsModal({
                 </>
               );
             })()}
+          </div>
+        )}
+        {tab === "data" && (
+          <div className="setting-group" style={{ borderBottom: "none" }}>
+            <div className="panel-section-title" style={{ marginTop: 0 }}>
+              Download your data
+            </div>
+            <div className="setting-desc" style={{ marginBottom: 12 }}>
+              Export everything Aio holds about your account as a JSON file — your conversations,
+              runs, knowledge sources, schedules, and gallery.
+            </div>
+            <button
+              type="button"
+              className="mcp-add-btn"
+              style={{ width: "auto" }}
+              disabled={exportLoading}
+              onClick={onExportData}
+            >
+              {exportLoading ? "Preparing…" : "Download my data"}
+            </button>
+            {exportStatus && <div className="memory-text" style={{ marginTop: 8 }}>{exportStatus}</div>}
+
+            <div className="panel-section-title" style={{ marginTop: 28 }}>Delete account</div>
+            <div className="setting-desc" style={{ marginBottom: 12 }}>
+              Permanently delete your account, conversations, runs, knowledge, and gallery. This
+              cannot be undone. To manage a single knowledge source instead, use the Knowledge tab.
+            </div>
+            {!deleteArmed ? (
+              <button
+                type="button"
+                className="mcp-add-btn"
+                style={{ width: "auto", color: "#e25c5c", borderColor: "rgba(226, 92, 92, 0.4)" }}
+                disabled={deleteLoading}
+                onClick={() => setDeleteArmed(true)}
+              >
+                Delete my account
+              </button>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <input
+                  type="text"
+                  value={deletePhrase}
+                  onChange={(e) => setDeletePhrase(e.target.value)}
+                  placeholder='Type DELETE to confirm'
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--glass-border)",
+                    background: "var(--glass-bg)",
+                    color: "var(--text-primary)",
+                    fontSize: 13,
+                  }}
+                  autoFocus
+                />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    className="mcp-add-btn"
+                    style={{ width: "auto", color: "#e25c5c", background: "rgba(226, 92, 92, 0.12)" }}
+                    disabled={deletePhrase !== "DELETE" || deleteLoading}
+                    onClick={onDeleteAccount}
+                  >
+                    {deleteLoading ? "Deleting…" : "Permanently delete"}
+                  </button>
+                  <button
+                    type="button"
+                    className="mcp-add-btn"
+                    style={{ width: "auto" }}
+                    disabled={deleteLoading}
+                    onClick={() => { setDeleteArmed(false); setDeletePhrase(""); }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {deleteStatus && <div className="memory-text" style={{ color: "#e25c5c" }}>{deleteStatus}</div>}
+              </div>
+            )}
           </div>
         )}
           </div>

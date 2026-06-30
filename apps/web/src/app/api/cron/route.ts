@@ -8,6 +8,7 @@ import {
   resolveScheduleApiContext,
   scheduleRepoErrorResponse,
 } from "@/lib/aio/schedules/schedule-api";
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 
 export async function GET() {
   const ctxResult = await resolveScheduleApiContext();
@@ -38,6 +39,9 @@ export async function POST(req: Request) {
 
   const denied = requireCronAccess(planTier);
   if (denied) return denied;
+
+  const cronRateLimit = checkRateLimit(`cron:${userId}`, 20, 60_000);
+  if (!cronRateLimit.allowed) return rateLimitResponse(cronRateLimit.retryAfterSeconds);
 
   let body: unknown;
   try {

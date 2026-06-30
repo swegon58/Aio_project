@@ -1248,6 +1248,14 @@ Every phase must preserve:
 - no redundant right-panel modules
 - no nested cards
 - no technical implementation instructions shown in product UI
+- no backend/provider/runtime leakage in consumer UI: never reveal model
+  names, raw tool/runtime names, internal cost plumbing, webhook/system terms,
+  or other implementation-facing metadata unless the surface is explicitly an
+  owner/admin/internal screen
+- user-facing status copy describes user intent or outcome, not the hidden
+  backend mechanism
+- interactive controls use a shared Aio action pattern per surface; avoid
+  ad-hoc button treatments that drift from the approved visual language
 - accessible names, keyboard navigation, focus, contrast
 - text fits containers without overlap
 - consistent typography hierarchy
@@ -1322,6 +1330,8 @@ Suggested branches:
 - UI worker: bounded components/styles only after API/event contract is frozen.
 - Test worker: independent fixtures/tests, no production edits unless assigned.
 - Reviewer: read-only, severity plus file/line.
+- UI product reviewer: read-only review for consumer-safe copy, hidden backend
+  details, control consistency, state clarity, and visual cohesion.
 
 Rules:
 

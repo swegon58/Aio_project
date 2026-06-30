@@ -47,6 +47,7 @@ export const METRICS = {
   TOOL_CALLS_TOTAL: "aio.tool_calls_total",
   TOOL_CALLS_FAILED: "aio.tool_calls_failed_total",
   HERMES_EVENTS: "aio.hermes_events_total",
+  USERS_ACTIVATED: "aio.users_activated_total",
 
   // Histograms
   CHAT_TURN_LATENCY_MS: "aio.chat_turn_latency_ms",

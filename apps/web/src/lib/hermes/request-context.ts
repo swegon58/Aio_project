@@ -11,6 +11,7 @@ import { ensureRunning, touchRegistryRow } from "@/lib/hermes/lifecycle";
 import { type PlanTier } from "@/lib/hermes/pricing";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isProductionDeployment } from "@/lib/aio/config/production-guard.mjs";
+import { isBetaInviteOnlyEnabled, isEmailInvited } from "@/lib/aio/security/invite-gate";
 
 export const THREAD_COOKIE = "hermes_thread_id";
 
@@ -63,6 +64,8 @@ export async function resolveHermesRequestContext(): Promise<HermesRequestContex
       credit_balance: 9999,
       plan_tier: "pro",
       free_grant_used: true,
+      onboarded_at: new Date().toISOString(),
+      activated_at: new Date().toISOString(),
     };
     const cookieStore = await cookies();
     let threadId = cookieStore.get(THREAD_COOKIE)?.value;
@@ -91,6 +94,19 @@ export async function resolveHermesRequestContext(): Promise<HermesRequestContex
   }
 
   const db = serviceDb();
+
+  if (isBetaInviteOnlyEnabled()) {
+    const invited = await isEmailInvited(db, user.email ?? `${user.id}@unknown.local`);
+    if (!invited) {
+      return {
+        ok: false,
+        res: Response.json(
+          { error: "beta_invite_required", message: "Aio is invite-only right now." },
+          { status: 403 },
+        ),
+      };
+    }
+  }
 
   let row: HermesRegistryRow;
   try {
