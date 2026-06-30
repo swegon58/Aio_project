@@ -113,6 +113,8 @@ async function installApiMocks(
       "/api/knowledge": { files: [] },
       "/api/cron": { jobs: [] },
       "/api/integrations/mcp": { servers: [] },
+      "/api/onboarding": { onboardedAt: "2026-06-01T00:00:00.000Z" },
+      "/api/saved-agents": { savedAgents: [] },
     };
     if (Object.hasOwn(responses, path)) {
       await route.fulfill({ json: responses[path] });
