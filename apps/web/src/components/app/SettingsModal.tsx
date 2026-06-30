@@ -1,20 +1,22 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CreditCard, Database, FileText, KeyRound, Lock, Palette, Plug, Server, Shield, Trash2, X } from "lucide-react";
+import { Bot, CreditCard, Database, FileText, KeyRound, Lock, Palette, Plug, Server, Shield, Trash2, X } from "lucide-react";
 import { ALL_GATEABLE_TOOLSETS, TIERS, type PlanTier } from "@/lib/hermes/pricing";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { KnowledgeCenterPanel } from "@/components/app/KnowledgeCenterPanel";
+import { SavedAgentsPanel } from "@/components/app/SavedAgentsPanel";
 
 type Theme = "dark" | "light";
 type AccentKey = "purple" | "green" | "blue" | "pink" | "orange" | "cyan" | "red";
-type SettingsTab = "general" | "connections" | "credentials" | "knowledge" | "plan" | "data";
+type SettingsTab = "general" | "connections" | "credentials" | "knowledge" | "savedAgents" | "plan" | "data";
 
 const SETTINGS_TABS = [
   { key: "general", label: "Personalization", icon: Palette },
   { key: "connections", label: "Connected Apps", icon: Plug },
   { key: "credentials", label: "Model Providers", icon: KeyRound },
   { key: "knowledge", label: "Knowledge", icon: Database },
+  { key: "savedAgents", label: "Saved Agents", icon: Bot },
   { key: "plan", label: "Plan", icon: CreditCard },
   { key: "data", label: "Data & Privacy", icon: Shield },
 ] satisfies { key: SettingsTab; label: string; icon: typeof Palette }[];
@@ -416,6 +418,12 @@ export function SettingsModal({
         {tab === "knowledge" && (
           <div className="setting-group" style={{ borderBottom: "none" }}>
             <KnowledgeCenterPanel />
+          </div>
+        )}
+
+        {tab === "savedAgents" && (
+          <div className="setting-group" style={{ borderBottom: "none" }}>
+            <SavedAgentsPanel />
           </div>
         )}
 

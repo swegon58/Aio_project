@@ -53,6 +53,7 @@ import { TASK_TEMPLATES } from "@/components/app/TemplateGallery";
 import { AgentStateBadge, RunTimeline, legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timeline";
 import { ResearchProgressCard } from "@/components/app/ResearchProgressCard";
 import { ChatModeMenu } from "@/components/app/ChatModeMenu";
+import { SavedAgentMenu } from "@/components/app/SavedAgentMenu";
 import {
   GeneratedImageCard,
   ImageGenerationProgress,
@@ -1108,6 +1109,7 @@ export function AppHome({ email }: AppHomeProps) {
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [inputMultiline, setInputMultiline] = useState(false);
   const [chatMode, setChatMode] = useState<AioChatMode>("auto");
+  const [activeSavedAgentId, setActiveSavedAgentId] = useState<string | null>(null);
   const [lastRunMode, setLastRunMode] = useState<AioChatMode>("auto");
   const [activeResearchQuery, setActiveResearchQuery] = useState("");
   const [planOtherText, setPlanOtherText] = useState("");
@@ -1340,7 +1342,7 @@ export function AppHome({ email }: AppHomeProps) {
     setPlanAwaitingAction(chatMode === "plan");
     setLastRunMode(chatMode);
     if (chatMode === "research") setActiveResearchQuery(submittedText);
-    sendMessage({ text: submittedText }, { body: { mode: chatMode } });
+    sendMessage({ text: submittedText }, { body: { mode: chatMode, savedAgentId: activeSavedAgentId } });
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     setInputMultiline(false);
@@ -3469,7 +3471,10 @@ export function AppHome({ email }: AppHomeProps) {
                   {imageComposerActive ? (
                     <span className="image-mode-indicator">Image</span>
                   ) : (
-                    <ChatModeMenu value={chatMode} onValueChange={setChatMode} />
+                    <>
+                      <ChatModeMenu value={chatMode} onValueChange={setChatMode} />
+                      <SavedAgentMenu value={activeSavedAgentId} onValueChange={setActiveSavedAgentId} />
+                    </>
                   )}
                   <button
                     type="submit"

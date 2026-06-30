@@ -21,6 +21,7 @@
 import { createHash } from "node:crypto";
 import type { UIMessage, UIMessageStreamWriter } from "ai";
 import { checkCreditBalance, refundTask, reserveCredits } from "@/lib/aio/billing/credit-guard";
+import { checkSpendCap } from "@/lib/aio/billing/spend-cap";
 import {
   actualCostCreditsFromUsageDelta,
   fetchOpenRouterKeyUsage,
@@ -41,6 +42,7 @@ import { HermesEventMapper } from "@/lib/aio/hermes/hermes-event-mapper";
 import { artifactUrlForRunPath } from "@/lib/aio/hermes/hermes-artifacts";
 import { parseHermesSseDataLine } from "@/lib/aio/hermes/hermes-stream";
 import { buildKnowledgeContext } from "@/lib/aio/knowledge/retrieve-context";
+import { getSavedAgent } from "@/lib/aio/saved-agents/saved-agents";
 import { resolveOpenRouterKeyForProfile } from "@/lib/hermes/knowledge";
 import { scanAioInputMessages } from "@/lib/aio/security/input-scan";
 import {
@@ -74,6 +76,8 @@ export interface OrchestratorInput {
   telemetry?: AioTelemetry;
   /** Optional pre-resolved runtime context for non-request callers (workers). */
   contextOverride?: HermesRequestContext;
+  /** Optional saved-agent bundle id (R7) — additive instructions + knowledge toggle only. */
+  savedAgentId?: string | null;
 }
 
 export type OrchestratorResult =
@@ -158,6 +162,7 @@ export async function orchestrateAioChatRun(
     planMode,
     telemetry = NO_OP_TELEMETRY,
     contextOverride,
+    savedAgentId = null,
   } = input;
   const { tracer, metrics } = telemetry;
 
@@ -173,10 +178,34 @@ export async function orchestrateAioChatRun(
     return { ok: false, response: Response.json({ error: "runtime_not_configured" }, { status: 503 }) };
   }
 
+  // ---- saved agent (R7, optional) — additive instructions + knowledge toggle only.
+  // An invalid/missing id is not an error: the run proceeds without it, the
+  // same way an unrecognized planMode/mode value would not block the chat.
+  const savedAgent = savedAgentId ? await getSavedAgent(db, userId, savedAgentId) : null;
+  const savedAgentInstructions = savedAgent?.ok ? savedAgent.data.instructionsAddition || null : null;
+  const useKnowledgeForRun = savedAgent?.ok ? savedAgent.data.useKnowledge : true;
+
   // ---- rate limit (per user, before any credit reservation) ----
   const chatRateLimit = checkRateLimit(`chat:${userId}`, 20, 60_000);
   if (!chatRateLimit.allowed) {
     return { ok: false, response: rateLimitResponse(chatRateLimit.retryAfterSeconds) };
+  }
+
+  // ---- beta spend cap (off unless AIO_BETA_SPEND_CAP_CREDITS is set) ----
+  const spendCapCheck = await checkSpendCap(db, userId);
+  if (!spendCapCheck.ok) {
+    return {
+      ok: false,
+      response: Response.json(
+        {
+          error: "spend_cap_reached",
+          message: "You've reached the beta spend limit for this account.",
+          capCredits: spendCapCheck.capCredits,
+          spentCredits: spendCapCheck.spentCredits,
+        },
+        { status: 402 },
+      ),
+    };
   }
 
   // ---- credit balance check + speculative reservation ----
@@ -229,7 +258,7 @@ export async function orchestrateAioChatRun(
   // ---- OpenRouter usage snapshot (for settlement) + RAG knowledge context ----
   const openrouterApiKey = await resolveOpenRouterKeyForProfile(row.profile_name);
   const usageBefore = openrouterApiKey ? await fetchOpenRouterKeyUsage(openrouterApiKey) : null;
-  const knowledgeContext = openrouterApiKey
+  const knowledgeContext = openrouterApiKey && useKnowledgeForRun
     ? await buildKnowledgeContext(db, userId, openrouterApiKey, lastMessage)
     : null;
 
@@ -244,7 +273,7 @@ export async function orchestrateAioChatRun(
     mode,
     inputSummary: firstUserText ? firstUserText.slice(0, 200) : null,
     reservedCredits: creditCheck.estimate,
-    metadata: { planMode, mode },
+    metadata: { planMode, mode, savedAgentId: savedAgent?.ok ? savedAgent.data.id : null },
   });
   if (!created.ok) {
     teardown();
@@ -292,7 +321,13 @@ export async function orchestrateAioChatRun(
       conversationHistory,
       sessionId: hermesSessionId,
       disableTools: Boolean(planMode),
-      instructions: [GUARDRAIL_SYSTEM_PROMPT, planInstructions, researchInstructions, knowledgeContext]
+      instructions: [
+        GUARDRAIL_SYSTEM_PROMPT,
+        planInstructions,
+        researchInstructions,
+        savedAgentInstructions,
+        knowledgeContext,
+      ]
         .filter(Boolean)
         .join(" "),
       signal: abortController.signal,

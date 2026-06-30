@@ -149,6 +149,23 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - live export/delete exercise is gated on remote migration parity
     (migrations `0020`/`0021` not yet pushed to
     `xeuvoaedwdmuhxdcoxcx.supabase.co`), same gate as R6.1/R6.3
+- R7 Saved Agents is code-complete and unit-verified on
+  `feat/r5-r7-delivery-line` (R7's evidence gate explicitly waived by direct
+  owner instruction — see `docs/roadmap/R7_SAVED_AGENTS_ONEPAGER.md`
+  "Evidence" and `docs/roadmap/R7_EXECUTION_CHECKLIST.md`):
+  - migration `0023_aio_saved_agents.sql` (service-role only, RLS enabled)
+  - `apps/web/src/lib/aio/saved-agents/saved-agents.ts` (validation + CRUD)
+    and `/api/saved-agents` (+`/[id]`) routes
+  - saved-agent instructions append to the existing instructions array after
+    `GUARDRAIL_SYSTEM_PROMPT`/`planInstructions`/`researchInstructions`,
+    never before or in place of them; `useKnowledge: false` skips
+    `buildKnowledgeContext` for that turn
+  - composer picker (`SavedAgentMenu.tsx`) and a new "Saved Agents" Settings
+    tab (`SavedAgentsPanel.tsx`)
+  - `npm run typecheck` clean, `npm run test:unit` 205/205 passing (5 new)
+  - manual dev-server verification gated on the same remote-migration-push
+    gate as R6.1/R6.3/R6.5/R6.7 (migrations `0020`-`0023` not yet pushed to
+    `xeuvoaedwdmuhxdcoxcx.supabase.co`)
 - Product-owner approval is active for R6/R7 on
   `feat/r5-r7-delivery-line`, proceeding strictly in order R6.1 -> R6.8 then
   R7.
@@ -215,9 +232,55 @@ path is:
 - R6.5 privacy/data controls (account export, account/data deletion, Data &
   Privacy tab) implemented and verified; 173/173 unit tests passing. Legal
   text and configurable retention deferred to their gates
-- next: **R6.6** (Deployment And Ops — see `AIO_MASTER_EXECUTION_PLAN.md`
-  for scope). The deferred R6.5 tracks (legal text, configurable retention)
-  stay open for a later owner/legal pass and do not block R6.6+.
+- R6.6 (Deployment And Ops — self-hosted systemd stack hardening: ops-procedure
+  docs under `docs/operations/`, `RB-009` runbook, `scripts/aio-smoke.sh`,
+  Dependabot/CODEOWNERS/security-cadence workflow, CI `prod-env-guard` step)
+  implemented and verified; hosting/restore-test items owner-gated
+- R6.7 (Analytics — weekly beta-metrics aggregation module
+  `apps/web/src/lib/aio/analytics/weekly-metrics.ts` + operator-only
+  `GET /api/internal/analytics/weekly`) implemented and verified; 193/193
+  unit tests passing. Citation/source interaction and image-generation
+  success rate documented as not-yet-trackable, not fabricated
+- R6.8 (Beta Gate, 10 required items) in progress — see
+  `docs/roadmap/R6_EXECUTION_CHECKLIST.md` for the full per-item table.
+  Status: 5/10 code-complete, 2/10 partial (legal pages drafted but
+  unreviewed; runbooks written, alert transport not provisioned), 3/10
+  require a real Paddle seller account or a second paid Supabase project
+  that cannot be created from inside this repo (owner explicitly chose to
+  keep that provisioning owner-only). The one item that was a genuine code
+  gap — limited invite cohort + spend cap — is now implemented: migration
+  `0022_aio_beta_invites.sql`, `lib/aio/security/invite-gate.ts`,
+  `lib/aio/billing/spend-cap.ts`, wired into `request-context.ts` (403) and
+  `run-orchestrator.ts` (402); both gates default off until the owner sets
+  `AIO_BETA_INVITE_ONLY` / `AIO_BETA_SPEND_CAP_CREDITS`. 200/200 unit tests
+  passing, typecheck clean. Migration `0022` not yet pushed to the remote
+  project (same gate as `0020`/`0021`).
+  - Support owner now named: `docs/operations/support-intake.md` lists
+    swegon58 (`swegon58@gmail.com`) in place of the prior placeholder.
+  - Legal pages now have unreviewed drafts grounded in actual product
+    behavior: `docs/legal/terms.md`, `docs/legal/privacy-policy.md`,
+    `docs/legal/acceptable-use-policy.md` — each marked
+    `STATUS: UNREVIEWED DRAFT`, not linked from the product, pending
+    qualified legal review before publication.
+  - `docs/operations/paddle-setup.md` and `docs/operations/backup-restore.md`
+    expanded with tick-box quick checklists, exact SQL/CLI commands, and
+    exact dashboard navigation, so the owner can execute the Paddle-account
+    and second-Supabase-project steps faster. Account/project creation
+    itself remains owner-only per project rules ("no paid infrastructure
+    without explicit approval").
+  - Alert transport remains an explicit, confirmed skip: no real Slack/
+    PagerDuty webhook exists yet; owner declined further doc work on this
+    sub-item for now.
+- **R7** (Evidence-Driven Expansion) is underway ahead of R6.8 fully closing,
+  per direct, repeated owner instruction ("xong r6 thì lên r7 đi, đừng dừng
+  lại" — once R6 is done, move to R7, don't stop) that explicitly waived
+  R7's own evidence gate (the master plan's "no R7 feature starts without a
+  one-page decision backed by real user evidence" requirement — that
+  evidence requires live beta usage, which does not exist before R6.8
+  closes). The waiver is documented, not silently bypassed: see
+  `docs/roadmap/R7_SAVED_AGENTS_ONEPAGER.md` "Evidence". First R7 feature,
+  **Saved Agents**, is code-complete and unit-verified — see
+  `docs/roadmap/R7_EXECUTION_CHECKLIST.md`.
 - continue on `feat/r5-r7-delivery-line`
 - keep R6 and R7 on the same branch unless the owner explicitly changes that
 - keep any new implementation out of the research worktree

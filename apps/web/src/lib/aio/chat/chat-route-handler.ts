@@ -6,6 +6,7 @@ export interface AioChatRequestPayload {
   messages: UIMessage[];
   mode: AioChatMode;
   planMode: boolean;
+  savedAgentId: string | null;
 }
 
 export interface AioRuntimeMessage {
@@ -20,6 +21,7 @@ export async function readAioChatRequest(req: NextRequest): Promise<AioChatReque
     messages: body.messages ?? [],
     mode,
     planMode: mode === "plan",
+    savedAgentId: typeof body.savedAgentId === "string" ? body.savedAgentId : null,
   };
 }
 

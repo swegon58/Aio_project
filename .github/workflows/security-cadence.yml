@@ -1,0 +1,53 @@
+name: Security cadence
+
+# Weekly, informational security sweep on main. Complements the per-PR gates in
+# ci.yml (gitleaks + npm audit + dependency-review) by surfacing drift between
+# PRs. Does NOT gate merges. See docs/operations/dependency-cadence.md.
+
+on:
+  schedule:
+    # Mondays ~06:17 UTC (off the :00 mark to avoid fleet spikes).
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    name: npm audit (high)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install production dependencies
+        working-directory: apps/web
+        run: npm ci --omit=dev
+
+      - name: Audit production dependencies
+        working-directory: apps/web
+        run: npm audit --omit=dev --audit-level=high
+
+  secret-scan:
+    name: Gitleaks full history
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

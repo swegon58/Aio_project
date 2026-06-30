@@ -1,0 +1,20 @@
+# CODEOWNERS for swegon58/Aio_project
+# Single owner today; per-area entries are structure for future expansion.
+
+# Default owner for anything not matched below.
+*                           @swegon58
+
+# Product/control plane (Next.js UI, API, Supabase, billing).
+/apps/web/                  @swegon58
+
+# Execution/runtime plane (Hermes runtime + isolated Aio profile).
+/apps/harness/              @swegon58
+
+# Schema is treated as a critical surface — review every migration.
+/apps/web/supabase/migrations/   @swegon58
+
+# Operations docs, runbooks, SLOs, ADRs.
+/docs/                      @swegon58
+
+# CI, release automation, repo config.
+/.github/                   @swegon58

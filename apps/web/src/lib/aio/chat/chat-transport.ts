@@ -21,7 +21,7 @@ import type { HermesUIMessage } from "@/lib/hermes/chat-types";
  * response for a run the orchestrator started.
  */
 export async function handleChatRequest(req: NextRequest): Promise<Response> {
-  const { messages, mode, planMode } = await readAioChatRequest(req);
+  const { messages, mode, planMode, savedAgentId } = await readAioChatRequest(req);
   if (messages.length === 0) {
     return Response.json({ error: "no_messages" }, { status: 400 });
   }
@@ -31,6 +31,7 @@ export async function handleChatRequest(req: NextRequest): Promise<Response> {
     messages,
     mode,
     planMode,
+    savedAgentId,
   });
 
   if (!result.ok) return result.response;
