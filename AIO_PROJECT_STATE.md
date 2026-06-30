@@ -126,6 +126,29 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - synthetic `resetAt` (`nextMonthlyResetAt()` in `pricing.ts`) is still a
     "1st of next UTC month" placeholder, not a real Paddle billing-cycle date
     — documented limitation, same gate as R6.3's live Paddle verification
+- R6.5 privacy/data controls (product track) is complete on
+  `feat/r5-r7-delivery-line`:
+  - `GET /api/account/export` downloads all user-owned data as a JSON
+    attachment (`gatherAccountData`, `apps/web/src/lib/account/export.ts`):
+    reads every user table scoped by `customer_id`/`user_id`, strips raw
+    `embedding` vectors, tolerates a failing table; rate-limited 5/min
+  - `DELETE /api/account/delete` gathers Storage paths, removes objects
+    best-effort, then `auth.admin.deleteUser` (cascades all 19 user tables
+    via the `auth.users` FK-on-delete-cascade); requires a typed
+    `{ confirm: "DELETE" }` body; rate-limited 2/min; client signs out on
+    success (`apps/web/src/lib/account/delete.ts`)
+  - new "Data & Privacy" tab in `SettingsModal.tsx`; handlers
+    (`handleExportData` blob download, `handleDeleteAccount` sign-out +
+    redirect) in `AppHome.tsx`
+  - delete-knowledge-source + derived content already existed (`/api/knowledge`
+    DELETEs + cascade) — re-confirmed by inspection, no new code
+  - `npm run typecheck` clean, `npm run test:unit` 173/173 passing
+  - legal text (Terms/Privacy/AUP) and configurable retention are deferred
+    to their gates (qualified legal review / published retention policy); no
+    fabricated policy text was written
+  - live export/delete exercise is gated on remote migration parity
+    (migrations `0020`/`0021` not yet pushed to
+    `xeuvoaedwdmuhxdcoxcx.supabase.co`), same gate as R6.1/R6.3
 - Product-owner approval is active for R6/R7 on
   `feat/r5-r7-delivery-line`, proceeding strictly in order R6.1 -> R6.8 then
   R7.
@@ -188,12 +211,13 @@ path is:
 - R6.3 (Paddle webhook idempotency) implemented and verified; live Paddle
   redelivery check gated on a configured seller account
 - R6.4 (usage/plan UX + `insufficient_credits` error surfacing) implemented
-  and verified; 167/167 unit tests passing
-- next: **R6.5** (Privacy, Legal, And Data Controls — see
-  `AIO_MASTER_EXECUTION_PLAN.md` for scope). The legal text is gated on
-  qualified legal review; the product controls (data export, account/data
-  deletion, knowledge-source + derived-content deletion, retention) are
-  implementable now.
+  and verified
+- R6.5 privacy/data controls (account export, account/data deletion, Data &
+  Privacy tab) implemented and verified; 173/173 unit tests passing. Legal
+  text and configurable retention deferred to their gates
+- next: **R6.6** (Deployment And Ops — see `AIO_MASTER_EXECUTION_PLAN.md`
+  for scope). The deferred R6.5 tracks (legal text, configurable retention)
+  stay open for a later owner/legal pass and do not block R6.6+.
 - continue on `feat/r5-r7-delivery-line`
 - keep R6 and R7 on the same branch unless the owner explicitly changes that
 - keep any new implementation out of the research worktree

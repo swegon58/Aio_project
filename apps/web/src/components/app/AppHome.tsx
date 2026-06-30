@@ -1013,9 +1013,13 @@ export function AppHome({ email }: AppHomeProps) {
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const [knowledgeUploading, setKnowledgeUploading] = useState(false);
   const knowledgeFileInputRef = useRef<HTMLInputElement>(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
   const [ignoredTodayCards, setIgnoredTodayCards] = useState<Set<string>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "plan">("general");
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "plan" | "data">("general");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [accent, setAccent] = useState<AccentKey>("blue");
   const resetRunTimeline = () => {
@@ -1837,6 +1841,53 @@ export function AppHome({ email }: AppHomeProps) {
       const msg = err instanceof Error ? err.message : String(err);
       setKnowledgeError(msg);
       await loadKnowledgeFiles();
+    }
+  };
+
+  const handleExportData = async () => {
+    setExportLoading(true);
+    setExportStatus(null);
+    try {
+      const res = await fetch("/api/account/export");
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "aio-account-export.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setExportStatus("Download started.");
+      logMeta("Exported account data");
+    } catch (err) {
+      setExportStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    setDeleteStatus(null);
+    try {
+      const res = await fetch("/api/account/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "DELETE" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message ?? `status ${res.status}`);
+      }
+      const { createClient } = await import("@/lib/supabase/client");
+      await createClient().auth.signOut();
+      window.location.href = "/";
+    } catch (err) {
+      setDeleteStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -4024,6 +4075,12 @@ export function AppHome({ email }: AppHomeProps) {
         knowledgeUploading={knowledgeUploading}
         onKnowledgeUploadClick={() => knowledgeFileInputRef.current?.click()}
         onKnowledgeDelete={handleKnowledgeDelete}
+        onExportData={handleExportData}
+        exportLoading={exportLoading}
+        exportStatus={exportStatus}
+        onDeleteAccount={handleDeleteAccount}
+        deleteLoading={deleteLoading}
+        deleteStatus={deleteStatus}
         currentPlanTier={creditUsage?.planTier ?? null}
       />
       <input

@@ -119,9 +119,59 @@ analytics, and the beta gate itself.
 - [x] `npm run test:unit` — 167/167 passing (no new tests needed; this was
       a UI-surfacing/copy change, no new branching logic to unit test)
 
-### R6.5 Legal Pages
+### R6.5 Privacy, Legal, And Data Controls
 
-- [ ] Terms / Privacy content (legal-review gated)
+Product controls (track b — implementable now):
+
+- [x] `GET /api/account/export` — downloads everything Aio holds about the
+      signed-in user as a JSON attachment
+      (`apps/web/src/app/api/account/export/route.ts`); backed by
+      `gatherAccountData` (`apps/web/src/lib/account/delete.ts`'s sibling
+      `apps/web/src/lib/account/export.ts`), which reads every user-owned
+      table scoped by `customer_id`/`user_id`, strips raw `embedding`
+      vectors from chunk tables, and tolerates a failing table (records to
+      `_errors`, still resolves). Rate-limited 5/min.
+- [x] `DELETE /api/account/delete` — gathers Storage paths, removes objects
+      best-effort, then `auth.admin.deleteUser` (cascades all 19 user
+      tables via `auth.users` FK-on-delete-cascade); requires a typed
+      `{ confirm: "DELETE" }` body as a second server-side guard
+      (`apps/web/src/app/api/account/delete/route.ts` +
+      `deleteAccountAndData` in `apps/web/src/lib/account/delete.ts`).
+      Rate-limited 2/min. Client signs out on success.
+- [x] New "Data & Privacy" tab in `SettingsModal.tsx` (download-data +
+      typed-`DELETE` danger-zone deletion); handlers in `AppHome.tsx`
+      (`handleExportData` blob download, `handleDeleteAccount` ->
+      sign-out + redirect to `/`).
+- [x] Delete knowledge source + derived content — **already exists**, no
+      new code: `DELETE /api/knowledge` (bulk) and
+      `DELETE /api/knowledge/docs/[docId]` remove the file, its Storage
+      object, and cascade to chunks via FK. Re-confirmed by inspection.
+- [x] Unit tests: `export.test.ts` (keyed output, scopes-by-user, tolerates
+      failing table, strips embeddings), `delete.test.ts` (Storage remove
+      happens before `deleteUser`, userId passed through, Storage failure
+      does not abort deletion, `deleteUser` failure -> ok:false)
+- [x] `npm run typecheck` clean
+- [x] `npm run test:unit` — 173/173 passing
+- [ ] Live verification (export returns the user's tables; typed-`DELETE`
+      removes account + Storage objects + cascades tables + signs client
+      out) — **gated** on remote migration parity: the running dev server
+      points at the remote Supabase project
+      (`xeuvoaedwdmuhxdcoxcx.supabase.co`), and migrations `0020`/`0021`
+      are not yet pushed there (no CLI access token in this environment;
+      CI only applies migrations to a throwaway local DB). Owner must run
+      `npx supabase link --project-ref xeuvoaedwdmuhxdcoxcx && npx supabase db push`
+      before live verification — same gate as R6.1.
+
+Legal text (track a — deferred to qualified legal review):
+
+- [ ] Terms / Privacy / AUP content (legal-review gated; no fabricated
+      policy text written)
+
+Configurable retention (deferred — depends on a published retention policy):
+
+- [ ] Configurable data-retention controls — gated on a published retention
+      policy; nothing is "promised" today, so there is nothing to configure
+      yet.
 
 ### R6.6 Deployment And Ops
 
@@ -137,20 +187,22 @@ analytics, and the beta gate itself.
 
 ## Exact Next Step
 
-R6.1, R6.2, R6.3, and R6.4 are implemented and verified
-(`npm run typecheck` clean, `npm run test:unit` 167/167 passing). Two live
-gates remain open from earlier sub-phases, both owner-side:
+R6.1, R6.2, R6.3, R6.4, and the R6.5 product controls are implemented and
+verified (`npm run typecheck` clean, `npm run test:unit` 173/173 passing).
+R6.5's remaining tracks (legal text, configurable retention) are deferred to
+their gates (qualified legal review / published retention policy). Three live
+gates remain open from earlier sub-phases, all owner-side:
 
 - R6.1 manual dev-server verification — needs remote migration push:
   `npx supabase link --project-ref xeuvoaedwdmuhxdcoxcx && npx supabase db push`
-  (migration `0020` is not yet on the remote Supabase project).
+  (migrations `0020`/`0021` are not yet on the remote Supabase project).
 - R6.3 live Paddle redelivery check — needs a configured Paddle seller account
   (`PADDLE_API_KEY`/`PADDLE_WEBHOOK_SECRET`; currently `DevNoopPaymentProvider`).
+- R6.5 live account export/delete exercise — same remote-migration gate as
+  R6.1 (the new endpoints depend on the same remote Supabase project having
+  the user tables; no new migration is required for them, but they cannot be
+  exercised live until the dev server's remote DB is at parity).
 
-Next: **R6.5 Privacy, Legal, And Data Controls** (see `AIO_MASTER_EXECUTION_PLAN.md`
-for scope). Note that R6.5 splits into two tracks: (a) legal text — gated on
-qualified legal review before public launch, not code; (b) product controls
-(account data export, account/data deletion, delete knowledge source + derived
-content, configurable retention) — these are implementable now. Proceed with
-the implementable product controls and surface the legal-review gate for owner
-decision.
+Next: **R6.6 Deployment And Ops** (see `AIO_MASTER_EXECUTION_PLAN.md` for
+scope). The deferred R6.5 tracks (legal text, configurable retention) stay
+open for a later owner/legal pass and do not block R6.6+.
