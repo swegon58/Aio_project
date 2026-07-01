@@ -37,145 +37,37 @@ It is a status index, not a replacement for the master plan or phase checklist.
   - Web: `200`
   - Hermes: `200`
   - LM Studio: `200`
+- Current local operational hardening runs on `feat/aio-team-os`; `main`
+  remains the canonical product truth and merge base.
+- Aio Team OS quick view:
+  - `bash scripts/aio-team-os.sh progress` shows the grilled Team OS plan
+    progress (`85%` at the latest verification).
+  - `bash scripts/aio-team-os.sh doctor` verifies the Team OS local operating
+    surface, including declared-vs-computed progress.
 - The local always-on stack is now managed by user services plus one helper
   command:
   - `scripts/aio-online.sh install|start|restart|status|logs|stop`
   - `aio-hermes.service`
   - `aio-hermes-supervisor.service`
   - `aio-app.service`
-- R5 mainline verification after merge passed:
-  - `npm run typecheck`
-  - `npm run test:unit`
-  - `AIO_DEPLOYMENT_ENV=development npm run build`
-- R5 merged outcomes now on `main`:
-  - `aio_jobs` table plus claim/retry/lease-recovery RPC helpers
-  - `aio_schedules` / `aio_schedule_runs` durable schedule storage and history
-  - `/api/cron` now reads and mutates Aio-owned schedule rows instead of
-    proxying Hermes-local cron storage
-  - due-schedule enqueue + execute wiring landed: `enqueueDueSchedules` and
-    `executeScheduledTaskJob` in `apps/web/src/lib/aio/schedules/schedule-runtime.ts`
-    turn due schedules into durable `scheduled_task` jobs and drive the
-    orchestrator; `aio-job-worker` sweeps and dispatches them; migration
-    `0019_aio_schedule_run_links` links runs to `aio_runs`
-  - enqueue path verified live (`r5-4-schedule-enqueue-probe` green) and execute
-    preamble verified live (`r5-4-schedule-worker-probe` green to the Hermes
-    boundary); full live execute-E2E is gated on a provisioned dev-user Hermes
-    registry row
-- R5.5 failure/recovery is complete on `feat/r5-r7-delivery-line`:
-  - at-most-once guard fails closed on unbound `running` schedule runs with
-    `SCHEDULED_RUN_UNBOUND_CRASH`
-  - delete/pause cancel propagation drops queued scheduled-task jobs best-effort
-    before the schedule mutation continues
-  - live probes cover the unbound-crash and cancel-propagation paths
-- R5.6 test coverage is now complete locally on `feat/r5-r7-delivery-line`:
-  - duplicate enqueue coverage for `enqueueDueSchedules`
-  - worker crash / stale-lease recovery coverage for the durable worker sweep
-  - retry exhaustion coverage for dead-letter on final-attempt failure
-  - scheduled occurrence exactly-once coverage for bound-run sync and unbound
-    running-run duplicate prevention
-  - explicit pause/delete cancellation-propagation unit coverage, including the
-    best-effort path where internal cancel attempts fail but the user-facing
-    schedule mutation still completes
-- R6.1 onboarding is implemented on `feat/r5-r7-delivery-line`:
-  - `hermes_registry` gains `onboarded_at`/`activated_at`
-    (migration `0020_aio_onboarding_state.sql`)
-  - `markActivatedIfNeeded` flips `activated_at` once, on first successful
-    run only (idempotent DB-level guard)
-  - `/api/onboarding` (GET/POST) and `OnboardingOverlay.tsx` on the
-    welcome screen; activation wired into `run-orchestrator.ts`'s success
-    branch, emitting `METRICS.USERS_ACTIVATED`
-  - `npm run typecheck` clean, `npm run test:unit` 157/157 passing
-  - manual dev-server verification is gated: the running dev server points
-    at the remote Supabase project (`xeuvoaedwdmuhxdcoxcx.supabase.co`) and
-    migration `0020` is not yet pushed there (no CLI access token in this
-    environment); owner must run
-    `npx supabase link --project-ref xeuvoaedwdmuhxdcoxcx && npx supabase db push`
-    before live verification; see `docs/roadmap/R6_EXECUTION_CHECKLIST.md`
-- R6.2 auth/tenant security audit is complete on `feat/r5-r7-delivery-line`:
-  - origin/CSRF check (`apps/web/src/lib/security/origin-check.ts`), wired
-    into `apps/web/src/middleware.ts`: rejects cross-origin unsafe-method
-    `/api/*` requests, exempts `/api/billing/webhook`
-  - in-memory per-user rate limiter (`apps/web/src/lib/security/rate-limit.ts`)
-    applied to chat, image generation, knowledge upload, schedule creation,
-    and checkout
-  - `npm run typecheck` clean, `npm run test:unit` 165/165 passing
-- R6.3 Paddle webhook idempotency is complete on `feat/r5-r7-delivery-line`:
-  - `aio_paddle_webhook_events` table (migration `0021`), unique on
-    `paddle_event_id`
-  - webhook route inserts the event id before granting credits/plan tier and
-    skips processing on conflict (no double-credit on Paddle redelivery)
-  - `PaddlePaymentProvider.handleWebhook` parses Paddle's `event_id`
-  - `npm run typecheck` clean, `npm run test:unit` 167/167 passing
-  - live verification gated on a configured Paddle seller account
-    (`PADDLE_API_KEY`/`PADDLE_WEBHOOK_SECRET`), same gate as prior surveys
-- R6.4 usage/plan UX is complete on `feat/r5-r7-delivery-line`:
-  - plan/credits/upgrade were already surfaced on `SettingsModal.tsx` and via
-    `/api/credits`; per-toolset entitlements already shown
-  - per-task credit ceiling surfaced as plain language on the "Plan" tab
-    (`caps.creditBudget`, `SettingsModal.tsx`); the architecture has no
-    per-operation cost model, so the per-task ceiling is the honest estimate
-  - fixed a real UX bug: the chat transport threw Paddle's raw 402 JSON body
-    as `error.message` (ai-sdk `DefaultChatTransport`), so an
-    `insufficient_credits` rejection rendered as raw JSON with a dead "Retry".
-    `AppHome.tsx` now detects that shape and renders a clean message with a
-    "View plans" CTA opening `SettingsModal` to the "Plan" tab (new
-    `initialTab` prop); other chat errors keep the original banner
-  - `npm run typecheck` clean, `npm run test:unit` 167/167 passing
-  - synthetic `resetAt` (`nextMonthlyResetAt()` in `pricing.ts`) is still a
-    "1st of next UTC month" placeholder, not a real Paddle billing-cycle date
-    — documented limitation, same gate as R6.3's live Paddle verification
-- R6.5 privacy/data controls (product track) is complete on
-  `feat/r5-r7-delivery-line`:
-  - `GET /api/account/export` downloads all user-owned data as a JSON
-    attachment (`gatherAccountData`, `apps/web/src/lib/account/export.ts`):
-    reads every user table scoped by `customer_id`/`user_id`, strips raw
-    `embedding` vectors, tolerates a failing table; rate-limited 5/min
-  - `DELETE /api/account/delete` gathers Storage paths, removes objects
-    best-effort, then `auth.admin.deleteUser` (cascades all 19 user tables
-    via the `auth.users` FK-on-delete-cascade); requires a typed
-    `{ confirm: "DELETE" }` body; rate-limited 2/min; client signs out on
-    success (`apps/web/src/lib/account/delete.ts`)
-  - new "Data & Privacy" tab in `SettingsModal.tsx`; handlers
-    (`handleExportData` blob download, `handleDeleteAccount` sign-out +
-    redirect) in `AppHome.tsx`
-  - delete-knowledge-source + derived content already existed (`/api/knowledge`
-    DELETEs + cascade) — re-confirmed by inspection, no new code
-  - `npm run typecheck` clean, `npm run test:unit` 173/173 passing
-  - legal text (Terms/Privacy/AUP) and configurable retention are deferred
-    to their gates (qualified legal review / published retention policy); no
-    fabricated policy text was written
-  - live export/delete exercise is gated on remote migration parity
-    (migrations `0020`/`0021` not yet pushed to
-    `xeuvoaedwdmuhxdcoxcx.supabase.co`), same gate as R6.1/R6.3
-- R7 Saved Agents is code-complete and unit-verified on
-  `main` (R7's evidence gate explicitly waived by direct
-  owner instruction — see `docs/roadmap/R7_SAVED_AGENTS_ONEPAGER.md`
-  "Evidence" and `docs/roadmap/R7_EXECUTION_CHECKLIST.md`):
-  - migration `0023_aio_saved_agents.sql` (service-role only, RLS enabled)
-  - `apps/web/src/lib/aio/saved-agents/saved-agents.ts` (validation + CRUD)
-    and `/api/saved-agents` (+`/[id]`) routes
-  - saved-agent instructions append to the existing instructions array after
-    `GUARDRAIL_SYSTEM_PROMPT`/`planInstructions`/`researchInstructions`,
-    never before or in place of them; `useKnowledge: false` skips
-    `buildKnowledgeContext` for that turn
-  - composer picker (`SavedAgentMenu.tsx`) and a new "Saved Agents" Settings
-    tab (`SavedAgentsPanel.tsx`)
-  - `npm run typecheck` clean, `npm run test:unit` 205/205 passing (5 new)
-  - manual dev-server verification gated on the same remote-migration-push
-    gate as R6.1/R6.3/R6.5/R6.7 (migrations `0020`-`0023` not yet pushed to
-    `xeuvoaedwdmuhxdcoxcx.supabase.co`)
-- Owner-side close-out items still remain before the old R6/R7 line is fully
-  closed:
-  - push remote Supabase migrations `0020`-`0023`
-  - run manual product walkthroughs for onboarding, export/delete, analytics,
-    and Saved Agents
-  - configure Paddle sandbox and run billing e2e + webhook replay
-  - get legal review on the draft Terms / Privacy / AUP
-  - provision alert transport
-  - run the backup restore drill
-  - use `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md` as the single owner
-    checklist for these remaining steps
+- R5 (durable jobs/schedules), R5.5 (failure/recovery), and R5.6 (test
+  coverage) are merged and verified on `main` — see
+  `docs/roadmap/R5_EXECUTION_CHECKLIST.md` for detail.
+- R6.1-R6.7 (onboarding, auth/tenant security, billing idempotency, plan UX,
+  account export/delete, deployment/ops, analytics) are engineering-complete
+  and merged to `main` — see `docs/roadmap/R6_EXECUTION_CHECKLIST.md` for
+  detail (migration numbers, file paths).
+- R7 Saved Agents is code-complete, unit-verified, and merged to `main`
+  (R7's evidence gate explicitly waived by direct owner instruction — see
+  `docs/roadmap/R7_SAVED_AGENTS_ONEPAGER.md` "Evidence") — see
+  `docs/roadmap/R7_EXECUTION_CHECKLIST.md` for detail.
+- Owner-side close-out items remain before the R6/R7 line is fully closed
+  (push migrations `0020`-`0023`, manual product checks, Paddle sandbox,
+  legal review, alert transport, backup restore drill) — single list at
+  `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`.
 - No further R7 feature is scoped yet on `main`.
+- R8 (Beta-Readiness Hardening) is approved and queued, not yet started —
+  see "Next Decision Gate" below and `docs/roadmap/R8_EXECUTION_CHECKLIST.md`.
 - Product-owner branch policy override: keep R5, R6, and R7 on the same
   delivery branch unless the owner explicitly asks to split again.
 - Historical secret-scan triage is closed for Aio R0.
@@ -193,7 +85,9 @@ It is a status index, not a replacement for the master plan or phase checklist.
 
 - `/home/swegon/AI_Agent/Aio_project`
   - Canonical product repository.
-  - Use for `main`, integration, verification, and running Aio.
+  - Use `main` for product truth; use `feat/aio-team-os` only for local
+    operational hardening that does not redefine product phase approval.
+  - Use for integration, verification, and running Aio.
   - Use `scripts/aio-online.sh status` to confirm the local always-on stack.
 - `/home/swegon/AI_Agent/Aio_project_onyx_openmanus_lab`
   - Research-only worktree for Onyx/OpenManus.
@@ -226,20 +120,27 @@ When the product owner says "continue building Aio":
 
 ## Next Decision Gate
 
-The old R6/R7 product line is now merged on `main`.
+R8 — Beta-Readiness Hardening — is approved and queued. See
+`docs/roadmap/R8_EXECUTION_CHECKLIST.md` for the exact task order and
+`.claude/grill-logs/grill-log-next-build-observability-provider-adapter-2026-07-01.md`
+Round 4 (Câu 14-19) for the decision record. Trigger phrase from the owner:
+"build Aio tiếp" (same as "continue building Aio") — start at R8.1 with no
+further clarification needed, unless the owner redirects.
 
-The remaining close-out path is:
+Order: R8.1 error/not-found pages -> R8.2 Scheduled Tasks panel UI ->
+R8.3 nav rail disabled states -> R8.4 route-level tests for high-risk
+handlers (billing, Paddle webhook, account export/delete, cron) -> R8.5
+per-customer secret isolation (Vault) research + scope.
 
-- finish the owner-side checklist in
-  `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`
-- after those owner actions are complete, update this state file and the
-  R6/R7 checklists to mark the remaining gates closed
-- do not start a new product delivery phase from stale feature-branch notes;
-  use `main` as the source of truth
+The owner-side close-out checklist
+(`docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`) runs in parallel and does
+not block R8 — same standing sequencing preference used since R6/R7
+("owner tasks don't block code work").
 
-No later product feature after the current R7 Saved Agents scope is approved
-yet. If the owner wants to move on, the next step must be an explicit new
-approval or direction change.
+Separate, still-unconfirmed item (not part of R8): migration
+`supabase/migrations/0024_drop_legacy_knowledge.sql` is drafted but not
+applied to the real database. Requires the owner's explicit go-ahead in a
+future turn before running it.
 - keep any new implementation out of the research worktree
 
 ## Update Contract

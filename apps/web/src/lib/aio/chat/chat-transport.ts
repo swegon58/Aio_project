@@ -13,6 +13,7 @@ import { NextRequest } from "next/server";
 import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { readAioChatRequest } from "@/lib/aio/chat/chat-route-handler";
 import { orchestrateAioChatRun } from "@/lib/aio/chat/run-orchestrator";
+import { resolveTelemetry } from "@/lib/aio/telemetry/telemetry";
 import type { HermesUIMessage } from "@/lib/hermes/chat-types";
 
 /**
@@ -32,6 +33,7 @@ export async function handleChatRequest(req: NextRequest): Promise<Response> {
     mode,
     planMode,
     savedAgentId,
+    telemetry: resolveTelemetry(),
   });
 
   if (!result.ok) return result.response;

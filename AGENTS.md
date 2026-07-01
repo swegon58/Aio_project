@@ -19,15 +19,44 @@ approved, present the next decision gate; do not infer approval from "continue".
 ## Active Work
 
 - Primary worktree: `/home/swegon/AI_Agent/Aio_project`
-- Branch: `main`
-- R0 is closed on `main`
-- No later phase is approved yet
+- Canonical product branch: `main`
+- Active local operating branch: `feat/aio-team-os`
+- Aio Team OS is the active operating lane.
+- Current grilled Team OS progress is visible with:
+  `bash scripts/aio-team-os.sh progress`
+- Team OS health is checked with:
+  `bash scripts/aio-team-os.sh doctor`
+- No later product delivery phase is approved yet.
 - Main owner: implementation, integration, verification, Git
-- Historical secret-scan triage is closed for R0; never print detected secret
-  values or restore deleted `.mcp.json` files
+- Historical secret-scan triage is closed; never print detected secret values
+  or restore deleted `.mcp.json` files.
 
-Use the R0 checklist as historical closure evidence only. Do not begin R1 until
-the product owner approves it.
+Use phase checklists as historical closure evidence only unless the current
+state file says a task is active.
+
+## Aio Team OS
+
+When working with `Aio Team OS`, read:
+
+1. `.claude/agents/TEAM_SPEC.md`
+2. `.claude/agents/GRILL_PROGRESS.md`
+3. `.claude/agents/GRILL_DECISION_MAP.md`
+4. `.claude/agents/ROLE_EVIDENCE_LOG.md`
+5. `.claude/agents/OPERATING_PLAYBOOK.md`
+6. `.claude/agents/AIO_TEAM_OS_CHECKLIST.md`
+7. `.claude/agents/coordination/ACTIVE_CHUNK.md`
+8. `.claude/agents/coordination/HANDOFF_LOG.md`
+
+Useful commands:
+
+```bash
+bash scripts/aio-team-os.sh progress
+bash scripts/aio-team-os.sh status
+bash scripts/aio-team-os.sh doctor
+```
+
+Keep Team OS coordination files local-only. Push only repo-system files that
+are intended to be shared.
 
 ## Boundaries
 

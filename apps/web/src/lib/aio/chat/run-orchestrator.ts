@@ -42,6 +42,7 @@ import { HermesEventMapper } from "@/lib/aio/hermes/hermes-event-mapper";
 import { artifactUrlForRunPath } from "@/lib/aio/hermes/hermes-artifacts";
 import { parseHermesSseDataLine } from "@/lib/aio/hermes/hermes-stream";
 import { buildKnowledgeContext } from "@/lib/aio/knowledge/retrieve-context";
+import { createOpenRouterEmbeddingProvider } from "@/lib/aio/knowledge/embeddings";
 import { getSavedAgent } from "@/lib/aio/saved-agents/saved-agents";
 import { resolveOpenRouterKeyForProfile } from "@/lib/hermes/knowledge";
 import { scanAioInputMessages } from "@/lib/aio/security/input-scan";
@@ -259,7 +260,7 @@ export async function orchestrateAioChatRun(
   const openrouterApiKey = await resolveOpenRouterKeyForProfile(row.profile_name);
   const usageBefore = openrouterApiKey ? await fetchOpenRouterKeyUsage(openrouterApiKey) : null;
   const knowledgeContext = openrouterApiKey && useKnowledgeForRun
-    ? await buildKnowledgeContext(db, userId, openrouterApiKey, lastMessage)
+    ? await buildKnowledgeContext(db, userId, createOpenRouterEmbeddingProvider(openrouterApiKey), lastMessage)
     : null;
 
   // ---- create the durable Aio run row BEFORE the Hermes call (ADR-001 §1) ----

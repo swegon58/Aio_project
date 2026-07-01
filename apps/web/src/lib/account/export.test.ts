@@ -68,7 +68,6 @@ test("gatherAccountData tolerates a failing table and still resolves", async () 
 
 test("gatherAccountData strips raw embedding vectors from chunk tables", async () => {
   const tables = {
-    hermes_knowledge_chunks: { rows: [{ id: "k1", content: "hello", embedding: "[0.1,0.2]" }] },
     aio_knowledge_chunks: { rows: [{ id: "k2", content: "world", embedding: "[0.3]" }] },
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,8 +75,6 @@ test("gatherAccountData strips raw embedding vectors from chunk tables", async (
 
   const out = await gatherAccountData(db, "user-1");
 
-  assert.deepEqual(out.hermes_knowledge_chunks[0], { id: "k1", content: "hello" });
   assert.deepEqual(out.aio_knowledge_chunks[0], { id: "k2", content: "world" });
-  assert.equal("embedding" in out.hermes_knowledge_chunks[0], false);
   assert.equal("embedding" in out.aio_knowledge_chunks[0], false);
 });

@@ -64,15 +64,6 @@ interface CredentialStatus {
   masked: string | null;
 }
 
-interface KnowledgeFile {
-  id: string;
-  filename: string;
-  status: string;
-  chunkCount: number;
-  error: string | null;
-  createdAt: string;
-}
-
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
@@ -102,12 +93,6 @@ interface SettingsModalProps {
   credentialSubmitting: boolean;
   credentialMessage: string | null;
   onCredentialSubmit: (e: React.FormEvent) => void;
-
-  knowledgeFiles: KnowledgeFile[] | null;
-  knowledgeError: string | null;
-  knowledgeUploading: boolean;
-  onKnowledgeUploadClick: () => void;
-  onKnowledgeDelete: (id: string) => void;
 
   onExportData: () => void;
   exportLoading: boolean;
@@ -151,11 +136,6 @@ export function SettingsModal({
   credentialSubmitting,
   credentialMessage,
   onCredentialSubmit,
-  knowledgeFiles,
-  knowledgeError,
-  knowledgeUploading,
-  onKnowledgeUploadClick,
-  onKnowledgeDelete,
   onExportData,
   exportLoading,
   exportStatus,

@@ -3,7 +3,9 @@
 Updated: 2026-06-30
 Status: remaining owner-only actions to close the current R6/R7 delivery line
 
-This file is the shortest path to finishing the current delivery branch.
+R6 and R7 are already merged to `main`.
+
+This file is the shortest path to finishing the current merged R6/R7 line.
 Everything here requires an owner action, external account, legal decision,
 or remote environment access that the repo cannot perform by itself.
 
@@ -148,7 +150,7 @@ An agent can then:
 - update `docs/roadmap/R6_EXECUTION_CHECKLIST.md`
 - update `docs/roadmap/R7_EXECUTION_CHECKLIST.md`
 - update `AIO_PROJECT_STATE.md`
-- confirm the delivery branch is ready for merge evaluation
+- confirm the merged R6/R7 line is fully closed on `main`
 
 ## Not Required To Close This Line
 

@@ -1,17 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { embedOne } from "./embeddings";
+import type { EmbeddingProvider } from "./embeddings";
 
 export async function buildKnowledgeContext(
   db: SupabaseClient,
   userId: string,
-  openrouterApiKey: string,
+  embeddingProvider: EmbeddingProvider,
   lastMessage: { role: string; content: unknown } | undefined,
 ): Promise<string | null> {
   const queryText = typeof lastMessage?.content === "string" ? lastMessage.content : "";
   if (!queryText.trim()) return null;
 
   try {
-    const queryEmbedding = await embedOne(openrouterApiKey, queryText);
+    const queryEmbedding = await embeddingProvider.embedOne(queryText);
     const { data, error } = await db.rpc("match_knowledge_chunks", {
       p_customer_id: userId,
       p_query_embedding: queryEmbedding,

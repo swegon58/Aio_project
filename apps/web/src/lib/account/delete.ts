@@ -67,14 +67,13 @@ export async function deleteAccountAndData(
   const storageErrors: string[] = [];
 
   // 1. Gather Storage object paths BEFORE the auth user (and its cascaded rows) vanish.
-  const knowledgeFiles = await collectStoragePaths(db, "hermes_knowledge_files", "customer_id", userId);
   const knowledgeDocs = await collectStoragePaths(db, "aio_knowledge_docs", "user_id", userId);
   const galleryImages = await collectStoragePaths(db, "hermes_gallery_images", "customer_id", userId);
 
-  storageErrors.push(...knowledgeFiles.errors, ...knowledgeDocs.errors, ...galleryImages.errors);
+  storageErrors.push(...knowledgeDocs.errors, ...galleryImages.errors);
 
   // 2. Remove Storage objects (best-effort; failures are recorded, not fatal).
-  await removeObjects(db, KNOWLEDGE_BUCKET, [...knowledgeFiles.paths, ...knowledgeDocs.paths], storageErrors);
+  await removeObjects(db, KNOWLEDGE_BUCKET, knowledgeDocs.paths, storageErrors);
   await removeObjects(db, IMAGES_BUCKET, galleryImages.paths, storageErrors);
 
   // 3. Delete the auth user — cascades all user-owned DB tables.

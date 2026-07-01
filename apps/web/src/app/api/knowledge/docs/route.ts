@@ -9,6 +9,7 @@ import { NextRequest } from "next/server";
 import { resolveHermesRequestContext } from "@/lib/hermes/request-context";
 import { createServiceClient } from "@/lib/supabase/service";
 import { resolveOpenRouterKeyForProfile } from "@/lib/hermes/knowledge";
+import { createOpenRouterEmbeddingProvider } from "@/lib/aio/knowledge/embeddings";
 import {
   validateKnowledgeFile,
   chunkText,
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
     if (!chunks.length) throw new Error("Document contained no extractable text.");
 
     await setDocStatus(db, docId, userId, "embedding");
-    const result = await indexKnowledgeChunks(db, userId, docId, chunks, apiKey);
+    const result = await indexKnowledgeChunks(db, userId, docId, chunks, createOpenRouterEmbeddingProvider(apiKey));
     if (result.error) throw new Error(result.error);
 
     await setDocStatus(db, docId, userId, "ready", { chunkCount: result.chunkCount });

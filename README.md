@@ -159,6 +159,19 @@ npm run build
 npm run screenshot -- /app app-review
 ```
 
+Aio Team OS local operations:
+
+```bash
+scripts/aio-team-os.sh progress
+scripts/aio-team-os.sh status
+scripts/aio-team-os.sh doctor
+scripts/aio-team-os.sh start-chunk 2026-06-30_aio-team-os_example
+```
+
+Use `progress` for the shortest founder-facing view of the grilled Team OS
+plan. It currently reports declared and computed progress plus the remaining
+items.
+
 ## Model Supply
 
 Aio keeps upstream provider credentials server-side and exposes product
@@ -173,6 +186,9 @@ See [Aio Model Supply and Gateway Strategy](docs/research/2026-06-27_model_suppl
 - [Current project state](AIO_PROJECT_STATE.md)
 - [Master execution plan](AIO_MASTER_EXECUTION_PLAN.md)
 - [R0 closure checklist](docs/roadmap/R0_EXECUTION_CHECKLIST.md)
+- [R6 execution checklist](docs/roadmap/R6_EXECUTION_CHECKLIST.md)
+- [R7 execution checklist](docs/roadmap/R7_EXECUTION_CHECKLIST.md)
+- [Owner close-out checklist](docs/operations/OWNER_CLOSEOUT_CHECKLIST.md)
 - [R0 secret-scan remediation note](docs/operations/R0_SECRET_SCAN_REMEDIATION_2026-06-28.md)
 - [Runtime architecture](docs/architecture/aio_runtime_architecture.md)
 - [Run event protocol](docs/architecture/aio_run_event_protocol.md)

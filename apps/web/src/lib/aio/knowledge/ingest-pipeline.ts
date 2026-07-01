@@ -11,7 +11,7 @@
 // The original file is stored in Supabase Storage (user-scoped, not shared).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { embedTexts, EMBEDDING_DIMENSIONS } from "@/lib/aio/knowledge/embeddings";
+import type { EmbeddingProvider } from "@/lib/aio/knowledge/embeddings";
 export {
   validateKnowledgeFile,
   chunkText,
@@ -35,14 +35,14 @@ export async function indexKnowledgeChunks(
   userId: string,
   docId: string,
   chunks: string[],
-  openrouterApiKey: string,
+  embeddingProvider: EmbeddingProvider,
 ): Promise<IndexResult> {
   if (!chunks.length) return { chunkCount: 0 };
 
   // Embed all chunks in one batch call.
   let embeddings: number[][] = [];
   try {
-    embeddings = await embedTexts(openrouterApiKey, chunks);
+    embeddings = await embeddingProvider.embedTexts(chunks);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { chunkCount: 0, error: `embedding failed: ${msg}` };
@@ -53,9 +53,9 @@ export async function indexKnowledgeChunks(
   }
 
   // Validate embedding dimensions.
-  const badDim = embeddings.find((e) => e.length !== EMBEDDING_DIMENSIONS);
+  const badDim = embeddings.find((e) => e.length !== embeddingProvider.dimensions);
   if (badDim) {
-    return { chunkCount: 0, error: `unexpected embedding dimension: ${badDim.length} (expected ${EMBEDDING_DIMENSIONS})` };
+    return { chunkCount: 0, error: `unexpected embedding dimension: ${badDim.length} (expected ${embeddingProvider.dimensions})` };
   }
 
   // Batch insert — Supabase limits upserts to 1000 rows; chunk if needed.

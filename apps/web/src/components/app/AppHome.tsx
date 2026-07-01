@@ -703,15 +703,6 @@ interface CredentialStatus {
   masked: string | null;
 }
 
-interface KnowledgeFile {
-  id: string;
-  filename: string;
-  status: string;
-  chunkCount: number;
-  error: string | null;
-  createdAt: string;
-}
-
 type KanbanStatus = "todo" | "ready" | "running" | "scheduled" | "blocked" | "done" | "archived";
 
 interface KanbanTask {
@@ -1010,10 +1001,6 @@ export function AppHome({ email }: AppHomeProps) {
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [renamingConversationId, setRenamingConversationId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-  const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[] | null>(null);
-  const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
-  const [knowledgeUploading, setKnowledgeUploading] = useState(false);
-  const knowledgeFileInputRef = useRef<HTMLInputElement>(null);
   const [exportLoading, setExportLoading] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -1790,61 +1777,6 @@ export function AppHome({ email }: AppHomeProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen]);
-
-  const loadKnowledgeFiles = async () => {
-    setKnowledgeError(null);
-    try {
-      const res = await fetch("/api/knowledge");
-      if (!res.ok) throw new Error(`status ${res.status}`);
-      const data = await res.json();
-      setKnowledgeFiles(data.files);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setKnowledgeError(msg);
-    }
-  };
-
-  useEffect(() => {
-    if (settingsOpen && knowledgeFiles === null) {
-      loadKnowledgeFiles();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settingsOpen]);
-
-  const handleKnowledgeFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setKnowledgeUploading(true);
-    setKnowledgeError(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/knowledge", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message ?? `status ${res.status}`);
-      await loadKnowledgeFiles();
-      logMeta(`Uploaded knowledge file "${file.name}"`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setKnowledgeError(msg);
-    } finally {
-      setKnowledgeUploading(false);
-    }
-  };
-
-  const handleKnowledgeDelete = async (id: string) => {
-    setKnowledgeFiles((prev) => prev?.filter((f) => f.id !== id) ?? prev);
-    try {
-      const res = await fetch(`/api/knowledge?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`status ${res.status}`);
-      logMeta("Deleted a knowledge file");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setKnowledgeError(msg);
-      await loadKnowledgeFiles();
-    }
-  };
 
   const handleExportData = async () => {
     setExportLoading(true);
@@ -4075,11 +4007,6 @@ export function AppHome({ email }: AppHomeProps) {
         credentialSubmitting={credentialSubmitting}
         credentialMessage={credentialMessage}
         onCredentialSubmit={handleCredentialSubmit}
-        knowledgeFiles={knowledgeFiles}
-        knowledgeError={knowledgeError}
-        knowledgeUploading={knowledgeUploading}
-        onKnowledgeUploadClick={() => knowledgeFileInputRef.current?.click()}
-        onKnowledgeDelete={handleKnowledgeDelete}
         onExportData={handleExportData}
         exportLoading={exportLoading}
         exportStatus={exportStatus}
@@ -4087,13 +4014,6 @@ export function AppHome({ email }: AppHomeProps) {
         deleteLoading={deleteLoading}
         deleteStatus={deleteStatus}
         currentPlanTier={creditUsage?.planTier ?? null}
-      />
-      <input
-        ref={knowledgeFileInputRef}
-        type="file"
-        accept=".txt,.md,.markdown,.csv,text/plain,text/markdown,text/csv"
-        style={{ display: "none" }}
-        onChange={handleKnowledgeFileSelected}
       />
     </div>
   );

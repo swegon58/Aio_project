@@ -25,6 +25,7 @@ import {
   updateScheduleAfterOccurrence,
   type AioScheduleRow,
 } from "@/lib/aio/schedules/schedule-repository";
+import { resolveTelemetry } from "@/lib/aio/telemetry/telemetry";
 import { resolveHermesBackgroundContext } from "@/lib/hermes/background-context";
 import { serviceDb } from "@/lib/hermes/registry";
 
@@ -546,6 +547,7 @@ export function createScheduleRuntime(overrides: Partial<ScheduleRuntimeDeps> = 
         mode: "auto",
         planMode: false,
         contextOverride: runtimeContext,
+        telemetry: resolveTelemetry(),
       });
 
       if (!result.ok) {

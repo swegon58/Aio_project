@@ -57,7 +57,7 @@ function makeDb(opts: DbOptions = {}) {
 
 test("deleteAccountAndData removes Storage objects before deleting the user and returns ok", async () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = makeDb({ paths: { hermes_knowledge_files: ["u/abc.md"], hermes_gallery_images: ["u/img.png"] } }) as any;
+  const db = makeDb({ paths: { aio_knowledge_docs: ["u/abc.md"], hermes_gallery_images: ["u/img.png"] } }) as any;
 
   const result = await deleteAccountAndData(db, "user-1");
 
@@ -73,7 +73,7 @@ test("deleteAccountAndData removes Storage objects before deleting the user and 
 
 test("deleteAccountAndData does not abort deletion when Storage cleanup fails", async () => {
   const opts = {
-    paths: { hermes_knowledge_files: ["u/abc.md"] },
+    paths: { aio_knowledge_docs: ["u/abc.md"] },
     storageError: { "aio-knowledge": { message: "transient" } },
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

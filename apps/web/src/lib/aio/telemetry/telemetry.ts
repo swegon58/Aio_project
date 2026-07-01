@@ -4,8 +4,12 @@
 // The concrete implementation is injected at the edge (route handlers) and
 // defaults to a no-op so local dev works without any configuration.
 //
-// ADR-002: zero config → no-op; OTEL_DEBUG=true → console exporter.
-// No provider SDK import at this level.
+// ADR-002: zero config → no-op; OTEL_DEBUG=true → console exporter;
+// LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY → real span export via the
+// standard @opentelemetry/api (otel-telemetry.ts) — no vendor-specific SDK
+// import here; the vendor (Langfuse) is wired only in instrumentation.ts.
+
+import { OTEL_TELEMETRY } from "@/lib/aio/telemetry/otel-telemetry";
 
 export interface AioSpanAttrs {
   [key: string]: string | number | boolean | undefined;
@@ -57,7 +61,7 @@ const NO_OP_TRACER: AioTracer = {
   withSpan: async (_name, fn) => fn(NO_OP_SPAN),
 };
 
-const NO_OP_METRICS: AioMetrics = {
+export const NO_OP_METRICS: AioMetrics = {
   histogram: () => {},
   increment: () => {},
 };
@@ -127,6 +131,7 @@ export const DEBUG_TELEMETRY: AioTelemetry = {
 
 /** Pick the right implementation based on environment variables. */
 export function resolveTelemetry(): AioTelemetry {
+  if (process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY) return OTEL_TELEMETRY;
   if (process.env.OTEL_DEBUG === "true") return DEBUG_TELEMETRY;
   return NO_OP_TELEMETRY;
 }
