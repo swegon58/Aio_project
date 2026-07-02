@@ -17,6 +17,9 @@ interface ScheduledTasksModalProps {
   onScheduleChange: (value: string) => void;
   prompt: string;
   onPromptChange: (value: string) => void;
+  notifyDiscord: boolean;
+  onNotifyDiscordChange: (value: boolean) => void;
+  discordConnected: boolean;
   creating: boolean;
   createMessage: string | null;
   onCreate: (e: React.FormEvent) => void;
@@ -38,6 +41,9 @@ export function ScheduledTasksModal({
   onScheduleChange,
   prompt,
   onPromptChange,
+  notifyDiscord,
+  onNotifyDiscordChange,
+  discordConnected,
   creating,
   createMessage,
   onCreate,
@@ -170,6 +176,16 @@ export function ScheduledTasksModal({
                 className="message-input"
                 style={{ height: 72, resize: "vertical", paddingTop: 8 }}
               />
+              {discordConnected && (
+                <label className="flex items-center gap-2 text-[12px] text-[var(--text-muted)]">
+                  <input
+                    type="checkbox"
+                    checked={notifyDiscord}
+                    onChange={(e) => onNotifyDiscordChange(e.target.checked)}
+                  />
+                  Notify me on Discord when this completes
+                </label>
+              )}
               {createMessage && <div className="text-[12px] text-red-400">{createMessage}</div>}
               <button
                 type="submit"

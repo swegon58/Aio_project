@@ -7,6 +7,7 @@ import { useChat } from "@ai-sdk/react";
 import {
   ArrowRight,
   BarChart3,
+  Bell,
   Bot,
   Brain,
   Check,
@@ -64,6 +65,7 @@ import {
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
 import { ScheduledTasksModal } from "@/components/app/ScheduledTasksModal";
+import { NotificationsPanel } from "@/components/app/NotificationsPanel";
 import { OnboardingOverlay } from "@/components/app/OnboardingOverlay";
 import { brand } from "@/lib/brand.config";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
@@ -676,6 +678,15 @@ interface GalleryImage {
   url: string | null;
 }
 
+export interface AioNotification {
+  id: string;
+  source: "scheduled_task" | "research_run";
+  title: string;
+  body: string | null;
+  read: boolean;
+  created_at: string;
+}
+
 type ImageAspectRatio = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
 type ImageResolution = "1K" | "2K" | "4K";
 type ImageGenerationStatus = "preparing" | "generating" | "saving";
@@ -780,6 +791,7 @@ const TODAY_CARDS: TodayCard[] = [
 const ICON_RAIL_ITEMS = [
   { key: "home", label: "Home", icon: Home, active: true, disabled: false },
   { key: "scheduled", label: "Scheduled", icon: Clock, active: false, disabled: false },
+  { key: "notifications", label: "Notifications", icon: Bell, active: false, disabled: false },
   { key: "agents", label: "Agents", icon: Users, active: false, disabled: true },
   { key: "tasks", label: "Tasks", icon: ListChecks, active: false, disabled: true },
   { key: "knowledge", label: "Knowledge", icon: Brain, active: false, disabled: true },
@@ -965,6 +977,10 @@ export function AppHome({ email }: AppHomeProps) {
   const [cronError, setCronError] = useState<string | null>(null);
   const [cronLocked, setCronLocked] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AioNotification[] | null>(null);
+  const [notificationsUnread, setNotificationsUnread] = useState(0);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
 
   const handleUpgradeToBusiness = async () => {
     setUpgrading(true);
@@ -986,6 +1002,7 @@ export function AppHome({ email }: AppHomeProps) {
   const [cronName, setCronName] = useState("");
   const [cronSchedule, setCronSchedule] = useState("");
   const [cronPrompt, setCronPrompt] = useState("");
+  const [cronNotifyDiscord, setCronNotifyDiscord] = useState(false);
   const [cronCreating, setCronCreating] = useState(false);
   const [cronCreateMessage, setCronCreateMessage] = useState<string | null>(null);
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
@@ -1505,6 +1522,9 @@ export function AppHome({ email }: AppHomeProps) {
     if (key === "scheduled") {
       setScheduledTasksOpen(true);
     }
+    if (key === "notifications") {
+      setNotificationsOpen(true);
+    }
   };
 
   const loadConnections = async () => {
@@ -1524,11 +1544,11 @@ export function AppHome({ email }: AppHomeProps) {
   };
 
   useEffect(() => {
-    if (settingsOpen && connections === null) {
+    if ((settingsOpen || scheduledTasksOpen) && connections === null) {
       loadConnections();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settingsOpen]);
+  }, [settingsOpen, scheduledTasksOpen]);
 
   const loadConversations = async () => {
     setConversationsError(null);
@@ -1973,6 +1993,56 @@ export function AppHome({ email }: AppHomeProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filesSubTab]);
 
+  const loadNotifications = async () => {
+    setNotificationsError(null);
+    try {
+      const res = await fetch("/api/notifications");
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = await res.json();
+      setNotifications(data.notifications ?? []);
+      setNotificationsUnread(data.unreadCount ?? 0);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setNotificationsError(msg);
+    }
+  };
+
+  const handleNotificationRead = async (id: string) => {
+    setNotifications((prev) =>
+      prev?.map((n) => (n.id === id ? { ...n, read: true } : n)) ?? prev,
+    );
+    setNotificationsUnread((prev) => Math.max(0, prev - 1));
+    try {
+      await fetch(`/api/notifications/${encodeURIComponent(id)}`, { method: "POST" });
+    } catch {
+      // best-effort — local state already reflects the read
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    setNotifications((prev) => prev?.map((n) => ({ ...n, read: true })) ?? prev);
+    setNotificationsUnread(0);
+    try {
+      await fetch("/api/notifications?action=mark-all-read", { method: "POST" });
+    } catch {
+      // best-effort — local state already reflects the read
+    }
+  };
+
+  // Unread badge on the icon rail should be populated without opening the panel.
+  useEffect(() => {
+    fetch("/api/notifications?limit=1")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { unreadCount: number } | null) => {
+        if (data) setNotificationsUnread(data.unreadCount);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (notificationsOpen) loadNotifications();
+  }, [notificationsOpen]);
+
   const loadCronJobs = async () => {
     setCronError(null);
     setCronLocked(false);
@@ -2051,6 +2121,7 @@ export function AppHome({ email }: AppHomeProps) {
           name: cronName.trim(),
           schedule: cronSchedule.trim(),
           prompt: cronPrompt.trim(),
+          notifyDiscord: cronNotifyDiscord,
         }),
       });
       const data = await res.json();
@@ -2060,6 +2131,7 @@ export function AppHome({ email }: AppHomeProps) {
         setCronName("");
         setCronSchedule("");
         setCronPrompt("");
+        setCronNotifyDiscord(false);
         await loadCronJobs();
       }
     } catch (err) {
@@ -2704,6 +2776,11 @@ export function AppHome({ email }: AppHomeProps) {
                   title={disabled ? "Coming soon" : undefined}
                 >
                   <Icon className="w-6 h-6" />
+                  {key === "notifications" && notificationsUnread > 0 && (
+                    <span className="icon-rail-badge">
+                      {notificationsUnread > 9 ? "9+" : notificationsUnread}
+                    </span>
+                  )}
                   <span className="icon-rail-label">{label}{disabled ? " (coming soon)" : ""}</span>
                 </button>
               ))}
@@ -4165,11 +4242,24 @@ export function AppHome({ email }: AppHomeProps) {
         onScheduleChange={setCronSchedule}
         prompt={cronPrompt}
         onPromptChange={setCronPrompt}
+        notifyDiscord={cronNotifyDiscord}
+        onNotifyDiscordChange={setCronNotifyDiscord}
+        discordConnected={connections?.some((c) => c.id === "discord" && c.connected) ?? false}
         creating={cronCreating}
         createMessage={cronCreateMessage}
         onCreate={handleCronCreate}
         onDelete={handleCronDelete}
         onAction={handleCronAction}
+      />
+
+      <NotificationsPanel
+        open={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        notifications={notifications}
+        unreadCount={notificationsUnread}
+        error={notificationsError}
+        onRead={handleNotificationRead}
+        onMarkAllRead={handleMarkAllNotificationsRead}
       />
     </div>
   );

@@ -57,6 +57,7 @@ export async function POST(req: Request) {
   const name = typeof payload?.name === "string" ? payload.name.trim() : "";
   const schedule = typeof payload?.schedule === "string" ? payload.schedule.trim() : "";
   const prompt = typeof payload?.prompt === "string" ? payload.prompt.trim() : "";
+  const notifyDiscord = payload?.notifyDiscord === true;
 
   if (!name) {
     return Response.json(
@@ -79,6 +80,7 @@ export async function POST(req: Request) {
     taskPayload: {
       prompt,
     },
+    notifyDiscord,
   });
   if (!result.ok) return scheduleRepoErrorResponse(result);
 

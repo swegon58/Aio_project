@@ -699,6 +699,27 @@ export async function orchestrateAioChatRun(
         console.error(`run closure threw for ${runIdForDurable}:`, err);
       }
 
+      // R10.2: proactive in-app notification for a finished research run.
+      // Best-effort — a notification failure must not mask the run outcome.
+      if (mode === "research") {
+        try {
+          const firstUserText = messages[0]?.parts?.find(
+            (p): p is { type: "text"; text: string } => p.type === "text",
+          )?.text;
+          const topic = firstUserText ? firstUserText.slice(0, 60) : "your research";
+          const { createNotification } = await import("@/lib/aio/notifications/notification-repository");
+          await createNotification(db, {
+            customerId: userId,
+            source: "research_run",
+            title: succeeded && !budgetExceeded
+              ? `Research complete: ${topic}`
+              : `Research failed: ${topic}`,
+          });
+        } catch (err) {
+          console.error(`research_run notification insert threw for ${runIdForDurable}:`, err);
+        }
+      }
+
       // New-chat/history persistence — independent of billing/DEV_BYPASS,
       // since chat history must work in dev mode too.
       await persistConversation(
