@@ -4,7 +4,7 @@
 **Canonical branch:** `main`  
 **Current main status:** run `scripts/aio-context.sh` for the exact live HEAD
 **Most recent verified CI before this state update:** GitHub Actions run `28318122604`, all jobs passed
-**Updated:** 2026-06-30
+**Updated:** 2026-07-02
 
 This is the first file an agent reads to learn current location and progress.
 It is a status index, not a replacement for the master plan or phase checklist.
@@ -66,8 +66,39 @@ It is a status index, not a replacement for the master plan or phase checklist.
   legal review, alert transport, backup restore drill) — single list at
   `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`.
 - No further R7 feature is scoped yet on `main`.
-- R8 (Beta-Readiness Hardening) is approved and queued, not yet started —
-  see "Next Decision Gate" below and `docs/roadmap/R8_EXECUTION_CHECKLIST.md`.
+- R8 (Beta-Readiness Hardening) is complete: R8.1-R8.4 implemented and
+  verified (249/249 unit tests, typecheck/eslint clean). R8.5's finding
+  (all customers shared one Aio-owned OpenRouter/Daytona provider key) was
+  decided and wired same-day (2026-07-01): owner chose per-customer,
+  Aio-provisioned OpenRouter keys with a hard monthly spend ceiling.
+  `writeProfileEnv` (`apps/web/src/lib/hermes/provision.ts`) now calls
+  `provisionOpenRouterKey` + `storeOpenRouterKeyInVault` when
+  `OPENROUTER_PROVISIONING_KEY` is set (falls back to the old shared-key
+  behavior when unset); new migration `0025_openrouter_key_hash.sql`
+  (drafted, not applied). Daytona key remains shared (out of scope this
+  round). Verified: typecheck/eslint clean, 249/249 tests. Remaining steps
+  are owner-only (create the Management/Provisioning key, paste into
+  `.env.local`, push migration 0025) — see
+  `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md` "R8.5 Finding" and
+  `docs/roadmap/R8_EXECUTION_CHECKLIST.md`.
+- R9 (Deep Research Polish, owner-selected option B from the prior Next
+  Decision Gate, 2026-07-01) is complete: R9.0-R9.3 all `[x]` — see
+  `docs/roadmap/R9_EXECUTION_CHECKLIST.md`. Wired the previously-orphaned
+  durable research pipeline (`research-stages.ts`) into the live
+  orchestrator with a 7-stage progress state machine and real source
+  persistence (R9.0); added application-level source dedupe with unit
+  coverage (R9.1); added Markdown/PDF report export buttons (R9.2); added
+  a per-message sources panel backed by a new `GET /api/runs/[runId]/sources`
+  route (R9.3). Verified: typecheck/eslint clean, 258/258 unit tests, and
+  a new Playwright e2e spec (`apps/web/e2e/research-export.spec.ts`) that
+  drives a full research-mode chat turn through the real `/app` UI and
+  exercises the export buttons and sources panel end-to-end (kept as
+  permanent regression coverage — the Claude Chrome extension remains
+  disconnected in this environment, so this is the live-verification
+  substitute, same pattern as R8.2). Deliberately out of scope: claim-level
+  citation linking and a DB-level dedupe uniqueness constraint (see
+  `docs/roadmap/R9_EXECUTION_CHECKLIST.md` "Status"). No further phase is
+  approved yet — see "Next Decision Gate" below.
 - Product-owner branch policy override: keep R5, R6, and R7 on the same
   delivery branch unless the owner explicitly asks to split again.
 - Historical secret-scan triage is closed for Aio R0.
@@ -120,22 +151,30 @@ When the product owner says "continue building Aio":
 
 ## Next Decision Gate
 
-R8 — Beta-Readiness Hardening — is approved and queued. See
-`docs/roadmap/R8_EXECUTION_CHECKLIST.md` for the exact task order and
-`.claude/grill-logs/grill-log-next-build-observability-provider-adapter-2026-07-01.md`
-Round 4 (Câu 14-19) for the decision record. Trigger phrase from the owner:
-"build Aio tiếp" (same as "continue building Aio") — start at R8.1 with no
-further clarification needed, unless the owner redirects.
+R8 (Beta-Readiness Hardening) and R9 (Deep Research Polish) are both
+complete — see `docs/roadmap/R8_EXECUTION_CHECKLIST.md` and
+`docs/roadmap/R9_EXECUTION_CHECKLIST.md`. The R8.5 per-customer-key model
+decision is resolved and implemented (OpenRouter; see "Current Status"
+above) — its remaining steps are owner-only env/migration actions, not an
+open engineering decision. No further phase is approved yet. Candidates for
+the next round, none pre-approved:
 
-Order: R8.1 error/not-found pages -> R8.2 Scheduled Tasks panel UI ->
-R8.3 nav rail disabled states -> R8.4 route-level tests for high-risk
-handlers (billing, Paddle webhook, account export/delete, cron) -> R8.5
-per-customer secret isolation (Vault) research + scope.
+- A. Work through the owner-only R6/R7/R8.5 close-out list (migrations
+  0020-0023 push, manual product checks, Paddle sandbox, legal review,
+  alert transport, backup restore drill, plus the 3 R8.5 activation steps) —
+  `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`.
+- B. Claim-level citations for Deep Research (deliberately deferred from
+  R9): wire `recordResearchClaim` with a new LLM-driven claim-extraction
+  step so citations link at the claim level, not just the source-list
+  level — needs its own scoping pass.
+- C. Extend per-customer key isolation to Daytona (same pattern as
+  OpenRouter, not yet requested/scoped) or wire `updateOpenRouterKeyLimit`
+  into the billing webhook for tier-change spend-ceiling sync.
 
 The owner-side close-out checklist
 (`docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`) runs in parallel and does
-not block R8 — same standing sequencing preference used since R6/R7
-("owner tasks don't block code work").
+not block engineering work — same standing sequencing preference used
+since R6/R7 ("owner tasks don't block code work").
 
 Separate, still-unconfirmed item (not part of R8): migration
 `supabase/migrations/0024_drop_legacy_knowledge.sql` is drafted but not

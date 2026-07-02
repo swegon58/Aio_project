@@ -36,6 +36,11 @@ import { buildRuntimeMessages } from "@/lib/aio/chat/chat-route-handler";
 import { persistConversation } from "@/lib/aio/chat/conversation-persistence";
 import { buildPlanInstructions, GUARDRAIL_SYSTEM_PROMPT } from "@/lib/aio/chat/plan-mode";
 import { buildResearchInstructions, isWebResearchTool } from "@/lib/aio/chat/research-mode";
+import {
+  buildResearchStageEvent,
+  recordResearchSource,
+  updateResearchProgress,
+} from "@/lib/aio/research/research-stages";
 import { writeCreditSnapshot } from "@/lib/aio/chat/stream-writer";
 import { startHermesRun, openHermesRunEvents } from "@/lib/aio/hermes/hermes-client";
 import { HermesEventMapper } from "@/lib/aio/hermes/hermes-event-mapper";
@@ -59,7 +64,7 @@ import {
 import { appendEvent } from "@/lib/aio/runs/run-event-repository";
 import { recordToolCallEvent } from "@/lib/aio/tools/tool-call-writer";
 import { recordApprovalEvent } from "@/lib/aio/tools/approval-writer";
-import type { AioRunEvent } from "@/lib/aio/runs/aio-run-events";
+import type { AioRunEvent, ResearchStage } from "@/lib/aio/runs/aio-run-events";
 import type { AioRunEventEnvelopeSource } from "@/lib/aio/runs/aio-run-event-schema";
 import { type AioTelemetry, NO_OP_TELEMETRY } from "@/lib/aio/telemetry/telemetry";
 import { SPANS, METRICS, runAttrs } from "@/lib/aio/telemetry/span-builder";
@@ -143,6 +148,22 @@ function eventOccurredAt(event: AioRunEvent): string | number {
 
 function eventForDurableRun(event: AioRunEvent, durableRunId: string): AioRunEvent {
   return { ...event, runId: durableRunId };
+}
+
+const RESULT_URL_PATTERN = /https?:\/\/[^\s)"'<>]+/g;
+
+// Best-effort source extraction from a tool's human-readable result preview —
+// there is no structured URL field on tool.completed (R9.0). Capped so one
+// noisy preview can't flood aio_research_sources with unrelated links.
+export function extractResultUrls(resultPreview: string | undefined): string[] {
+  if (!resultPreview) return [];
+  const urls: string[] = [];
+  for (const match of resultPreview.matchAll(RESULT_URL_PATTERN)) {
+    const url = match[0].replace(/[.,;:]+$/, "");
+    if (!urls.includes(url)) urls.push(url);
+    if (urls.length >= 5) break;
+  }
+  return urls;
 }
 
 /**
@@ -468,6 +489,40 @@ export async function orchestrateAioChatRun(
     const assistantShowcases: HermesShowcaseData[] = [];
     const researchToolCallIds = new Set<string>();
     const researchSearchCallIds = new Set<string>();
+    const researchSourceIds = new Map<string, string>();
+    const RESEARCH_STAGE_ORDER: ResearchStage[] = [
+      "understand",
+      "plan",
+      "discover",
+      "inspect",
+      "synthesize",
+      "verify",
+      "report",
+    ];
+    let researchStage: ResearchStage | null = null;
+
+    // R9.0 — best-effort heuristic stage progression. Hermes has no native
+    // "research stage" concept, so stages are inferred from the same tool /
+    // message signals the shipped 4-step ResearchProgressCard heuristic
+    // already uses, just partitioned into 7 buckets. Monotonic: never
+    // regresses, and only fires for research-mode runs.
+    const advanceResearchStage = async (stage: ResearchStage) => {
+      if (mode !== "research") return;
+      const nextIdx = RESEARCH_STAGE_ORDER.indexOf(stage);
+      const currentIdx = researchStage ? RESEARCH_STAGE_ORDER.indexOf(researchStage) : -1;
+      if (nextIdx <= currentIdx) return;
+      researchStage = stage;
+      const stageEvent = buildResearchStageEvent(runIdForLegacy, stage, {
+        sourceCount: researchSourceIds.size,
+      });
+      await persistEvent(stageEvent, "aio");
+      writeAioRunEventToLegacyStream(writer, stageEvent);
+      await updateResearchProgress(db, runIdForDurable, userId, {
+        stageCompleted: nextIdx + 1,
+        searchCount: researchSearchCallIds.size,
+      });
+    };
+    if (mode === "research") await advanceResearchStage("understand");
 
     // Item 2b: mid-stream budget cutoff.
     const budgetCreditLimit = Math.min(caps.creditBudget, creditCheck.estimate) * BUDGET_EXCEEDED_MARGIN;
@@ -506,8 +561,28 @@ export async function orchestrateAioChatRun(
 
             if (mode === "research" && aioEvent.type === "tool.started") {
               researchToolCallIds.add(aioEvent.toolCallId);
+              await advanceResearchStage("plan");
               if (isWebResearchTool(aioEvent.toolName)) {
                 researchSearchCallIds.add(aioEvent.toolCallId);
+                await advanceResearchStage("discover");
+              }
+            }
+
+            if (mode === "research" && aioEvent.type === "tool.completed") {
+              await advanceResearchStage("inspect");
+              if (!aioEvent.error) {
+                for (const url of extractResultUrls(aioEvent.resultPreview)) {
+                  if (researchSourceIds.has(url)) continue;
+                  const sourceId = await recordResearchSource(db, runIdForDurable, userId, {
+                    url,
+                    sourceType: "web",
+                    fetchedAt: new Date().toISOString(),
+                  });
+                  researchSourceIds.set(url, sourceId ?? url);
+                }
+              }
+              if (researchSourceIds.size > 0) {
+                await advanceResearchStage("synthesize");
               }
             }
 
@@ -516,6 +591,7 @@ export async function orchestrateAioChatRun(
               if (!textStarted) {
                 writer.write({ type: "text-start", id: textPartId });
                 textStarted = true;
+                if (mode === "research") await advanceResearchStage("verify");
               }
               // Runtime sends multi-word bursts; re-chunk into small pieces
               // with a short delay so the UI renders a smooth, slowed-down
@@ -574,6 +650,9 @@ export async function orchestrateAioChatRun(
           type: "error",
           errorText: "Budget exceeded for this task. Reply to continue or start a new task.",
         });
+      }
+      if (mode === "research" && succeeded && !budgetExceeded) {
+        await advanceResearchStage("report");
       }
 
       // Item 3 settlement (success path) / Q29 refund (failure/abort path).
@@ -636,6 +715,7 @@ export async function orchestrateAioChatRun(
               status: succeeded && !budgetExceeded ? "completed" : "interrupted",
               searchCount: researchSearchCallIds.size,
               toolCount: researchToolCallIds.size,
+              runId: runIdForDurable,
             }
           : undefined,
       );

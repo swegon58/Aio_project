@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 import { createClient } from "@/lib/supabase/server";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { LogoIcon } from "@/components/icons";

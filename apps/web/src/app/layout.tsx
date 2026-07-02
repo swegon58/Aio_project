@@ -12,6 +12,12 @@ const libreBaskerville = localFont({
   display: "swap",
 });
 
+const callingCode = localFont({
+  src: [{ path: "./fonts/CallingCode-Regular.ttf", weight: "400", style: "normal" }],
+  variable: "--font-code",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: brand.name,
   description: brand.description,
@@ -30,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${libreBaskerville.variable} h-full antialiased`}>
+    <html lang="en" className={`${libreBaskerville.variable} ${callingCode.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

@@ -4,6 +4,7 @@ export interface AioResearchSummary {
   status: "completed" | "interrupted";
   searchCount: number;
   toolCount: number;
+  runId?: string;
 }
 
 export function normalizeAioChatMode(value: unknown, legacyPlanMode = false): AioChatMode {

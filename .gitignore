@@ -9,6 +9,7 @@ apps/web/.env.local
 
 # root tooling (no root package.json — this should never reappear, but guard anyway)
 /node_modules/
+/.next/
 
 # generated tool caches — never commit
 .playwright-mcp/

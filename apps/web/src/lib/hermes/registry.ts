@@ -16,6 +16,7 @@ export interface HermesRegistryRow {
   status: HermesRegistryStatus;
   api_server_key_ref: string | null;
   openrouter_key_ref: string | null;
+  openrouter_key_hash: string | null;
   commit_pin: string | null;
   pid: number | null;
   last_active_at: string;
@@ -97,6 +98,7 @@ export async function updateRegistryRow(
       | "status"
       | "api_server_key_ref"
       | "openrouter_key_ref"
+      | "openrouter_key_hash"
       | "commit_pin"
       | "pid"
       | "last_active_at"

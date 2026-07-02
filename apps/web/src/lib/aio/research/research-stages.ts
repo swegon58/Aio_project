@@ -102,6 +102,43 @@ export async function recordResearchClaim(
   }
 }
 
+export interface ResearchSourceRow {
+  id: string;
+  url: string;
+  title: string | null;
+  sourceType: "web" | "knowledge_doc" | "provided";
+  relevanceScore: number | null;
+  fetchedAt: string | null;
+  createdAt: string;
+}
+
+/** List sources recorded for a run, in fetch/citation order. Scoped by user_id (tenant isolation). */
+export async function listResearchSources(
+  db: SupabaseClient,
+  runId: string,
+  userId: string,
+): Promise<ResearchSourceRow[]> {
+  const { data, error } = await db
+    .from("aio_research_sources")
+    .select("id, url, title, source_type, relevance_score, fetched_at, created_at")
+    .eq("run_id", runId)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error(`listResearchSources(${runId}):`, error.message);
+    return [];
+  }
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    url: row.url,
+    title: row.title,
+    sourceType: row.source_type,
+    relevanceScore: row.relevance_score,
+    fetchedAt: row.fetched_at,
+    createdAt: row.created_at,
+  }));
+}
+
 /** Update aio_runs.metadata with the latest research progress fields. Best-effort. */
 export async function updateResearchProgress(
   db: SupabaseClient,

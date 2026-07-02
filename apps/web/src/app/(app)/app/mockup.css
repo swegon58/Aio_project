@@ -298,6 +298,8 @@
 
 .icon-rail-item:hover { background: color-mix(in srgb, var(--bg-hover) 32%, transparent); color: var(--text-primary); }
 .icon-rail-item.active { color: var(--accent-secondary); }
+.icon-rail-item:disabled { opacity: 0.4; cursor: not-allowed; }
+.icon-rail-item:disabled:hover { background: none; color: var(--text-muted); }
 
 .icon-rail-label {
   opacity: 0;
@@ -334,6 +336,8 @@
   background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
   color: var(--accent-secondary);
 }
+.icon-rail-item--compact:disabled { opacity: 0.4; cursor: not-allowed; }
+.icon-rail-item--compact:disabled:hover { background: none; }
 
 .icon-rail-item--compact .icon-rail-label {
   min-width: 132px;
@@ -1158,6 +1162,24 @@
 
 .message:hover .copy-btn { opacity: 1; transform: scale(1); }
 .copy-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* R9.3: per-message research sources disclosure */
+.research-sources-panel {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+
+.research-sources-status { font-size: 13px; color: var(--text-muted); margin: 0; }
+
+.research-sources-list { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
+
+.research-source-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.research-source-item a { color: var(--text-primary); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.research-source-item a:hover { text-decoration: underline; }
+.research-source-type { flex-shrink: 0; font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
 
 /* Mascot status badge (inside AI bubble while active) */
 .bubble-status {

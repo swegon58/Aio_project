@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import Image from "next/image";
 import { useChat } from "@ai-sdk/react";
 import {
@@ -25,6 +26,7 @@ import {
   HelpCircle,
   Home,
   ImageIcon,
+  Link2,
   ListChecks,
   ListTree,
   Loader2,
@@ -38,6 +40,7 @@ import {
   PenLine,
   Play,
   Plus,
+  Printer,
   Send,
   SkipForward,
   TerminalSquare,
@@ -60,6 +63,7 @@ import {
 } from "@/components/app/GeneratedImageCard";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
+import { ScheduledTasksModal } from "@/components/app/ScheduledTasksModal";
 import { OnboardingOverlay } from "@/components/app/OnboardingOverlay";
 import { brand } from "@/lib/brand.config";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
@@ -67,9 +71,11 @@ import {
   fetchConversationRuns,
   fetchRun,
   fetchRunEvents,
+  fetchRunSources,
   isRunTerminal,
   isRunStoppable,
   requestRunStop,
+  type AioPublicResearchSource,
 } from "@/lib/aio/runs/run-client";
 import {
   mascotStateForTool,
@@ -652,7 +658,7 @@ function LiveAppPreview() {
   );
 }
 
-interface CronJob {
+export interface CronJob {
   id: string;
   name: string;
   schedule: string;
@@ -771,15 +777,14 @@ const TODAY_CARDS: TodayCard[] = [
   },
 ];
 
-// ponytail: nav targets beyond Home are placeholders, no routes yet — boss said he'll wire them up later
 const ICON_RAIL_ITEMS = [
-  { key: "home", label: "Home", icon: Home, active: true },
-  { key: "scheduled", label: "Scheduled", icon: Clock, active: false },
-  { key: "agents", label: "Agents", icon: Users, active: false },
-  { key: "tasks", label: "Tasks", icon: ListChecks, active: false },
-  { key: "knowledge", label: "Knowledge", icon: Brain, active: false },
-  { key: "analytics", label: "Analytics", icon: BarChart3, active: false },
-  { key: "settings", label: "Settings", icon: Cog, active: false },
+  { key: "home", label: "Home", icon: Home, active: true, disabled: false },
+  { key: "scheduled", label: "Scheduled", icon: Clock, active: false, disabled: false },
+  { key: "agents", label: "Agents", icon: Users, active: false, disabled: true },
+  { key: "tasks", label: "Tasks", icon: ListChecks, active: false, disabled: true },
+  { key: "knowledge", label: "Knowledge", icon: Brain, active: false, disabled: true },
+  { key: "analytics", label: "Analytics", icon: BarChart3, active: false, disabled: true },
+  { key: "settings", label: "Settings", icon: Cog, active: false, disabled: false },
 ] as const;
 
 const ACCENT_HEX: Record<AccentKey, string> = {
@@ -1008,6 +1013,7 @@ export function AppHome({ email }: AppHomeProps) {
   const [ignoredTodayCards, setIgnoredTodayCards] = useState<Set<string>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "plan" | "data">("general");
+  const [scheduledTasksOpen, setScheduledTasksOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [accent, setAccent] = useState<AccentKey>("blue");
   const resetRunTimeline = () => {
@@ -1170,6 +1176,77 @@ export function AppHome({ email }: AppHomeProps) {
     a.download = codeBlockFileName(lang);
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // R9.2: research report export. Both paths are client-only (no export
+  // API) since the report text is already fully available in the message.
+  const reportFileBaseName = (query: string) => {
+    const slug = query
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60);
+    return slug || "research-report";
+  };
+
+  const handleDownloadReportMarkdown = (query: string, reportText: string) => {
+    const blob = new Blob([reportText], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${reportFileBaseName(query)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportReportPdf = (query: string, reportText: string) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    const escapedTitle = query.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+    const bodyHtml = renderToStaticMarkup(<MarkdownMessage text={reportText} />);
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>${escapedTitle || "Research report"}</title>
+<meta charset="utf-8">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.65; }
+  h1.report-title { font-size: 20px; margin-bottom: 24px; }
+  .markdown-message :is(h1, h2, h3) { margin-top: 24px; }
+  .markdown-message a { color: #2563eb; }
+  .markdown-message pre { background: #f4f4f5; padding: 12px; border-radius: 6px; overflow-x: auto; }
+  .markdown-message code { background: #f4f4f5; padding: 1px 4px; border-radius: 3px; }
+</style></head>
+<body><h1 class="report-title">${escapedTitle}</h1>${bodyHtml}</body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  // R9.3: sources disclosure panel, keyed by runId so both the live message
+  // and any reloaded historical research message can fetch/cache independently.
+  const [openSourcesRunId, setOpenSourcesRunId] = useState<string | null>(null);
+  const [sourcesByRunId, setSourcesByRunId] = useState<Record<string, AioPublicResearchSource[]>>({});
+  const [sourcesLoadingRunId, setSourcesLoadingRunId] = useState<string | null>(null);
+  const [sourcesErrorRunId, setSourcesErrorRunId] = useState<string | null>(null);
+
+  const handleToggleSources = (runId: string) => {
+    if (openSourcesRunId === runId) {
+      setOpenSourcesRunId(null);
+      return;
+    }
+    setOpenSourcesRunId(runId);
+    if (sourcesByRunId[runId] || sourcesLoadingRunId === runId) return;
+    setSourcesLoadingRunId(runId);
+    setSourcesErrorRunId(null);
+    fetchRunSources(runId)
+      .then((sources) => {
+        setSourcesByRunId((prev) => ({ ...prev, [runId]: sources }));
+      })
+      .catch(() => {
+        setSourcesErrorRunId(runId);
+      })
+      .finally(() => {
+        setSourcesLoadingRunId((current) => (current === runId ? null : current));
+      });
   };
 
   const activateImageComposer = (reference: AioGeneratedImage | null = null) => {
@@ -1426,10 +1503,7 @@ export function AppHome({ email }: AppHomeProps) {
       return;
     }
     if (key === "scheduled") {
-      setChatMode("plan");
-      setInput("Review my recurring work and help me set up one useful scheduled Aio follow-up.");
-      setRightPanelCollapsed(false);
-      focusComposer();
+      setScheduledTasksOpen(true);
     }
   };
 
@@ -2592,18 +2666,20 @@ export function AppHome({ email }: AppHomeProps) {
           onClick={() => setIconRailMobileOpen(false)}
         />
         <nav className="icon-rail" style={{ width: "80vw", maxWidth: 320 }}>
-          {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active }) => (
+          {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active, disabled }) => (
             <button
               key={key}
               type="button"
               className={`icon-rail-item${active ? " active" : ""}`}
+              disabled={disabled}
+              title={disabled ? "Coming soon" : undefined}
               onClick={() => {
                 setIconRailMobileOpen(false);
                 handleRailItemClick(key);
               }}
             >
               <Icon className="w-5.5 h-5.5" />
-              <span className="icon-rail-label" style={{ opacity: 1 }}>{label}</span>
+              <span className="icon-rail-label" style={{ opacity: 1 }}>{label}{disabled ? " (coming soon)" : ""}</span>
             </button>
           ))}
           <div className="icon-rail-footer">
@@ -2617,16 +2693,18 @@ export function AppHome({ email }: AppHomeProps) {
         <div className="icon-rail-slot">
           <nav className="icon-rail icon-rail--compact">
             <div className="icon-rail-main">
-              {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active }) => (
+              {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active, disabled }) => (
                 <button
                   key={key}
                   type="button"
                   className={`icon-rail-item icon-rail-item--compact${active ? " active" : ""}`}
+                  disabled={disabled}
                   onClick={() => handleRailItemClick(key)}
-                  aria-label={label}
+                  aria-label={disabled ? `${label} (coming soon)` : label}
+                  title={disabled ? "Coming soon" : undefined}
                 >
                   <Icon className="w-6 h-6" />
-                  <span className="icon-rail-label">{label}</span>
+                  <span className="icon-rail-label">{label}{disabled ? " (coming soon)" : ""}</span>
                 </button>
               ))}
             </div>
@@ -2879,6 +2957,8 @@ export function AppHome({ email }: AppHomeProps) {
                       || (isLatestAssistant && lastRunMode === "research")
                     );
                   const researchQuery = precedingUserText || activeResearchQuery;
+                  const researchRunId =
+                    message.metadata?.research?.runId ?? (isLatestAssistant ? activeRunId : null) ?? null;
                   // Q14 auto-attach: persisted artifacts (metadata.artifacts) survive
                   // reload; the live turn instead reads straight off the in-memory
                   // `activity` stream since persistence only happens once the turn ends.
@@ -3024,6 +3104,61 @@ export function AppHome({ email }: AppHomeProps) {
                                 <Copy className="w-3.5 h-3.5" />
                               )}
                             </button>
+                            {isResearchMessage && fullText.length > 0 && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="copy-btn"
+                                  onClick={() => handleDownloadReportMarkdown(researchQuery, fullText)}
+                                  aria-label="Download report as Markdown"
+                                  title="Download report as Markdown"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="copy-btn"
+                                  onClick={() => handleExportReportPdf(researchQuery, fullText)}
+                                  aria-label="Export report as PDF"
+                                  title="Export report as PDF"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                </button>
+                                {researchRunId && (
+                                  <button
+                                    type="button"
+                                    className="copy-btn"
+                                    onClick={() => handleToggleSources(researchRunId)}
+                                    aria-label="Show sources"
+                                    title="Show sources"
+                                  >
+                                    <Link2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                        {isResearchMessage && researchRunId && openSourcesRunId === researchRunId && (
+                          <div className="research-sources-panel">
+                            {sourcesLoadingRunId === researchRunId ? (
+                              <p className="research-sources-status">Loading sources…</p>
+                            ) : sourcesErrorRunId === researchRunId ? (
+                              <p className="research-sources-status">Couldn&apos;t load sources.</p>
+                            ) : (sourcesByRunId[researchRunId]?.length ?? 0) === 0 ? (
+                              <p className="research-sources-status">No sources recorded for this run.</p>
+                            ) : (
+                              <ul className="research-sources-list">
+                                {sourcesByRunId[researchRunId]!.map((source) => (
+                                  <li key={source.id} className="research-source-item">
+                                    <a href={source.url} target="_blank" rel="noopener noreferrer">
+                                      {source.title || source.url}
+                                    </a>
+                                    <span className="research-source-type">{source.sourceType}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </div>
                         )}
                       </div>
@@ -4014,6 +4149,27 @@ export function AppHome({ email }: AppHomeProps) {
         deleteLoading={deleteLoading}
         deleteStatus={deleteStatus}
         currentPlanTier={creditUsage?.planTier ?? null}
+      />
+
+      <ScheduledTasksModal
+        open={scheduledTasksOpen}
+        onClose={() => setScheduledTasksOpen(false)}
+        jobs={cronJobs}
+        error={cronError}
+        locked={cronLocked}
+        actionPending={cronActionPending}
+        confirmDeleteId={confirmDeleteId}
+        name={cronName}
+        onNameChange={setCronName}
+        schedule={cronSchedule}
+        onScheduleChange={setCronSchedule}
+        prompt={cronPrompt}
+        onPromptChange={setCronPrompt}
+        creating={cronCreating}
+        createMessage={cronCreateMessage}
+        onCreate={handleCronCreate}
+        onDelete={handleCronDelete}
+        onAction={handleCronAction}
       />
     </div>
   );

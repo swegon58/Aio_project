@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LogoIcon } from "@/components/icons";
 import { brand } from "@/lib/brand.config";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function NotFound() {
@@ -17,9 +17,9 @@ export default function NotFound() {
           <CardDescription>This page doesn&apos;t exist or may have moved.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button render={<Link href="/app" />} className="w-full" size="lg">
+          <Link href="/app" className={buttonVariants({ size: "lg", className: "w-full" })}>
             Back to Aio
-          </Button>
+          </Link>
         </CardContent>
       </Card>
     </main>

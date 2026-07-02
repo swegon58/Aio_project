@@ -9,6 +9,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 const OWNER_EMAIL = process.env.AIO_OWNER_EMAIL ?? "";
 
 interface RunWindow {

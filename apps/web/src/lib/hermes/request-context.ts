@@ -57,6 +57,7 @@ export async function resolveHermesRequestContext(): Promise<HermesRequestContex
       status: "running",
       api_server_key_ref: `inline:${apiServerKey}`,
       openrouter_key_ref: null,
+      openrouter_key_hash: null,
       commit_pin: null,
       pid: null,
       last_active_at: new Date().toISOString(),

@@ -110,6 +110,27 @@ export async function requestRunStop(runId: string): Promise<{
   };
 }
 
+export interface AioPublicResearchSource {
+  id: string;
+  url: string;
+  title: string | null;
+  sourceType: "web" | "knowledge_doc" | "provided";
+  relevanceScore: number | null;
+  fetchedAt: string | null;
+  createdAt: string;
+}
+
+export async function fetchRunSources(runId: string): Promise<AioPublicResearchSource[]> {
+  const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/sources`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to load run sources ${runId} (${res.status})`);
+  }
+  const data = (await res.json()) as { sources: AioPublicResearchSource[] };
+  return data.sources;
+}
+
 export function isRunTerminal(status: AioRunStatus): boolean {
   return status === "completed" || status === "failed" || status === "cancelled";
 }
