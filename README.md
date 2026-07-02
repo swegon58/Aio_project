@@ -188,6 +188,8 @@ See [Aio Model Supply and Gateway Strategy](docs/research/2026-06-27_model_suppl
 - [R0 closure checklist](docs/roadmap/R0_EXECUTION_CHECKLIST.md)
 - [R6 execution checklist](docs/roadmap/R6_EXECUTION_CHECKLIST.md)
 - [R7 execution checklist](docs/roadmap/R7_EXECUTION_CHECKLIST.md)
+- [R10 execution checklist](docs/roadmap/R10_EXECUTION_CHECKLIST.md)
+- [Product-ready master plan](docs/roadmap/PRODUCT_READY_MASTER_PLAN.md)
 - [Owner close-out checklist](docs/operations/OWNER_CLOSEOUT_CHECKLIST.md)
 - [R0 secret-scan remediation note](docs/operations/R0_SECRET_SCAN_REMEDIATION_2026-06-28.md)
 - [Runtime architecture](docs/architecture/aio_runtime_architecture.md)

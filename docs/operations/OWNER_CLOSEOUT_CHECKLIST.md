@@ -27,22 +27,18 @@ or remote environment access that the repo cannot perform by itself.
 
 ### 1. Push Remote Supabase Migrations — DONE (verified 2026-07-02)
 
-`npx supabase migration list --linked` confirms `0020`-`0023` are already
-applied on the remote project (`xeuvoaedwdmuhxdcoxcx`):
+`npx supabase migration list --linked` confirms `0001`-`0025` are all
+applied on the remote project (`xeuvoaedwdmuhxdcoxcx`), including the two
+that were previously tracked separately:
 
-- `0020_aio_onboarding_state.sql` — applied
-- `0021_paddle_webhook_events.sql` — applied
-- `0022_aio_beta_invites.sql` — applied
-- `0023_aio_saved_agents.sql` — applied
+- `0024_drop_legacy_knowledge.sql` — applied (owner go-ahead given
+  2026-07-02, Discord). Dropped two empty legacy tables
+  (`hermes_knowledge_chunks`, `hermes_knowledge_files`) and
+  `match_knowledge_chunks`.
+- `0025_openrouter_key_hash.sql` — applied. Adds `openrouter_key_hash` to
+  `hermes_registry` (R8.5 OpenRouter activation, step 3 below).
 
-This step no longer blocks section 2. Two migrations remain unpushed —
-tracked separately since they weren't part of the original R6/R7 line:
-
-- `0024_drop_legacy_knowledge.sql` — destructive (drops two empty legacy
-  tables). Per `AIO_PROJECT_STATE.md`, requires explicit owner go-ahead
-  before running, asked for separately.
-- `0025_openrouter_key_hash.sql` — additive only (`ADD COLUMN IF NOT
-  EXISTS`), part of the R8.5 OpenRouter activation steps below.
+No pending migrations remain. This step no longer blocks section 2.
 
 ### 2. Run The Post-Push Manual Product Checks
 
@@ -181,8 +177,8 @@ Needed from owner to activate this:
    `openrouter.ai/settings/management-keys`.
 2. Paste it into `apps/web/.env.local`, variable `OPENROUTER_PROVISIONING_KEY`
    (placeholder line already added, file is gitignored, never commit it).
-3. Apply migration `0025_openrouter_key_hash.sql` (`npx supabase db push`,
-   same step as the other pending migrations above).
+3. Migration `0025_openrouter_key_hash.sql` is already applied (see section
+   1) — no further migration step needed once the key is set.
 
 Verified: typecheck clean, eslint clean, 249/249 unit tests passing. Not yet
 verified: an actual live OpenRouter key creation call (needs a real
