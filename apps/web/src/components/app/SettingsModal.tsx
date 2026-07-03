@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Bot, CreditCard, Database, FileText, KeyRound, Lock, Palette, Plug, Server, Shield, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bot, Calendar, CreditCard, Database, FileText, KeyRound, Lock, Palette, Plug, Server, Shield, Trash2, X } from "lucide-react";
 import { ALL_GATEABLE_TOOLSETS, TIERS, type PlanTier } from "@/lib/hermes/pricing";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { KnowledgeCenterPanel } from "@/components/app/KnowledgeCenterPanel";
@@ -56,6 +56,12 @@ interface ConnectionStatus {
   connected: boolean;
 }
 
+interface GoogleCalendarStatus {
+  configured: boolean;
+  connected: boolean;
+  googleEmail: string | null;
+}
+
 interface CredentialStatus {
   id: string;
   label: string;
@@ -83,6 +89,11 @@ interface SettingsModalProps {
   tokenMessage: string | null;
   onTokenSubmit: (e: React.FormEvent) => void;
   onTokenRemove: (platformId: string) => void;
+
+  googleCalendarStatus: GoogleCalendarStatus | null;
+  googleCalendarError: string | null;
+  googleCalendarDisconnecting: boolean;
+  onGoogleCalendarDisconnect: () => void;
 
   credentials: CredentialStatus[] | null;
   credentialsError: string | null;
@@ -127,6 +138,10 @@ export function SettingsModal({
   tokenMessage,
   onTokenSubmit,
   onTokenRemove,
+  googleCalendarStatus,
+  googleCalendarError,
+  googleCalendarDisconnecting,
+  onGoogleCalendarDisconnect,
   credentials,
   credentialsError,
   credentialId,
@@ -145,6 +160,9 @@ export function SettingsModal({
   currentPlanTier,
 }: SettingsModalProps) {
   const [tab, setTab] = useState<SettingsTab>(initialTab ?? "general");
+  useEffect(() => {
+    if (open && initialTab) setTab(initialTab);
+  }, [open, initialTab]);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const confirmRemoveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [upgradingTier, setUpgradingTier] = useState<PlanTier | null>(null);
@@ -264,11 +282,86 @@ export function SettingsModal({
         {tab === "connections" && (
           <div className="setting-group" style={{ borderBottom: "none" }}>
             {connectionsError && (
-              <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
+              <div className="memory-text" style={{ color: "#e25c5c", marginBottom: 8 }}>
                 Failed to load: {connectionsError}
               </div>
             )}
 
+            <div className="panel-section-title">Google Calendar</div>
+            {googleCalendarError && (
+              <div className="memory-text" style={{ color: "#e25c5c", marginBottom: 8 }}>
+                Failed to load: {googleCalendarError}
+              </div>
+            )}
+            {googleCalendarStatus === null && !googleCalendarError && <PanelLoading />}
+            {googleCalendarStatus && (
+              <div className="mcp-server-item">
+                <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
+                  <Calendar className="w-3.5 h-3.5" />
+                </div>
+                <div className="mcp-server-info">
+                  <div className="mcp-server-name">Google Calendar</div>
+                  <div className="mcp-server-url">
+                    {googleCalendarStatus.connected
+                      ? googleCalendarStatus.googleEmail
+                      : googleCalendarStatus.configured
+                        ? "Aio can create and check events on your calendar"
+                        : "Not available yet"}
+                  </div>
+                </div>
+                <div className={`mcp-server-status ${googleCalendarStatus.connected ? "connected" : "disconnected"}`} />
+                {googleCalendarStatus.connected ? (
+                  <button
+                    type="button"
+                    className="mcp-add-btn"
+                    style={
+                      confirmRemoveId === "google_calendar"
+                        ? {
+                            width: "auto",
+                            flexShrink: 0,
+                            padding: "4px 8px",
+                            fontSize: 12,
+                            background: "rgba(226, 92, 92, 0.12)",
+                            color: "#e25c5c",
+                          }
+                        : { width: "auto", flexShrink: 0, padding: "4px 8px", fontSize: 12 }
+                    }
+                    disabled={googleCalendarDisconnecting}
+                    title={confirmRemoveId === "google_calendar" ? "Click again to disconnect" : "Disconnect"}
+                    onClick={() => requestConfirm("google_calendar", onGoogleCalendarDisconnect)}
+                  >
+                    {googleCalendarDisconnecting
+                      ? "Disconnecting…"
+                      : confirmRemoveId === "google_calendar"
+                        ? "Confirm?"
+                        : "Disconnect"}
+                  </button>
+                ) : (
+                  <a
+                    href="/api/connections/google/start"
+                    className="mcp-add-btn"
+                    style={
+                      googleCalendarStatus.configured
+                        ? { width: "auto", flexShrink: 0, padding: "4px 8px", fontSize: 12 }
+                        : {
+                            width: "auto",
+                            flexShrink: 0,
+                            padding: "4px 8px",
+                            fontSize: 12,
+                            pointerEvents: "none",
+                            opacity: 0.5,
+                          }
+                    }
+                  >
+                    Connect
+                  </a>
+                )}
+              </div>
+            )}
+
+            <div className="panel-section-title" style={{ marginTop: 16 }}>
+              Other apps
+            </div>
             {connections === null && !connectionsError && <PanelLoading />}
 
             {connections?.map((c) => (
@@ -339,7 +432,7 @@ export function SettingsModal({
         {tab === "credentials" && (
           <div className="setting-group" style={{ borderBottom: "none" }}>
             {credentialsError && (
-              <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
+              <div className="memory-text" style={{ color: "#e25c5c", marginBottom: 8 }}>
                 Failed to load: {credentialsError}
               </div>
             )}
@@ -492,7 +585,7 @@ export function SettingsModal({
               <button
                 type="button"
                 className="mcp-add-btn"
-                style={{ width: "auto", color: "#e25c5c", borderColor: "rgba(226, 92, 92, 0.4)" }}
+                style={{ width: "auto", color: "#e25c5c", border: "1px solid rgba(226, 92, 92, 0.4)" }}
                 disabled={deleteLoading}
                 onClick={() => setDeleteArmed(true)}
               >
@@ -505,14 +598,7 @@ export function SettingsModal({
                   value={deletePhrase}
                   onChange={(e) => setDeletePhrase(e.target.value)}
                   placeholder='Type DELETE to confirm'
-                  style={{
-                    padding: "8px 10px",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--glass-border)",
-                    background: "var(--glass-bg)",
-                    color: "var(--text-primary)",
-                    fontSize: 13,
-                  }}
+                  className="message-input"
                   autoFocus
                 />
                 <div style={{ display: "flex", gap: 8 }}>

@@ -69,15 +69,22 @@ architecture, reality-check, product/UX) of this plan before any code was
 written — see "Team Review — 2026-07-02" below for the full findings this
 revision resolves.
 
-- [ ] `GET /api/connections/google/start` — builds the Google consent URL
+- [x] `GET /api/connections/google/start` — builds the Google consent URL
       server-side. `state` MUST be a server-generated random nonce with an
       expiry, stored server-side and bound to the session at issue time —
       NOT the customer id or anything else client-derivable/guessable
       (appsec finding: identity-as-state is not CSRF-safe).
-- [ ] `GET /api/connections/google/callback` — exchanges the code for a
+      → `apps/web/src/app/api/connections/google/start/route.ts`: 24-byte
+      `crypto.randomBytes` nonce in an httpOnly/secure(prod)/sameSite=lax
+      cookie scoped to `/api/connections/google`, 10-minute maxAge; returns
+      503 via `googleOAuthConfigured()` if owner hasn't set the env vars yet.
+- [x] `GET /api/connections/google/callback` — exchanges the code for a
       refresh token server-side; client secret never reaches the browser;
       validates `state` against the server-stored nonce before proceeding.
-- [ ] Store the refresh token via the **existing** per-customer credential
+      → `apps/web/src/app/api/connections/google/callback/route.ts`:
+      rejects on missing/mismatched state or Google's own `error` param,
+      requires a refresh_token (prompt=consent forces one on every connect).
+- [x] Store the refresh token via the **existing** per-customer credential
       vault — `hermes_credential_refs`
       (`migrations/0006_credential_vault.sql`,
       `storeCredentialInVault`/`readCredentialFromVault` in
@@ -87,7 +94,11 @@ revision resolves.
       holds only non-secret state: the vault ref, granted scopes, email,
       `connected_at`, `revoked_at`, `last_used_at` (needs its own
       migration).
-- [ ] Bridge the stored token into the customer's isolated Hermes profile as
+      → `migrations/0027_google_calendar_connections.sql` (google_email,
+      granted_scopes, connected_at, revoked_at, last_used_at); full token
+      JSON stored under vault key_name `google_calendar_token` via the
+      existing generic `storeCredentialInVault`/`readCredentialFromVault`.
+- [x] Bridge the stored token into the customer's isolated Hermes profile as
       `google_token.json` in `profiles/<name>/...` at connect time. This is
       **new engineering, not a reuse of `writeProfileEnv`** — that function
       only writes `.env` key=value pairs at fresh-provision/env-loss-respawn
@@ -105,7 +116,13 @@ revision resolves.
       (`refresh_token`/`client_id`/`client_secret`/`token_uri`) matches what
       `google_api.py`'s `Credentials.from_authorized_user_file` expects —
       no skill-side code change needed for parsing.
-- [ ] Known accepted debt, not a blocker: the token file sits on disk in the
+      → `apps/web/src/lib/hermes/google-calendar.ts`'s
+      `writeGoogleTokenFile()`/`deleteGoogleTokenFile()`, targeting
+      `profileDir(profileName)/google_token.json` (profile root — same
+      directory as `.env`/`config.yaml`, not `profileHomeDir`), `0600`
+      perms; `row.profile_name ?? "aio"` fallback matches the existing
+      `/api/connections/token` pattern for the pre-provisioning case.
+- [x] Known accepted debt, not a blocker: the token file sits on disk in the
       profile dir (same posture as the OpenRouter key in `.env`, which
       `provision.ts` already flags as a "Phase-1 placeholder, TODO: replace
       with Vault pointer"). This plan does not regress that posture, but a
@@ -113,7 +130,7 @@ revision resolves.
       key — track "inject secrets at process start instead of writing to
       disk" as a follow-up hardening item covering both, not scope for this
       pass.
-- [ ] Before building the bridge: verify whether the skill's own
+- [x] Before building the bridge: verify whether the skill's own
       `_missing_scopes_from_payload` check (in `setup.py`, hardcoded to a
       list of 8 scopes) gates actual tool execution or is purely a status
       message. Granting Calendar-only will make it report "AUTHENTICATED
@@ -124,7 +141,14 @@ revision resolves.
       skill's internal message can be suppressed/ignored. Resolve this
       before shipping — do not leave it as a silent "looks broken to the
       agent" gap.
-- [ ] Settings UI: a "Connect Google Calendar" card, living inside a shared
+      → Verified diagnostic-only: `_missing_scopes_from_payload` is only
+      referenced inside `setup.py`'s own `print(...)` status lines
+      (`check_auth`/`check_auth_live`/`exchange_auth_code`, the interactive
+      CLI's `auth-status`/`--exchange` commands). `google_api.py` (the
+      runtime path the agent's tool calls actually go through) has zero
+      references to it — a Calendar-only grant works at runtime; the
+      "missing 7 scopes" text is CLI-only cosmetic noise, not a gate.
+- [x] Settings UI: a "Connect Google Calendar" card, living inside a shared
       "Connections" section/heading alongside the existing `KNOWN_PLATFORMS`
       list (`apps/web/src/lib/hermes/platforms.ts`, deliberately scoped to
       "paste a token" — Calendar's OAuth flow is different enough to need
@@ -133,11 +157,113 @@ revision resolves.
       Aio's own words (not just Google's consent-screen boilerplate) that
       Aio only creates events on the primary calendar and never reads
       Gmail or Drive.
-- [ ] Disconnect action: call Google's real revoke endpoint
+      → `SettingsModal.tsx`'s "Connected Apps" tab: dedicated Google
+      Calendar card above the existing platform list ("Other apps" heading
+      added to separate them), Connect link → `/api/connections/google/start`,
+      Disconnect uses the same two-click confirm pattern as token removal.
+      State/fetch wiring in `AppHome.tsx` (`googleCalendarStatus`,
+      `loadGoogleCalendarStatus`, `handleGoogleCalendarDisconnect`); the
+      OAuth callback redirects back to `/` with a `google_calendar` query
+      param that a mount-time effect uses to reopen Settings on the
+      Connections tab, then strips the param via `history.replaceState`.
+- [x] Disconnect action: call Google's real revoke endpoint
       (`https://oauth2.googleapis.com/revoke`) with the token, THEN clear
       the Vault ref and set `revoked_at`. Clearing the Vault ref alone does
       not revoke the grant on Google's side — the authorization would stay
       live indefinitely even though Aio "forgot" it (appsec finding).
+      → `apps/web/src/app/api/connections/google/disconnect/route.ts`:
+      revoke call happens before clearing `hermes_credential_refs`, deleting
+      the profile token file, and setting `revoked_at`.
+
+**Status (2026-07-03): engineering + UI verification complete.**
+Owner completed the four Google Cloud setup steps; server-side OAuth
+flow live-verified. Self-tested via a new Playwright spec,
+`apps/web/e2e/google-calendar-connect.spec.ts` (4 tests: not-connected
+Connect link, not-configured disabled Connect link, connected
+email + two-click disconnect, OAuth-callback tab reopen) — all 4 now
+passing after fixing two real UI bugs the tests caught (not test
+artifacts):
+  1. **CSS flex-squeeze bug**: the Google Calendar card's Connect/
+     Disconnect control reused the shared `.mcp-add-btn` class, which
+     has `width: 100%` (`mockup.css`). Inside the card's flex row
+     (`.mcp-server-info { flex: 1; min-width: 0 }` sibling), that
+     100%-width button squeezed the status-text column to a 0×0 box —
+     visually, the "Connect" pill overlapped/hid the status text
+     ("Not available yet" / the connected email). Fixed by adding
+     `width: "auto", flexShrink: 0` to the button/link's inline style
+     in `SettingsModal.tsx` (scoped to the two call sites, not the
+     shared class, so other full-width usages of `.mcp-add-btn`
+     elsewhere are untouched). The identical pattern was found and
+     fixed in `NotificationsPanel.tsx`'s "Mark read" and "Mark all
+     read" buttons (same class, same squeeze risk) during regression
+     testing.
+  2. **Stale-tab bug after OAuth callback**: `SettingsModal.tsx`'s
+     `const [tab, setTab] = useState(initialTab ?? "general")` only
+     applies `initialTab` on first mount. Since the modal stays
+     mounted (gated by an internal `if (!open) return null`), when
+     `AppHome.tsx`'s OAuth-callback effect later sets
+     `settingsInitialTab` to `"connections"` and reopens the modal,
+     `tab` did not update — Settings reopened on "Personalization"
+     instead of "Connected Apps", breaking the advertised "reopen on
+     Connected Apps tab after Google Calendar connect" behavior for
+     real users. Fixed with a `useEffect` that syncs `tab` to
+     `initialTab` whenever the modal opens.
+`npx tsc --noEmit` clean, lint clean (no new errors), `npm run
+test:unit` 258/258 passing, full Playwright suite (app-smoke,
+notifications, research-export, google-calendar-connect) 12/12
+passing. `app-smoke.spec.ts`'s mock allowlist was also stale (missing
+`/api/notifications` and `/api/connections/google`, both added by
+R10.1/R10.2) — updated so the "no unexpected requests" assertion
+reflects current app behavior.
+
+**Kimo UI review (2026-07-03), scoped to `SettingsModal.tsx` (all 4
+tabs) + `NotificationsPanel.tsx`** — found and fixed 6 more issues
+directly (`tsc --noEmit` clean after each):
+  1. **Critical — Settings modal broken on mobile.** `.settings-modal`
+     (`mockup.css`) used a fixed `240px` sidebar with no responsive
+     override; below ~640px the content panel was squeezed to ~118px,
+     wrapping/clipping tab titles and platform names. Added a
+     `@media (max-width: 640px)` block: single-column layout, sidebar
+     becomes a horizontal scrollable tab bar, close button repositioned.
+  2. **Major — error text used accent color, not a fixed semantic
+     color.** Three "Failed to load" messages used
+     `var(--accent-secondary)`, which under the green accent theme
+     rendered nearly identical to the "connected" status dot — an
+     error read as a positive signal. Changed to a fixed `#e25c5c` (the
+     same red already used for "Delete account").
+  3. **Major — "Delete my account" button had no visible border.**
+     `.mcp-add-btn` sets `border: none`; overriding only `borderColor`
+     inline never rendered a border (verified via computed style —
+     `borderStyle` stayed `none`). The most destructive action in
+     Settings looked identical to a neutral button. Fixed by setting
+     the full `border` shorthand.
+  4. **Minor — accent swatch color didn't match the applied accent.**
+     The "blue" swatch in `mockup.css` was `#0984e3`; the actual
+     applied `--accent-primary` for blue is `#0081f2` (matches the
+     `ACCENTS` array in `SettingsModal.tsx`). Only blue was off (the
+     other 6 accents matched). Fixed the swatch hex to match.
+  5. **Minor — delete-confirmation input didn't match other Settings
+     inputs.** Used a hand-rolled inline style instead of the shared
+     `.message-input` class, so it lost the accent-colored focus ring
+     every other input in the modal has. Switched to `className="message-input"`.
+  6. **Minor — Notifications error text was a raw error code.** Panel
+     rendered bare `{error}` (e.g. just "status 500") with no context.
+     Changed to `Failed to load notifications: {error}`.
+
+Two items flagged by Kimo as out of UI scope, not fixed:
+  - **No retry affordance on any Settings/Notifications error state** —
+    a real gap, but needs a new `onRetry` callback threaded from
+    `AppHome.tsx` down; left for a future task, not a small fix.
+  - **`/api/notifications` and `/api/connections/google` returned 500
+    in the live dev server during Kimo's browser testing.** Root cause
+    confirmed: `npx supabase migration list --linked` shows migrations
+    `0026` (`aio_notifications`) and `0027`
+    (`google_calendar_connections`) exist locally but were never
+    pushed to the linked remote Supabase project — the tables the two
+    endpoints query don't exist there yet. Not a code bug. Pushing
+    these migrations to the shared remote DB needs explicit owner
+    go-ahead before it happens (see Owner-only section / next decision
+    gate).
 
 Deliberately out of scope for R10.1: Gmail/Drive/Sheets/Docs/Contacts scopes,
 multi-calendar selection (primary calendar only), write access beyond
@@ -180,44 +306,19 @@ ahead of the owner's Google Cloud Console steps, but cannot be
 live-verified end-to-end until the owner completes those steps — same
 sequencing pattern already used for R8.5 (OpenRouter provisioning key).
 
-## Team Review — 2026-07-02
+## Team Review — 2026-07-02 (pre-implementation, findings folded into checklist above)
 
-Before writing any R10 code, 4 specialist agents reviewed the plan above
-(reality-check on the R9 foundation, Hermes architecture on R10.1's design,
-appsec on R10.1's OAuth/token handling, product/UX on both R10.1 and R10.2's
-flows). All findings are folded into the checklists above; summary:
-
-- **Reality-check: PASS.** `npm run typecheck` and `npm run test:unit`
-  verified fresh (258/258), R9's e2e spec and source-dedupe unit tests are
-  real and match the state-doc claims, no rot found. One unrelated
-  uncommitted local diff flagged for review before next commit:
-  `apps/harness/aio-home/profiles/aio/config.yaml` (LMStudio `base_url`
-  swapped to a LAN address `192.168.1.5` — looks like local dev-machine
-  config, not intended to commit). **Engineering foundation is solid;
-  R10 is safe to build on.**
-- **Hermes architecture:** cross-customer isolation for the token bridge is
-  sound (per-customer `HERMES_HOME` override via `-p <profileName>`), one
-  shared OAuth app is the right shape, and the token JSON shape needs no
-  skill-side parsing change. But `writeProfileEnv` reuse, a new vault table,
-  and shipping `google_client_secret.json` per profile were all wrong
-  assumptions — corrected in R10.1's engineering list above.
-- **Appsec:** 1 CRITICAL (long-lived refresh token as a plaintext profile
-  file — accepted as known debt, matches existing OpenRouter posture, not a
-  novel regression, tracked as a follow-up), 2 HIGH (state-param CSRF
-  binding, real Google-side revoke call) — both now explicit checklist
-  items above.
-- **Product/UX:** Connections card should live inside a shared "Connections"
-  settings section, notification list needs per-item task attribution, and
-  connect-time consent copy needs to be explicit in Aio's own words — all
-  folded into the checklists above.
-
-No open item from this review requires an owner decision — all findings
-were implementation-design corrections, resolved in-plan. R10.2 remains
-unblocked and ready to start; R10.1 engineering can proceed on the revised
-design ahead of the owner's Google Cloud Console steps.
+4 specialist agents reviewed the plan before code was written: reality-check
+(PASS, R9 foundation solid), Hermes architecture (corrected 3 wrong
+assumptions — no `writeProfileEnv` reuse, no new vault table, no per-profile
+`google_client_secret.json`), appsec (1 accepted-debt CRITICAL: plaintext
+refresh token on disk, matches existing OpenRouter posture; 2 HIGH fixed:
+CSRF-safe state param, real Google-side revoke call), product/UX (shared
+"Connections" section, per-item task attribution, explicit consent copy).
+No open item required an owner decision.
 
 ## Status
 
-Not started. This checklist is the result of the 2026-07-02 grill decision;
-implementation has not begun. Design revised same-day after team review
-(see "Team Review — 2026-07-02" above) — still not started.
+R10.1: engineering + UI verification complete. R10.2: complete. See each
+section above for evidence. Remaining: owner go-ahead to push migrations
+`0026`/`0027` to the shared remote Supabase project.

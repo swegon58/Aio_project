@@ -11,131 +11,65 @@ It is a status index, not a replacement for the master plan or phase checklist.
 
 ## Current Status
 
-- R0 is formally closed on `main`.
-- R1 is formally merged on `main`.
-- R5 is formally merged on `main`.
-- Main now contains the merged R2-R7 implementation stack:
-  - R2 tool manifest/policy, durable tool calls, durable approvals, approval UI,
-    and audit-log groundwork
-  - R3 correlation context, telemetry helpers, internal metrics surface, SLO
-    document, golden fixtures, and runbooks
-  - R4 research-stage durability helpers, knowledge ingestion pipeline/docs
-    APIs, knowledge center panel, and research progress UI
-  - R5 durable job contract, worker runtime, Aio-owned schedules/history,
-    scheduled-task execution path, and verified failure/recovery coverage
-  - R6 consumer beta-readiness implementation: onboarding, auth/tenant
-    security hardening, Paddle webhook idempotency, plan UX cleanup, account
-    export/delete, deployment/ops docs and smoke path, weekly analytics, and
-    beta invite/spend-cap gates
-  - R7 Saved Agents: durable saved-agent storage, CRUD APIs, composer picker,
-    and Saved Agents settings panel
-- The most recent local verification before this update passed:
-  - `npm run typecheck`
-  - `npm run test:unit`
-  - `AIO_DEPLOYMENT_ENV=development npm run build`
-- Current local service status from the latest `scripts/aio-context.sh` run:
-  - Web: `200`
-  - Hermes: `200`
-  - LM Studio: `200`
-- Current local operational hardening runs on `feat/aio-team-os`; `main`
-  remains the canonical product truth and merge base.
-- Aio Team OS quick view:
-  - `bash scripts/aio-team-os.sh progress` shows the grilled Team OS plan
-    progress (`85%` at the latest verification).
-  - `bash scripts/aio-team-os.sh doctor` verifies the Team OS local operating
-    surface, including declared-vs-computed progress.
-- The local always-on stack is now managed by user services plus one helper
-  command:
-  - `scripts/aio-online.sh install|start|restart|status|logs|stop`
-  - `aio-hermes.service`
-  - `aio-hermes-supervisor.service`
-  - `aio-app.service`
-- R5 (durable jobs/schedules), R5.5 (failure/recovery), and R5.6 (test
-  coverage) are merged and verified on `main` — see
-  `docs/roadmap/R5_EXECUTION_CHECKLIST.md` for detail.
-- R6.1-R6.7 (onboarding, auth/tenant security, billing idempotency, plan UX,
-  account export/delete, deployment/ops, analytics) are engineering-complete
-  and merged to `main` — see `docs/roadmap/R6_EXECUTION_CHECKLIST.md` for
-  detail (migration numbers, file paths).
-- R7 Saved Agents is code-complete, unit-verified, and merged to `main`
-  (R7's evidence gate explicitly waived by direct owner instruction — see
-  `docs/roadmap/R7_SAVED_AGENTS_ONEPAGER.md` "Evidence") — see
-  `docs/roadmap/R7_EXECUTION_CHECKLIST.md` for detail.
-- Owner-side close-out items remain before the R6/R7 line is fully closed
-  (manual product checks, Paddle sandbox, legal review, alert transport,
-  backup restore drill) — single list at
-  `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`. All migrations `0001`-`0025`
-  are applied remotely (verified 2026-07-02, includes `0024`/`0025` — owner
-  go-ahead given same day).
-- No further R7 feature is scoped yet on `main`.
-- R8 (Beta-Readiness Hardening) is complete: R8.1-R8.4 implemented and
-  verified (249/249 unit tests, typecheck/eslint clean). R8.5's finding
-  (all customers shared one Aio-owned OpenRouter/Daytona provider key) was
-  decided and wired same-day (2026-07-01): owner chose per-customer,
-  Aio-provisioned OpenRouter keys with a hard monthly spend ceiling.
-  `writeProfileEnv` (`apps/web/src/lib/hermes/provision.ts`) now calls
-  `provisionOpenRouterKey` + `storeOpenRouterKeyInVault` when
-  `OPENROUTER_PROVISIONING_KEY` is set (falls back to the old shared-key
-  behavior when unset); new migration `0025_openrouter_key_hash.sql`
-  (drafted, not applied). Daytona key remains shared (out of scope this
-  round). Verified: typecheck/eslint clean, 249/249 tests. Migration `0025`
-  is applied (2026-07-02). Remaining step is owner-only (create the
-  Management/Provisioning key, paste into `.env.local`) — see
-  `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md` "R8.5 Finding" and
-  `docs/roadmap/R8_EXECUTION_CHECKLIST.md`.
-- R9 (Deep Research Polish, owner-selected option B from the prior Next
-  Decision Gate, 2026-07-01) is complete: R9.0-R9.3 all `[x]` — see
-  `docs/roadmap/R9_EXECUTION_CHECKLIST.md`. Wired the previously-orphaned
-  durable research pipeline (`research-stages.ts`) into the live
-  orchestrator with a 7-stage progress state machine and real source
-  persistence (R9.0); added application-level source dedupe with unit
-  coverage (R9.1); added Markdown/PDF report export buttons (R9.2); added
-  a per-message sources panel backed by a new `GET /api/runs/[runId]/sources`
-  route (R9.3). Verified: typecheck/eslint clean, 258/258 unit tests, and
-  a new Playwright e2e spec (`apps/web/e2e/research-export.spec.ts`) that
-  drives a full research-mode chat turn through the real `/app` UI and
-  exercises the export buttons and sources panel end-to-end (kept as
-  permanent regression coverage — the Claude Chrome extension remains
-  disconnected in this environment, so this is the live-verification
-  substitute, same pattern as R8.2). Deliberately out of scope: claim-level
-  citation linking and a DB-level dedupe uniqueness constraint (see
-  `docs/roadmap/R9_EXECUTION_CHECKLIST.md` "Status"). No further phase is
-  approved yet — see "Next Decision Gate" below.
-- Product-owner branch policy override: keep R5, R6, and R7 on the same
-  delivery branch unless the owner explicitly asks to split again.
-- Historical secret-scan triage is closed for Aio R0.
-- Owner decision: do not rewrite Git history for the deleted historical
-  `.mcp.json` files as part of R0. Keep current-tree protection, CI scanning,
-  and documentation as the repository closure boundary.
-- Do not treat this repository note as proof of external credential revocation.
-  Secret lifecycle remains outside the repo and must never be handled by
-  exposing values in chat or commits.
-- Owner preference: keep the active product line consolidated on `main` after
-  the R4 integration. Do not recreate phase-specific implementation worktrees
-  unless the owner explicitly asks for them.
-- `docs/roadmap/PRODUCT_READY_MASTER_PLAN.md` added (2026-07-02, owner
-  request via Discord): a 5-phase checklist (Observability & Safety Net,
-  Compliance & Trust Groundwork, Reliability & Performance Validation,
-  Product Depth & Retention, Strategic Direction) covering everything needed
-  to bring Aio to "could flip to public anytime" — the owner's grilled scope
-  answer that day (Option 1: harden compliance/reliability/legal now, but no
-  public marketing/pricing site or i18n yet). This plan runs separately from
-  and does not block R10 (`R10_EXECUTION_CHECKLIST.md`, already in flight)
-  or the R6/R7 owner close-out list (`OWNER_CLOSEOUT_CHECKLIST.md`) — it
-  cross-references both where scope overlaps. 10 new specialist agents were
-  imported into `.claude/agents/` from the `agency-agents` repo to staff it:
-  `sre-engineer`, `performance-benchmarker`, `accessibility-auditor`,
-  `technical-writer`, `trend-researcher`, `ux-researcher`,
-  `sprint-prioritizer`, `data-privacy-officer`, `legal-compliance-checker`,
-  `analytics-reporter`. No phase has started execution yet — this is the
-  planning artifact only; see "Next Decision Gate" below for what's approved
-  to start.
-- A multi-runtime control-plane idea (DeerFlow for research, Onyx for RAG,
-  OpenHands for coding, all alongside Hermes) was proposed via an owner
-  -shared research report on 2026-07-03 and **explicitly deferred** after a
-  grill — see `docs/roadmap/FUTURE_MULTI_RUNTIME_CANDIDATE.md` for the full
-  decision record and revisit trigger (after Product-Ready Phase 1 lands).
-  Not part of any active phase; do not start building it from the report.
+- R0-R9 are all closed/merged on `main`. One-line-per-phase summary (see each
+  phase's `docs/roadmap/R*_EXECUTION_CHECKLIST.md` if historical detail is
+  ever needed — not required for day-to-day work):
+  - **R0** CI/production safety closure. **R1** durable run foundation.
+    **R2** tool governance + durable approvals. **R3** observability/SLOs.
+    **R4** durable deep research + knowledge pipeline. **R5** background
+    workers + scheduled tasks (incl. R5.5 failure/recovery). **R6**
+    consumer beta readiness (onboarding, auth/tenant hardening, billing,
+    export/delete, ops, analytics). **R7** Saved Agents.
+  - **R8** beta-readiness hardening, complete; R8.5 resolved as
+    per-customer, Aio-provisioned OpenRouter keys with a spend ceiling
+    (migration `0025`, applied).
+  - **R9** Deep Research polish, complete: durable 7-stage research
+    pipeline, source dedupe, MD/PDF export, per-message sources panel.
+    Deferred: claim-level citations, DB-level dedupe constraint.
+  - All migrations `0001`-`0025` applied remotely. Owner close-out items
+    (Paddle sandbox, legal review, alert transport, backup drill) tracked
+    at `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`, don't block engineering.
+- Standing decisions still in force: keep R5/R6/R7 on one delivery branch;
+  don't rewrite git history for old `.mcp.json` secret exposure (current-tree
+  protection + CI scanning is the closure boundary); keep the product line
+  on `main`, no new phase-specific worktrees unless owner asks.
+- `docs/roadmap/PRODUCT_READY_MASTER_PLAN.md` (added 2026-07-02): 5-phase
+  hardening checklist for "could flip to public anytime" (no public
+  marketing/i18n yet). Runs parallel to R10, doesn't block it. No phase
+  started yet.
+- A multi-runtime idea (DeerFlow/Onyx/OpenHands alongside Hermes) was
+  **explicitly deferred** after a grill (2026-07-03) — see
+  `docs/roadmap/FUTURE_MULTI_RUNTIME_CANDIDATE.md`. Revisit after
+  Product-Ready Phase 1. Not active; don't build from the report.
+- Aio Team OS: `bash scripts/aio-team-os.sh progress` / `status` / `doctor`
+  for the local Team OS operating surface (last verified doctor-clean).
+- Local always-on stack: `scripts/aio-online.sh install|start|restart|status|logs|stop`
+  manages `aio-hermes.service`, `aio-hermes-supervisor.service`, `aio-app.service`.
+
+### R10 — active, in flight on `feat/r10-notifications` (uncommitted)
+
+- **R10.2 (Proactive Notifications)**: complete (`3d45fb9`, `77fb3db`) —
+  migration `0026`, notifications API + `NotificationsPanel` + unread badge,
+  Discord toggle in `ScheduledTasksModal`. Verified: typecheck/lint,
+  258/258 unit tests.
+- **R10.1 (Google Calendar Connect)**: engineering + UI-verification
+  complete (2026-07-03) — OAuth routes, `google-calendar.ts`, migration
+  `0027`, vault-backed refresh token, Settings connect/disconnect card.
+  Owner's Google Cloud setup done; server-side OAuth live-verified.
+  Playwright self-test (`google-calendar-connect.spec.ts`) + Kimo UI
+  review together found and fixed 8 real UI bugs (CSS flex-squeeze hiding
+  status text — same bug recurred in `NotificationsPanel.tsx`; stale-tab
+  bug after OAuth callback; Critical: Settings unusable on mobile;
+  error-color/accent collision; invisible delete-account border;
+  accent-swatch mismatch; inconsistent input styling; raw error text).
+  Full list + evidence: `docs/roadmap/R10_EXECUTION_CHECKLIST.md` "R10.1".
+  Verified: `tsc` clean, lint clean, 258/258 unit, 12/12 Playwright e2e.
+  One flagged gap not fixed: no retry affordance on error states.
+- **Open blocker, needs owner go-ahead**: `/api/notifications` and
+  `/api/connections/google` 500 in the live dev app — migrations `0026`/
+  `0027` exist locally but were never pushed to the linked remote Supabase
+  project (confirmed via `supabase migration list --linked`). Not a code
+  bug. Pushing is a shared-DB change — needs explicit approval.
 
 ## Worktree Roles
 

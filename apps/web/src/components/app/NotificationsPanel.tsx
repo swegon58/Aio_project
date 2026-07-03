@@ -47,7 +47,11 @@ export function NotificationsPanel({
         </div>
 
         <div className="flex flex-col gap-3">
-          {error && <div className="text-[12px] text-red-400 bg-red-400/10 rounded-md px-3 py-2">{error}</div>}
+          {error && (
+            <div className="text-[12px] text-red-400 bg-red-400/10 rounded-md px-3 py-2">
+              Failed to load notifications: {error}
+            </div>
+          )}
 
           {notifications === null && !error && (
             <div className="flex items-center gap-2 text-[12px] text-[var(--text-muted)] py-4 justify-center">
@@ -67,7 +71,7 @@ export function NotificationsPanel({
             <button
               type="button"
               className="mcp-add-btn"
-              style={{ alignSelf: "flex-end", padding: "4px 8px" }}
+              style={{ width: "auto", flexShrink: 0, alignSelf: "flex-end", padding: "4px 8px" }}
               onClick={onMarkAllRead}
             >
               <CheckCircle2 className="w-3.5 h-3.5" /> Mark all read
@@ -97,7 +101,7 @@ export function NotificationsPanel({
                   <button
                     type="button"
                     className="mcp-add-btn"
-                    style={{ padding: "4px 8px" }}
+                    style={{ width: "auto", flexShrink: 0, padding: "4px 8px" }}
                     onClick={() => onRead(n.id)}
                     aria-label="Mark read"
                     title="Mark read"

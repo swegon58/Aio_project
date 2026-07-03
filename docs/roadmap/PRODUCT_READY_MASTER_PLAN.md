@@ -71,8 +71,10 @@ for the gaps this plan closes:
 
 ## Phase 0 — Already In Flight (reference only, not owned by this plan)
 
-- [~] R10.1 Google Calendar connect flow — see `R10_EXECUTION_CHECKLIST.md`
-- [ ] R10.2 Proactive notifications — see `R10_EXECUTION_CHECKLIST.md`
+- [x] R10.1 Google Calendar connect flow — engineering + UI complete; blocked
+      only on owner approval to push migrations to remote. See
+      `R10_EXECUTION_CHECKLIST.md`.
+- [x] R10.2 Proactive notifications — complete. See `R10_EXECUTION_CHECKLIST.md`.
 - [ ] R6/R7 owner close-out items — see `OWNER_CLOSEOUT_CHECKLIST.md`
 
 ## Phase 1 — Observability & Safety Net

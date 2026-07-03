@@ -3516,7 +3516,7 @@
 .accent-color.active { border-color: white; box-shadow: 0 0 0 3px var(--accent-glow); }
 .accent-color.purple { background: #6c5ce7; }
 .accent-color.green { background: #00d2a0; }
-.accent-color.blue { background: #0984e3; }
+.accent-color.blue { background: #0081f2; }
 .accent-color.pink { background: #fd79a8; }
 .accent-color.orange { background: #ffa726; }
 .accent-color.cyan { background: #00cec9; }
@@ -3550,6 +3550,52 @@
 
 .settings-content .mcp-server-icon {
   background: var(--surface-hover-opaque) !important;
+}
+
+@media (max-width: 640px) {
+  .settings-modal {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: calc(100vw - 24px);
+    height: min(680px, calc(100vh - 32px));
+  }
+
+  .settings-sidebar {
+    position: relative;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 40px 10px 12px;
+    border-right: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  }
+
+  .settings-sidebar-title {
+    display: none;
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-nav-item {
+    width: auto;
+    flex-shrink: 0;
+    padding: 0 10px;
+  }
+
+  .settings-sidebar .modal-close {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+  }
 }
 
 /* Accent overrides driven by SettingsModal (data-accent on .aio-mockup) */

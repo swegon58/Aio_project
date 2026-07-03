@@ -1,7 +1,7 @@
 model:
   provider: lmstudio
-  base_url: http://127.0.0.1:1234/v1
-  default: qwen/qwen3.5-9b
+  base_url: http://192.168.1.5:1234/v1
+  default: google/gemma-4-12b-qat
 
 memory:
   provider: honcho

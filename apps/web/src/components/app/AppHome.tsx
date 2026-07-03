@@ -965,6 +965,13 @@ export function AppHome({ email }: AppHomeProps) {
   const [tokenValue, setTokenValue] = useState("");
   const [tokenSubmitting, setTokenSubmitting] = useState(false);
   const [tokenMessage, setTokenMessage] = useState<string | null>(null);
+  const [googleCalendarStatus, setGoogleCalendarStatus] = useState<{
+    configured: boolean;
+    connected: boolean;
+    googleEmail: string | null;
+  } | null>(null);
+  const [googleCalendarError, setGoogleCalendarError] = useState<string | null>(null);
+  const [googleCalendarDisconnecting, setGoogleCalendarDisconnecting] = useState(false);
   const [kanban, setKanban] = useState<KanbanBoard | null>(null);
   const [kanbanError, setKanbanError] = useState<string | null>(null);
   const [memorySnapshot, setMemorySnapshot] = useState<MemorySnapshot | null>(null);
@@ -1029,7 +1036,7 @@ export function AppHome({ email }: AppHomeProps) {
   const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
   const [ignoredTodayCards, setIgnoredTodayCards] = useState<Set<string>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "plan" | "data">("general");
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "plan" | "data" | "connections">("general");
   const [scheduledTasksOpen, setScheduledTasksOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [accent, setAccent] = useState<AccentKey>("blue");
@@ -1549,6 +1556,58 @@ export function AppHome({ email }: AppHomeProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen, scheduledTasksOpen]);
+
+  const loadGoogleCalendarStatus = async () => {
+    setGoogleCalendarError(null);
+    try {
+      const res = await fetch("/api/connections/google");
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = await res.json();
+      setGoogleCalendarStatus({
+        configured: data.configured,
+        connected: data.connected,
+        googleEmail: data.googleEmail,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setGoogleCalendarError(msg);
+    }
+  };
+
+  useEffect(() => {
+    if (settingsOpen && googleCalendarStatus === null) {
+      loadGoogleCalendarStatus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsOpen]);
+
+  // Reopen Settings on the Connections tab after the Google OAuth callback
+  // redirects back here (see /api/connections/google/callback).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("google_calendar")) return;
+    setSettingsInitialTab("connections");
+    setSettingsOpen(true);
+    setGoogleCalendarStatus(null);
+    params.delete("google_calendar");
+    params.delete("google_calendar_detail");
+    const query = params.toString();
+    window.history.replaceState(null, "", query ? `?${query}` : window.location.pathname);
+  }, []);
+
+  const handleGoogleCalendarDisconnect = async () => {
+    setGoogleCalendarDisconnecting(true);
+    try {
+      const res = await fetch("/api/connections/google/disconnect", { method: "POST" });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      await loadGoogleCalendarStatus();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setGoogleCalendarError(msg);
+    } finally {
+      setGoogleCalendarDisconnecting(false);
+    }
+  };
 
   const loadConversations = async () => {
     setConversationsError(null);
@@ -4210,6 +4269,10 @@ export function AppHome({ email }: AppHomeProps) {
         onTokenRemove={handleTokenRemove}
         tokenMessage={tokenMessage}
         onTokenSubmit={handleTokenSubmit}
+        googleCalendarStatus={googleCalendarStatus}
+        googleCalendarError={googleCalendarError}
+        googleCalendarDisconnecting={googleCalendarDisconnecting}
+        onGoogleCalendarDisconnect={handleGoogleCalendarDisconnect}
         credentials={credentials}
         credentialsError={credentialsError}
         credentialId={credentialId}

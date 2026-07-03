@@ -115,6 +115,8 @@ async function installApiMocks(
       "/api/integrations/mcp": { servers: [] },
       "/api/onboarding": { onboardedAt: "2026-06-01T00:00:00.000Z" },
       "/api/saved-agents": { savedAgents: [] },
+      "/api/notifications": { notifications: [], unreadCount: 0 },
+      "/api/connections/google": { configured: false, connected: false, googleEmail: null, grantedScopes: [], connectedAt: null },
     };
     if (Object.hasOwn(responses, path)) {
       await route.fulfill({ json: responses[path] });

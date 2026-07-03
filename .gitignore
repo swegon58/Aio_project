@@ -16,9 +16,23 @@ apps/web/.env.local
 .lean-ctx/
 .firecrawl/
 
-# local agent instructions
-CLAUDE.md
-AIO_GIAI_THICH_DE_HIEU/
+# Aio Team OS — internal coordination, stays local (see team-os skill)
+.claude/agents/TEAM_SPEC.md
+.claude/agents/GRILL_PROGRESS.md
+.claude/agents/GRILL_DECISION_MAP.md
+.claude/agents/ROLE_EVIDENCE_LOG.md
+.claude/agents/OPERATING_PLAYBOOK.md
+.claude/agents/AIO_TEAM_OS_CHECKLIST.md
+.claude/agents/coordination/
+.claude/agents/templates/
+docs/roadmap/2026-06-30_agent_team_operating_system.md
+docs/roadmap/2026-06-30_agent_team_rollout_plan.md
+docs/roadmap/2026-06-30_founder_product_discovery_log.md
+docs/roadmap/2026-06-30_founder_report_agent_team_chunk_*.md
+docs/roadmap/2026-*_founder_report_os*.md
+
+# accidental nested git-directory backup — never track raw git objects
+apps/web/.git.bak/
 
 # secrets
 .claude/channels/discord/.env
