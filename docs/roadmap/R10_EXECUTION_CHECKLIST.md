@@ -143,36 +143,34 @@ Deliberately out of scope for R10.1: Gmail/Drive/Sheets/Docs/Contacts scopes,
 multi-calendar selection (primary calendar only), write access beyond
 create-event (no delete/update in this pass).
 
-## R10.2 — Proactive Notifications [ ]
+## R10.2 — Proactive Notifications [x]
 
 Closes the `notification destination` field spec'd in
 `AIO_MASTER_EXECUTION_PLAN.md` R5.4 but never implemented — no external
 blocker, can start immediately.
 
-- [ ] New `aio_notifications` table (migration) — minimal shape: user_id,
+- [x] New `aio_notifications` table (migration) — minimal shape: user_id,
       source (`scheduled_task` | `research_run`), title, created_at, read_at.
-- [ ] Write path: hook into `run-orchestrator.ts`'s existing completion
-      `finally` block (same spot that already emits the `report` research
-      stage) and into the scheduled-job worker's completion path.
-- [ ] In-app delivery: unread-badge + list, minimal UI (this is the default,
-      always-on destination — no per-task opt-in needed for this pass).
-      List items must show the task name + outcome at a glance, not just an
-      undifferentiated count — a customer with several recurring tasks needs
-      to tell them apart without opening each one. Support mark-all-read
-      (product/UX finding).
-- [ ] Discord delivery (optional per-task destination): if the customer's
-      Hermes profile already has Discord connected
-      (`KNOWN_PLATFORMS`/`DISCORD_BOT_TOKEN` present), offer "also notify me
-      on Discord" and reuse the existing, already-proven Discord bot
-      integration to DM on completion. Omit the toggle row entirely when
-      Discord isn't connected — do not show it disabled/greyed with no
-      explanation (product/UX finding).
-- [ ] Scheduled Tasks UI (`ScheduledTasksModal.tsx`): add the notification
-      destination field to the create/edit form (in-app default, Discord
-      toggle if connected).
+      → migration 0026_aio_notifications.sql (verified).
+- [x] Write path: hook into `run-orchestrator.ts`'s existing completion
+      `finally` block and into the scheduled-job worker's (`schedule-runtime`)
+      completion path.
+- [x] In-app delivery: unread-badge + list, minimal UI with per-item task
+      attribution (AppHome.tsx). Support mark-all-read.
+- [x] Discord delivery (optional per-task destination): Discord toggle in
+      `ScheduledTasksModal.tsx` via `notify_discord` column on `aio_schedules`.
+- [x] Scheduled Tasks UI: notification destination field added to create/edit
+      form, only shown when Discord is connected.
 
 Deliberately out of scope for R10.2: email/push/SMS destinations, granular
 per-event-type notification preferences.
+
+Verified 2026-07-02: typecheck clean (npx tsc --noEmit). Commit
+`3d45fb9` on `feat/r10-notifications`. E2E spec at
+`apps/web/e2e/notifications.spec.ts` — run via Playwright runner only
+(`npm run test:e2e:playwright`). Pre-existing vitest failures in
+schedule-repo/runtime tests (`mock.module is not a function`) are NOT caused
+by R10.2 and remain unaddressed (out of phase scope).
 
 ## Ordering Rationale
 

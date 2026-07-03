@@ -28,6 +28,8 @@ import {
 import { resolveTelemetry } from "@/lib/aio/telemetry/telemetry";
 import { resolveHermesBackgroundContext } from "@/lib/hermes/background-context";
 import { serviceDb } from "@/lib/hermes/registry";
+import { createNotification } from "@/lib/aio/notifications/notification-repository";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const AIO_SCHEDULE_THREAD_PREFIX = "aio-schedule:";
 
@@ -85,6 +87,28 @@ function scheduleThreadId(aioScheduleId: string): string {
 
 function occurrenceKeyFor(schedule: AioScheduleRow, occurrenceAt: string): string {
   return `${schedule.aio_schedule_id}:${occurrenceAt}`;
+}
+
+// R10.2: proactive in-app notification for a finished scheduled-task
+// occurrence. Best-effort — a notification failure must not mask the
+// occurrence's real outcome.
+async function notifyScheduleOutcome(
+  db: SupabaseClient,
+  customerId: string,
+  scheduleName: string,
+  status: "completed" | "failed",
+): Promise<void> {
+  try {
+    await createNotification(db, {
+      customerId,
+      source: "scheduled_task",
+      title: status === "completed"
+        ? `Task completed: ${scheduleName}`
+        : `Task failed: ${scheduleName}`,
+    });
+  } catch (err) {
+    console.error(`scheduled_task notification insert threw for ${scheduleName}:`, err);
+  }
 }
 
 function scheduledTaskPayloadRef(payload: ScheduledTaskPayload) {
@@ -179,6 +203,7 @@ function createSyncScheduleRunFromRunState(deps: ScheduleRuntimeDeps) {
     customerId: string;
     occurrenceAt: string;
     runId: string;
+    scheduleName: string;
   }) {
     const db = deps.serviceDb();
     const run = await deps.getRun(db, input.runId, input.customerId);
@@ -203,6 +228,7 @@ function createSyncScheduleRunFromRunState(deps: ScheduleRuntimeDeps) {
         },
       );
       if (!updated.ok) throw new Error(updated.message);
+      await notifyScheduleOutcome(db, input.customerId, input.scheduleName, "completed");
       return "completed" as const;
     }
 
@@ -246,6 +272,7 @@ function createSyncScheduleRunFromRunState(deps: ScheduleRuntimeDeps) {
       },
     );
     if (!updated.ok) throw new Error(updated.message);
+    await notifyScheduleOutcome(db, input.customerId, input.scheduleName, "failed");
     return "failed" as const;
   };
 }
@@ -439,6 +466,7 @@ export function createScheduleRuntime(overrides: Partial<ScheduleRuntimeDeps> = 
           customerId: job.customer_id,
           occurrenceAt: payload.occurrenceAt,
           runId: scheduleRun.data.aio_run_id,
+          scheduleName: schedule.data.name,
         });
         if (synced === "completed") {
           return;
@@ -479,6 +507,7 @@ export function createScheduleRuntime(overrides: Partial<ScheduleRuntimeDeps> = 
             },
           );
           if (!updated.ok) throw new Error(updated.message);
+          await notifyScheduleOutcome(db, job.customer_id, schedule.data.name, "failed");
         }
         throw new Error(
           `Scheduled occurrence ${payload.aioScheduleRunId} is in status "${scheduleRun.data.status}" and cannot be (re)started; skipping to prevent duplicate execution.`,
@@ -506,6 +535,7 @@ export function createScheduleRuntime(overrides: Partial<ScheduleRuntimeDeps> = 
           },
         );
         if (!updated.ok) throw new Error(updated.message);
+        await notifyScheduleOutcome(db, job.customer_id, schedule.data.name, "failed");
         throw new Error("Scheduled task prompt is empty.");
       }
 
@@ -571,6 +601,7 @@ export function createScheduleRuntime(overrides: Partial<ScheduleRuntimeDeps> = 
           },
         );
         if (!updated.ok) throw new Error(updated.message);
+        await notifyScheduleOutcome(db, job.customer_id, schedule.data.name, "failed");
         throw new Error(message || "Scheduled task could not start.");
       }
 
@@ -589,6 +620,7 @@ export function createScheduleRuntime(overrides: Partial<ScheduleRuntimeDeps> = 
         customerId: job.customer_id,
         occurrenceAt: payload.occurrenceAt,
         runId: result.runId,
+        scheduleName: schedule.data.name,
       });
       if (finalStatus !== "completed") {
         throw new Error(`Scheduled task finished with run status ${finalStatus}.`);

@@ -296,6 +296,22 @@
 
 .icon-rail-item svg { flex-shrink: 0; }
 
+.icon-rail-badge {
+  position: absolute;
+  top: 6px;
+  left: 34px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent-primary, #6c5ce7);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
 .icon-rail-item:hover { background: color-mix(in srgb, var(--bg-hover) 32%, transparent); color: var(--text-primary); }
 .icon-rail-item.active { color: var(--accent-secondary); }
 .icon-rail-item:disabled { opacity: 0.4; cursor: not-allowed; }

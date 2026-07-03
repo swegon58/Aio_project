@@ -130,6 +130,12 @@ It is a status index, not a replacement for the master plan or phase checklist.
   `analytics-reporter`. No phase has started execution yet — this is the
   planning artifact only; see "Next Decision Gate" below for what's approved
   to start.
+- A multi-runtime control-plane idea (DeerFlow for research, Onyx for RAG,
+  OpenHands for coding, all alongside Hermes) was proposed via an owner
+  -shared research report on 2026-07-03 and **explicitly deferred** after a
+  grill — see `docs/roadmap/FUTURE_MULTI_RUNTIME_CANDIDATE.md` for the full
+  decision record and revisit trigger (after Product-Ready Phase 1 lands).
+  Not part of any active phase; do not start building it from the report.
 
 ## Worktree Roles
 

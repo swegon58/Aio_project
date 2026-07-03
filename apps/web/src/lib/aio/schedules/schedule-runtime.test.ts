@@ -44,6 +44,7 @@ function makeSchedule(overrides: Partial<AioScheduleRow> = {}): AioScheduleRow {
     concurrency_policy: "forbid_overlap",
     catch_up_policy: "coalesce_once",
     task_payload: {},
+    notify_discord: false,
     created_at: now,
     updated_at: now,
     ...overrides,

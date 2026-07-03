@@ -59,6 +59,7 @@ export interface AioScheduleRow {
   concurrency_policy: typeof AIO_SCHEDULE_CONCURRENCY_POLICY;
   catch_up_policy: typeof AIO_SCHEDULE_CATCH_UP_POLICY;
   task_payload: Record<string, unknown>;
+  notify_discord: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -89,6 +90,7 @@ export interface CreateScheduleInput {
   prompt?: string;
   repeatLimit?: number | null;
   taskPayload?: Record<string, unknown>;
+  notifyDiscord?: boolean;
 }
 
 export interface UpdateScheduleInput {
@@ -167,6 +169,7 @@ export async function createSchedule(
       concurrency_policy: AIO_SCHEDULE_CONCURRENCY_POLICY,
       catch_up_policy: AIO_SCHEDULE_CATCH_UP_POLICY,
       task_payload: input.taskPayload ?? {},
+      notify_discord: input.notifyDiscord ?? false,
       created_at: createdAt,
       updated_at: createdAt,
     })
@@ -701,5 +704,6 @@ export function serializeScheduleForUi(row: AioScheduleRow) {
     enabled: row.enabled,
     next_run: row.next_run_at,
     last_run: row.last_run_at,
+    notifyDiscord: row.notify_discord,
   };
 }
