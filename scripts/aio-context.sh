@@ -42,4 +42,3 @@ printf '\nWorktrees\n'
 git worktree list
 printf '\nRead next\n'
 printf '  %s/AIO_PROJECT_STATE.md\n' "$root"
-printf '  %s/AIO_MASTER_EXECUTION_PLAN.md\n' "$root"

@@ -236,8 +236,8 @@ export const AIO_TOOL_MANIFEST: AioToolManifestEntry[] = [
       alwaysScopeAllowed: false,
       rationale: "Execution can create or modify local artifacts and spend compute budget.",
     },
-    planAvailability: ["pro", "business"],
-    notes: "Network is still blocked at the terminal layer to prevent provider bypass.",
+    planAvailability: ALL_PLANS,
+    notes: "R11.1: Opened to all tiers with per-tool spend sub-limits. Network blocked at terminal layer.",
   },
   {
     canonicalName: "browser",
@@ -263,8 +263,8 @@ export const AIO_TOOL_MANIFEST: AioToolManifestEntry[] = [
       alwaysScopeAllowed: false,
       rationale: "Automation can submit forms or click through logged-in flows on user-connected sites.",
     },
-    planAvailability: ["pro", "business"],
-    notes: "Read-only browsing and mutating browser flows should be separated in R2.2/R2.3 snapshots.",
+    planAvailability: ALL_PLANS,
+    notes: "R11.1: Opened to all tiers with per-tool spend sub-limits. Read-only browsing and mutating browser flows should be separated in R2.2/R2.3 snapshots.",
   },
   {
     canonicalName: "vision",

@@ -3873,6 +3873,10 @@ class APIServerAdapter(BasePlatformAdapter):
         user_message = raw_input if isinstance(raw_input, str) else (raw_input[-1].get("content", "") if isinstance(raw_input, list) else "")
         if not user_message:
             return web.json_response(_openai_error("No user message found in input"), status=400)
+        try:
+            user_message = _normalize_multimodal_content(user_message)
+        except ValueError as exc:
+            return _multimodal_validation_error(exc, param="input")
 
         instructions = body.get("instructions")
         previous_response_id = body.get("previous_response_id")
@@ -3884,7 +3888,7 @@ class APIServerAdapter(BasePlatformAdapter):
 
         # Accept explicit conversation_history from the request body.
         # Precedence: explicit conversation_history > previous_response_id.
-        conversation_history: List[Dict[str, str]] = []
+        conversation_history: List[Dict[str, Any]] = []
         raw_history = body.get("conversation_history")
         if raw_history:
             if not isinstance(raw_history, list):
@@ -3898,7 +3902,11 @@ class APIServerAdapter(BasePlatformAdapter):
                         _openai_error(f"conversation_history[{i}] must have 'role' and 'content' fields"),
                         status=400,
                     )
-                conversation_history.append({"role": str(entry["role"]), "content": str(entry["content"])})
+                try:
+                    entry_content = _normalize_multimodal_content(entry["content"])
+                except ValueError as exc:
+                    return _multimodal_validation_error(exc, param=f"conversation_history[{i}].content")
+                conversation_history.append({"role": str(entry["role"]), "content": entry_content})
             if previous_response_id:
                 logger.debug("Both conversation_history and previous_response_id provided; using conversation_history")
 
@@ -3915,16 +3923,13 @@ class APIServerAdapter(BasePlatformAdapter):
         # message as conversation history (the last becomes user_message).
         # Only fires when no explicit history was provided.
         if not conversation_history and isinstance(raw_input, list) and len(raw_input) > 1:
-            for msg in raw_input[:-1]:
+            for idx, msg in enumerate(raw_input[:-1]):
                 if isinstance(msg, dict) and msg.get("role") and msg.get("content"):
-                    content = msg["content"]
-                    if isinstance(content, list):
-                        # Flatten multi-part content blocks to text
-                        content = " ".join(
-                            part.get("text", "") for part in content
-                            if isinstance(part, dict) and part.get("type") == "text"
-                        )
-                    conversation_history.append({"role": msg["role"], "content": str(content)})
+                    try:
+                        content = _normalize_multimodal_content(msg["content"])
+                    except ValueError as exc:
+                        return _multimodal_validation_error(exc, param=f"input[{idx}].content")
+                    conversation_history.append({"role": msg["role"], "content": content})
 
         run_id = f"run_{uuid.uuid4().hex}"
         session_id = body.get("session_id") or stored_session_id or run_id

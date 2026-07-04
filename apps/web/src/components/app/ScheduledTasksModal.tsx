@@ -1,7 +1,9 @@
 "use client";
 
+import { useRef } from "react";
 import { Clock, Loader2, Pause, Play, Plus, SkipForward, Trash2, X } from "lucide-react";
-import type { CronJob } from "@/components/app/AppHome";
+import type { CronJob } from "@/components/app/app-home-types";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface ScheduledTasksModalProps {
   open: boolean;
@@ -50,11 +52,15 @@ export function ScheduledTasksModal({
   onDelete,
   onAction,
 }: ScheduledTasksModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open, onClose);
+
   if (!open) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="modal"
         role="dialog"
         aria-modal="true"
@@ -77,11 +83,11 @@ export function ScheduledTasksModal({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {error && <div className="text-[12px] text-red-400 bg-red-400/10 rounded-md px-3 py-2">{error}</div>}
+          <div className="flex flex-col gap-3" aria-live="polite">
+            {error && <div role="status" className="text-[12px] text-red-400 bg-red-400/10 rounded-md px-3 py-2">{error}</div>}
 
             {jobs === null && !error && (
-              <div className="flex items-center gap-2 text-[12px] text-[var(--text-muted)] py-4 justify-center">
+              <div role="status" className="flex items-center gap-2 text-[12px] text-[var(--text-muted)] py-4 justify-center">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Loading scheduled tasks…
               </div>
@@ -139,8 +145,8 @@ export function ScheduledTasksModal({
                   className="mcp-add-btn"
                   style={
                     confirmDeleteId === job.id
-                      ? { padding: "4px 8px", background: "rgba(226, 92, 92, 0.12)", color: "#e25c5c" }
-                      : { padding: "4px 8px" }
+                      ? { padding: "4px 8px", background: "var(--accent-red)", color: "var(--accent-on-accent)" }
+                      : { padding: "4px 8px", color: "var(--accent-red)", border: "1px solid color-mix(in srgb, var(--accent-red) 40%, transparent)" }
                   }
                   disabled={actionPending === job.id}
                   onClick={() => onDelete(job.id)}

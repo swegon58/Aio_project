@@ -1,1 +1,29 @@
-{}
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/swegon/AI_Agent/Aio_project/.claude/hooks/post-edit-lint.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/swegon/AI_Agent/Aio_project/.claude/hooks/continue-aio-context.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+

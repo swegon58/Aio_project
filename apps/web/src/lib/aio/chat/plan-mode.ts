@@ -23,13 +23,13 @@ const SKIP_TO_PLAN_TEXT = "Skip the remaining questions and write the final plan
 
 export function buildPlanInstructions(
   planMode: boolean,
-  conversationHistory: { role: string; content: string }[],
+  conversationHistory: { role: string; content: unknown }[],
   lastMessage: { role: string; content: unknown } | undefined,
 ): string | null {
   if (!planMode) return null;
 
   const planQuestionCount = conversationHistory.filter(
-    (msg) => msg.role === "assistant" && msg.content.includes("```aio-question"),
+    (msg) => msg.role === "assistant" && typeof msg.content === "string" && msg.content.includes("```aio-question"),
   ).length;
   const userSkippedToPlan =
     typeof lastMessage?.content === "string" && lastMessage.content.includes(SKIP_TO_PLAN_TEXT);

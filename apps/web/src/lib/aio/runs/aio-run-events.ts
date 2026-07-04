@@ -211,6 +211,16 @@ export type ResearchStage =
   | "verify"
   | "report";
 
+export type ResearchStepStatus = "active" | "done";
+
+/** A single granular, query-specific checklist item (e.g. an actual search
+ *  query or source read), distinct from the 7 fixed stage buckets. */
+export type ResearchStep = {
+  id: string;
+  label: string;
+  status: ResearchStepStatus;
+};
+
 export type ResearchStageEvent = {
   type: "research.stage";
   runId: string;
@@ -222,6 +232,8 @@ export type ResearchStageEvent = {
   claimCount?: number;
   /** Short human-readable label for the progress frame */
   label: string;
+  /** Growing, query-specific checklist (actual searches/sources), newest last */
+  steps?: ResearchStep[];
   createdAt: string;
   ts?: number;
 };

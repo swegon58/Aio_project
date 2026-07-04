@@ -96,6 +96,11 @@ const TextType = ({
 
   useEffect(() => {
     if (showCursor && cursorRef.current) {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduceMotion) {
+        gsap.set(cursorRef.current, { opacity: 1 });
+        return;
+      }
       gsap.set(cursorRef.current, { opacity: 1 });
       gsap.to(cursorRef.current, {
         opacity: 0,

@@ -1,0 +1,255 @@
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  .right-panel { display: none; }
+  /* ponytail: nothing for this to open at this width — right panel is gone;
+     credit chip stays, flex gap collapses automatically. */
+  .toggle-btn--right-panel { display: none; }
+
+  .mobile-today-panel {
+    display: block;
+    align-self: stretch;
+    width: 100%;
+    max-width: 640px;
+    min-width: 0;
+    min-height: 144px;
+    margin: -12px 0 18px;
+    overflow: visible;
+    text-align: left;
+  }
+
+  .mobile-today-heading {
+    margin: 0 0 8px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .mobile-today-strip {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .mobile-today-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-today-strip .today-card {
+    flex: 0 0 min(280px, 82vw);
+    scroll-snap-align: start;
+  }
+}
+
+.workspace-mobile-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+}
+
+.workspace-mobile-modal {
+  width: 100%;
+  max-height: 85vh;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: workspaceModalIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes workspaceModalIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.workspace-mobile-modal-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.workspace-mobile-modal-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.workspace-mobile-modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+.workspace-mobile-modal-close:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+
+.workspace-mobile-modal .workspace-entry-body {
+  overflow-y: auto;
+  padding: 12px 16px 20px;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    min-width: 0;
+    z-index: 300;
+    box-shadow: none;
+    /* ponytail: base .sidebar is transparent (two-layer design, desktop card
+       floats over the dot-grid) but on mobile this becomes a full-screen nav
+       takeover, not a small card — it needs its own opaque surface or chat
+       content behind it bleeds through and the nav becomes unreadable. */
+    background: var(--surface-primary-opaque);
+  }
+  .sidebar.collapsed { transform: translateX(-100%); width: 100%; min-width: 0; }
+  .sidebar-close-btn { display: flex; }
+  /* ponytail: icon-rail-mobile-toggle already owns the top-left 14/14/40px
+     corner on mobile — stack the sidebar toggle group below it instead of on it. */
+  .floating-actions--left { top: 64px; left: 14px; }
+  .quick-actions { grid-template-columns: 1fr; }
+
+  .quick-actions {
+    max-width: 100%;
+  }
+
+  .welcome-screen {
+    justify-content: flex-start;
+    padding: 106px 20px 120px;
+  }
+
+  .welcome-title {
+    margin-bottom: 28px;
+  }
+
+  .icon-rail-slot { display: none; }
+
+  .icon-rail-mobile-toggle {
+    display: flex;
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--surface-primary-opaque);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    color: var(--text-primary);
+    align-items: center;
+    justify-content: center;
+    z-index: 400;
+    cursor: pointer;
+  }
+
+  .icon-rail-mobile-sheet {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 390;
+    /* visibility+opacity (not display:none) so open/close can transition
+       smoothly — backdrop fades and the rail slides, no jarring snap. */
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0s linear 0.25s, opacity 0.25s ease;
+  }
+
+  .icon-rail-mobile-sheet.open {
+    visibility: visible;
+    opacity: 1;
+    transition-delay: 0s;
+  }
+
+  .icon-rail-mobile-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.66);
+  }
+
+  .icon-rail-mobile-sheet .icon-rail {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 80vw;
+    max-width: 320px;
+    align-items: stretch;
+    padding: 72px 12px 18px;
+    gap: 6px;
+    overflow: hidden;
+    background: var(--bg-secondary);
+    border: none;
+    border-right: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+    border-radius: 0;
+    box-shadow: 24px 0 56px rgba(0, 0, 0, 0.42);
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .icon-rail-mobile-sheet .icon-rail-item {
+    width: 100%;
+    height: 48px;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 0 14px;
+    color: color-mix(in srgb, var(--text-primary) 76%, var(--text-secondary));
+  }
+
+  .icon-rail-mobile-sheet .icon-rail-item:hover,
+  .icon-rail-mobile-sheet .icon-rail-item.active {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .icon-rail-mobile-sheet .icon-rail-label {
+    position: static;
+    min-width: 0;
+    max-width: none;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    font-size: 15px;
+    font-weight: 650;
+    line-height: 1;
+    opacity: 1;
+    transform: none;
+  }
+
+  .icon-rail-mobile-sheet .icon-rail-footer {
+    position: static;
+    margin-top: auto;
+    width: 100%;
+    justify-content: flex-start;
+    padding: 12px 14px;
+    color: var(--text-primary);
+  }
+
+  .icon-rail-mobile-sheet.open .icon-rail {
+    transform: translateX(0);
+  }
+
+  .message-content { max-width: 100%; }
+  .message.user .message-content { max-width: 70%; }
+}

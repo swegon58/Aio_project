@@ -9,9 +9,8 @@ interface OnboardingOverlayProps {
 }
 
 // R6.1 onboarding: a single lightweight card on the welcome screen, not a
-// multi-step wizard. Use-case chips are cosmetic only (no persistence beyond
-// local UI state) — they help the user orient, nothing more. The data-use
-// sentence stays a short factual statement; full policy content is R6.5.
+// multi-step wizard. The data-use sentence stays a short factual statement;
+// full policy content is R6.5.
 export function OnboardingOverlay({ onDismiss }: OnboardingOverlayProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -20,7 +19,16 @@ export function OnboardingOverlay({ onDismiss }: OnboardingOverlayProps) {
     if (submitting) return;
     setSubmitting(true);
     try {
-      await fetch("/api/onboarding", { method: "POST" });
+      await Promise.all([
+        fetch("/api/onboarding", { method: "POST" }),
+        selected
+          ? fetch("/api/user-memory", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ label: "Use case", value: selected }),
+            })
+          : Promise.resolve(),
+      ]);
     } finally {
       onDismiss();
     }

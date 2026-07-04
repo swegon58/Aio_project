@@ -18,8 +18,8 @@ const STAGE_LABELS: Record<ResearchStage, string> = {
 };
 
 export function ResearchProgressCard({ event }: { event: ResearchStageEvent }) {
-  const { stage, stageIndex, totalStages, sourceCount, claimCount, label } = event;
-  const isComplete = stage === "report";
+  const { stage, stageIndex, totalStages, sourceCount, claimCount, label, steps } = event;
+  const isComplete = stage === "report" && (!steps?.length || steps[steps.length - 1].status === "done");
   const progressPct = Math.round((stageIndex / totalStages) * 100);
 
   return (
@@ -28,7 +28,7 @@ export function ResearchProgressCard({ event }: { event: ResearchStageEvent }) {
       <div className="flex items-center gap-2 mb-2">
         <div className={cn(
           "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
-          isComplete ? "bg-emerald-500/15 text-emerald-400" : "bg-blue-500/15 text-blue-400",
+          isComplete ? "bg-[var(--accent-green)]/15 text-[var(--accent-green)]" : "bg-[var(--accent-primary)]/15 text-[var(--accent-primary)]",
         )}>
           {isComplete
             ? <CheckCircle2 className="h-3.5 w-3.5" />
@@ -53,35 +53,56 @@ export function ResearchProgressCard({ event }: { event: ResearchStageEvent }) {
         <div
           className={cn(
             "h-full rounded-full transition-all duration-500",
-            isComplete ? "bg-emerald-500" : "bg-blue-500",
+            isComplete ? "bg-[var(--accent-green)]" : "bg-[var(--accent-primary)]",
           )}
           style={{ width: `${progressPct}%` }}
         />
       </div>
 
-      {/* Stage pills */}
-      <div className="flex gap-1 flex-wrap">
-        {(["understand", "plan", "discover", "inspect", "synthesize", "verify", "report"] as ResearchStage[]).map(
-          (s, i) => {
-            const idx = i + 1;
-            const done = idx < stageIndex;
-            const active = idx === stageIndex;
-            return (
+      {/* Query-specific checklist (real searches/sources), falls back to the
+          fixed stage pills for older persisted events that predate it. */}
+      {steps && steps.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          {steps.map((step) => (
+            <div key={step.id} className="flex items-center gap-1.5">
+              {step.status === "done"
+                ? <CheckCircle2 className="h-3 w-3 shrink-0 text-[var(--accent-green)]" />
+                : <Loader2 className="h-3 w-3 shrink-0 animate-spin text-[var(--accent-primary)]" />}
               <span
-                key={s}
                 className={cn(
-                  "rounded px-1.5 py-0.5 text-[10px] font-medium",
-                  done && "bg-emerald-500/15 text-emerald-400",
-                  active && "bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/40",
-                  !done && !active && "bg-[var(--surface-elevated)] text-[var(--text-muted)] opacity-50",
+                  "truncate text-[11.5px]",
+                  step.status === "done" ? "text-[var(--text-muted)]" : "font-medium text-[var(--text-primary)]",
                 )}
               >
-                {STAGE_LABELS[s]}
+                {step.label}
               </span>
-            );
-          },
-        )}
-      </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex gap-1 flex-wrap">
+          {(["understand", "plan", "discover", "inspect", "synthesize", "verify", "report"] as ResearchStage[]).map(
+            (s, i) => {
+              const idx = i + 1;
+              const done = idx < stageIndex;
+              const active = idx === stageIndex;
+              return (
+                <span
+                  key={s}
+                  className={cn(
+                    "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                    done && "bg-[var(--accent-green)]/15 text-[var(--accent-green)]",
+                    active && "bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] ring-1 ring-[var(--accent-primary)]/40",
+                    !done && !active && "bg-[var(--surface-elevated)] text-[var(--text-muted)] opacity-50",
+                  )}
+                >
+                  {STAGE_LABELS[s]}
+                </span>
+              );
+            },
+          )}
+        </div>
+      )}
 
       {/* Stat row */}
       {(sourceCount !== undefined || claimCount !== undefined) && (

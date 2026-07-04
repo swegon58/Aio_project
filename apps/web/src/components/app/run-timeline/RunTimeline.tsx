@@ -13,8 +13,12 @@ export type RunTimelineProps = {
 
 export function RunTimeline({ events, compact = false, onResolveApproval }: RunTimelineProps) {
   const state = getMascotStateFromRunEvents(events);
+  // message.delta fires once per streamed text burst — showing each burst as
+  // its own "Responding" row floods the timeline with word fragments. The
+  // mascot state above still reads the full event list to detect "talking".
+  const visibleEvents = events.filter((event) => event.type !== "message.delta");
 
-  if (events.length === 0) {
+  if (visibleEvents.length === 0) {
     return (
       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--surface-elevated)] px-3 py-3 text-[12px] text-[var(--text-muted)]">
         Agent activity will appear here.
@@ -23,16 +27,22 @@ export function RunTimeline({ events, compact = false, onResolveApproval }: RunT
   }
 
   return (
-    <section className={cn("rounded-lg border border-[var(--border-color)] bg-[var(--surface-primary-opaque)]", compact ? "p-2" : "p-3")}>
-      <div className="mb-2 flex items-center justify-between gap-2">
+    // ponytail: no outer card chrome here (Kimo full-pass finding: nested
+    // cards-within-cards) — each event already renders its own card
+    // (ToolCallCard/ResearchProgressCard/ApprovalCard/ArtifactCard), so this
+    // section is just a plain list + header, not a second card layer.
+    <section
+      className={cn("flex flex-col", compact ? "gap-1.5" : "gap-2")}
+      aria-live="polite"
+      aria-label="Run activity"
+    >
+      <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-[var(--text-muted)]">Run Timeline</span>
         <AgentStateBadge state={state} />
       </div>
-      <div className={cn("flex flex-col", compact ? "gap-1.5" : "gap-2")}>
-        {events.map((event, index) => (
-          <RunEventItem key={eventKey(event, index)} event={event} onResolve={onResolveApproval} />
-        ))}
-      </div>
+      {visibleEvents.map((event, index) => (
+        <RunEventItem key={eventKey(event, index)} event={event} onResolve={onResolveApproval} />
+      ))}
     </section>
   );
 }

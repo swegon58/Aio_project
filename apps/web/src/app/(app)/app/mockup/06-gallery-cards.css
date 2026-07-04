@@ -1,0 +1,287 @@
+/* ===== GALLERY (Batch D) ===== */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.panel-section--files {
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--bg-secondary) 96%, transparent);
+}
+
+.panel-section--files .panel-tabs--segmented {
+  margin-bottom: 10px !important;
+}
+
+.gallery-thumb {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  padding: 0;
+  background: var(--surface-tertiary-opaque);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.gallery-thumb:hover { box-shadow: 0 0 0 2px var(--border-active) inset; }
+
+.gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gallery-thumb-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.gallery-lightbox { max-width: 640px; }
+
+.gallery-lightbox-img {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  background: var(--surface-tertiary-opaque);
+}
+
+.mcp-server-item:hover { background: var(--surface-hover-opaque); }
+
+.mcp-server-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.mcp-server-info { flex: 1; min-width: 0; }
+.mcp-server-name { font-size: 13.5px; font-weight: 600; }
+.mcp-server-url { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+
+.mcp-server-status { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.mcp-server-status.connected { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green-glow); }
+.mcp-server-status.disconnected { background: var(--text-muted); }
+
+.mcp-add-btn {
+  width: 100%;
+  padding: 9px;
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: var(--transition-fast);
+  font-family: inherit;
+}
+
+.mcp-add-btn:hover { color: var(--accent-secondary); background: var(--bg-hover); }
+.mcp-add-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.mcp-add-btn:disabled:hover { color: var(--text-muted); background: var(--bg-tertiary); }
+
+/* ===== APPROVAL CARD (mockup has no direct equivalent — styled in the
+   notification/alert idiom used by the mockup's .notification component) */
+.approval-card {
+  padding: 12px 14px;
+  background: linear-gradient(var(--glass-bg), var(--glass-bg)), var(--bg-card);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid rgba(255, 170, 48, 0.35);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.approval-card-head { display: flex; align-items: center; gap: 8px; }
+.approval-card-head svg { width: 16px; height: 16px; color: var(--accent-orange); flex-shrink: 0; }
+.approval-card-title { font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+.approval-card-desc { font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; }
+.approval-card-cmd {
+  font-family: "Fira Code", "Cascadia Code", monospace;
+  font-size: 13.5px;
+  padding: 8px 10px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  color: #c8c8e0;
+  overflow-x: auto;
+}
+.approval-card-actions { display: flex; gap: 8px; }
+
+.approval-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition-fast);
+  font-family: inherit;
+}
+
+.approval-btn.approve { background: var(--accent-green); color: #06241c; }
+.approval-btn.approve:hover { box-shadow: 0 4px 14px var(--accent-green-glow); }
+.approval-btn.deny { background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-color); }
+.approval-btn.deny:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* ===== PLAN-GATE CARD (plan-mode decision: Run / Adjust / Cancel)
+   Distinct from the danger-confirmation approval card above — calm
+   accent-tinted frame (purple), not the alarming orange/danger idiom.
+   State ends a turn with a draft plan; this card hands the user the
+   three ways to proceed. Consistent button vocabulary: green = proceed
+   (same as approve), tertiary = secondary, transparent = dismiss. */
+.plan-card {
+  padding: 13px 15px;
+  background:
+    linear-gradient(180deg, rgba(124, 108, 240, 0.06), rgba(124, 108, 240, 0)),
+    linear-gradient(var(--glass-bg), var(--glass-bg)),
+    var(--bg-card);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid rgba(124, 108, 240, 0.22);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  box-shadow: var(--shadow-sm);
+}
+
+.plan-card-head { display: flex; align-items: center; gap: 9px; }
+.plan-card-head svg { width: 16px; height: 16px; color: var(--accent-secondary); flex-shrink: 0; }
+.plan-card-title { font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+.plan-card-desc { font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; }
+.plan-card-actions { display: flex; gap: 8px; }
+
+.plan-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition-fast);
+  font-family: inherit;
+}
+.plan-btn svg { width: 14px; height: 14px; }
+.plan-btn.run { flex: 1.35; background: var(--accent-green); color: #06241c; }
+.plan-btn.run:hover { box-shadow: 0 4px 14px var(--accent-green-glow); }
+.plan-btn.adjust { background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-color); }
+.plan-btn.adjust:hover { background: var(--bg-hover); color: var(--text-primary); }
+.plan-btn.cancel { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-color); }
+.plan-btn.cancel:hover { background: var(--bg-hover); color: var(--text-primary); }
+.plan-btn:focus-visible { outline: 2px solid var(--accent-secondary); outline-offset: 2px; }
+.plan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.plan-question-recap {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+.plan-question-recap svg { flex-shrink: 0; margin-top: 2px; color: var(--accent-primary); }
+
+.plan-question-card {
+  padding: 13px 15px;
+  background: linear-gradient(180deg, var(--accent-glow), rgba(0, 0, 0, 0)), var(--bg-card);
+  border: 1px solid var(--border-active);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  box-shadow: var(--shadow-sm);
+}
+
+.plan-question-options { display: flex; flex-direction: column; gap: 7px; }
+
+.plan-question-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  transition: var(--transition-fast);
+  font-family: inherit;
+}
+.plan-question-option:hover { background: var(--bg-hover); border-color: var(--border-active); }
+.plan-question-option:focus-visible { outline: 2px solid var(--accent-secondary); outline-offset: 2px; }
+.plan-question-option.recommended { border-color: var(--accent-primary); }
+
+.plan-question-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--accent-glow);
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.plan-question-other { display: flex; gap: 8px; }
+.plan-question-other-input {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  font-family: inherit;
+}
+.plan-question-other-input:focus-visible { outline: 2px solid var(--accent-secondary); outline-offset: 2px; border-color: var(--border-active); }
+.plan-question-other-input::placeholder { color: var(--text-tertiary); }
+
+.plan-question-skip {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-family: inherit;
+}
+.plan-question-skip:hover { color: var(--text-primary); }
+.plan-question-skip:focus-visible { outline: 2px solid var(--accent-secondary); outline-offset: 2px; }
+.plan-question-skip svg { width: 13px; height: 13px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-card, .plan-btn, .plan-question-option, .plan-question-skip { transition: none; }
+}
+

@@ -1,25 +1,44 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, Calendar, CreditCard, Database, FileText, KeyRound, Lock, Palette, Plug, Server, Shield, Trash2, X } from "lucide-react";
+import { Bell, Bot, Brain, Calendar, CreditCard, Database, FileText, KeyRound, Lock, Palette, Plug, Server, Shield, Trash2, User, X } from "lucide-react";
 import { ALL_GATEABLE_TOOLSETS, TIERS, type PlanTier } from "@/lib/hermes/pricing";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { KnowledgeCenterPanel } from "@/components/app/KnowledgeCenterPanel";
 import { SavedAgentsPanel } from "@/components/app/SavedAgentsPanel";
+import { MemoryFactsPanel } from "@/components/app/MemoryFactsPanel";
+import { NotificationPreferencesPanel } from "@/components/app/NotificationPreferencesPanel";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { CREDENTIAL_CATEGORY_LABELS, type CredentialCategory } from "@/lib/hermes/credentials";
 
 type Theme = "dark" | "light";
 type AccentKey = "purple" | "green" | "blue" | "pink" | "orange" | "cyan" | "red";
-type SettingsTab = "general" | "connections" | "credentials" | "knowledge" | "savedAgents" | "plan" | "data";
+type SettingsTab = "account" | "general" | "connections" | "credentials" | "knowledge" | "savedAgents" | "memory" | "notifications" | "plan" | "data";
 
 const SETTINGS_TABS = [
+  { key: "account", label: "Account", icon: User },
   { key: "general", label: "Personalization", icon: Palette },
   { key: "connections", label: "Connected Apps", icon: Plug },
   { key: "credentials", label: "Model Providers", icon: KeyRound },
   { key: "knowledge", label: "Knowledge", icon: Database },
   { key: "savedAgents", label: "Saved Agents", icon: Bot },
+  { key: "memory", label: "Memory", icon: Brain },
+  { key: "notifications", label: "Notifications", icon: Bell },
   { key: "plan", label: "Plan", icon: CreditCard },
   { key: "data", label: "Data & Privacy", icon: Shield },
 ] satisfies { key: SettingsTab; label: string; icon: typeof Palette }[];
+
+// Shared destructive-action button styles (outline = idle warning, filled = armed/confirm state).
+const destructiveOutlineStyle: React.CSSProperties = {
+  width: "auto",
+  color: "var(--accent-red)",
+  border: "1px solid color-mix(in srgb, var(--accent-red) 40%, transparent)",
+};
+const destructiveFilledStyle: React.CSSProperties = {
+  width: "auto",
+  color: "var(--accent-on-accent)",
+  background: "var(--accent-red)",
+};
 
 // Human-readable labels for the gateable Hermes toolset IDs (Q2 of the
 // tier-toolset-gating grill — UI surfaces real toolset IDs as friendly names).
@@ -66,6 +85,7 @@ interface CredentialStatus {
   id: string;
   label: string;
   envVar: string;
+  category: CredentialCategory;
   set: boolean;
   masked: string | null;
 }
@@ -74,6 +94,9 @@ interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
   initialTab?: SettingsTab;
+  userName?: string | null;
+  userAvatarUrl?: string | null;
+  email: string;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   accent: AccentKey;
@@ -124,6 +147,9 @@ export function SettingsModal({
   open,
   onClose,
   initialTab,
+  userName,
+  userAvatarUrl,
+  email,
   theme,
   onThemeChange,
   accent,
@@ -168,6 +194,8 @@ export function SettingsModal({
   const [upgradingTier, setUpgradingTier] = useState<PlanTier | null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [deletePhrase, setDeletePhrase] = useState("");
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open, onClose);
 
   const handleUpgrade = async (targetTier: PlanTier) => {
     setUpgradingTier(targetTier);
@@ -207,6 +235,7 @@ export function SettingsModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="modal settings-modal"
         role="dialog"
         aria-modal="true"
@@ -238,6 +267,31 @@ export function SettingsModal({
             <h2>{activeTab.label}</h2>
           </div>
           <div className="settings-content-body">
+
+        {tab === "account" && (
+          <div className="setting-group" style={{ borderBottom: "none" }}>
+            <div className="panel-section-title" style={{ marginTop: 0 }}>Profile</div>
+            <div className="setting-desc" style={{ marginBottom: 16 }}>
+              These details come from your sign-in. To change them, update the account you signed in with.
+            </div>
+            <div className="mcp-server-item">
+              <div className="mcp-server-icon" style={{ background: "var(--bg-hover)", overflow: "hidden" }}>
+                {userAvatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={userAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>
+                    {(userName || email || "?").trim().charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="mcp-server-info">
+                <div className="mcp-server-name">{userName || "Unnamed"}</div>
+                <div className="mcp-server-url">{email}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {tab === "general" && (
           <>
@@ -282,14 +336,14 @@ export function SettingsModal({
         {tab === "connections" && (
           <div className="setting-group" style={{ borderBottom: "none" }}>
             {connectionsError && (
-              <div className="memory-text" style={{ color: "#e25c5c", marginBottom: 8 }}>
+              <div className="memory-text" style={{ color: "var(--accent-red)", marginBottom: 8 }}>
                 Failed to load: {connectionsError}
               </div>
             )}
 
             <div className="panel-section-title">Google Calendar</div>
             {googleCalendarError && (
-              <div className="memory-text" style={{ color: "#e25c5c", marginBottom: 8 }}>
+              <div className="memory-text" style={{ color: "var(--accent-red)", marginBottom: 8 }}>
                 Failed to load: {googleCalendarError}
               </div>
             )}
@@ -316,14 +370,7 @@ export function SettingsModal({
                     className="mcp-add-btn"
                     style={
                       confirmRemoveId === "google_calendar"
-                        ? {
-                            width: "auto",
-                            flexShrink: 0,
-                            padding: "4px 8px",
-                            fontSize: 12,
-                            background: "rgba(226, 92, 92, 0.12)",
-                            color: "#e25c5c",
-                          }
+                        ? { ...destructiveFilledStyle, flexShrink: 0, padding: "4px 8px", fontSize: 12 }
                         : { width: "auto", flexShrink: 0, padding: "4px 8px", fontSize: 12 }
                     }
                     disabled={googleCalendarDisconnecting}
@@ -380,7 +427,7 @@ export function SettingsModal({
                     className="mcp-add-btn"
                     style={
                       confirmRemoveId === c.id
-                        ? { padding: "4px 8px", fontSize: 12, background: "rgba(226, 92, 92, 0.12)", color: "#e25c5c" }
+                        ? { ...destructiveFilledStyle, padding: "4px 8px", fontSize: 12 }
                         : { padding: "4px 8px", fontSize: 12 }
                     }
                     disabled={tokenSubmitting}
@@ -432,25 +479,34 @@ export function SettingsModal({
         {tab === "credentials" && (
           <div className="setting-group" style={{ borderBottom: "none" }}>
             {credentialsError && (
-              <div className="memory-text" style={{ color: "#e25c5c", marginBottom: 8 }}>
+              <div className="memory-text" style={{ color: "var(--accent-red)", marginBottom: 8 }}>
                 Failed to load: {credentialsError}
               </div>
             )}
 
             {credentials === null && !credentialsError && <PanelLoading />}
 
-            {credentials?.map((c) => (
-              <div key={c.id} className="mcp-server-item">
-                <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
-                  <Server className="w-3.5 h-3.5" />
+            {credentials && (Object.keys(CREDENTIAL_CATEGORY_LABELS) as CredentialCategory[]).map((category) => {
+              const items = credentials.filter((c) => c.category === category);
+              if (items.length === 0) return null;
+              return (
+                <div key={category} style={{ marginBottom: 12 }}>
+                  <div className="panel-section-title">{CREDENTIAL_CATEGORY_LABELS[category]}</div>
+                  {items.map((c) => (
+                    <div key={c.id} className="mcp-server-item">
+                      <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
+                        <Server className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="mcp-server-info">
+                        <div className="mcp-server-name">{c.label}</div>
+                        <div className="mcp-server-url">{c.set ? c.masked : "not set"}</div>
+                      </div>
+                      <div className={`mcp-server-status ${c.set ? "connected" : "disconnected"}`} />
+                    </div>
+                  ))}
                 </div>
-                <div className="mcp-server-info">
-                  <div className="mcp-server-name">{c.label}</div>
-                  <div className="mcp-server-url">{c.set ? c.masked : "not set"}</div>
-                </div>
-                <div className={`mcp-server-status ${c.set ? "connected" : "disconnected"}`} />
-              </div>
-            ))}
+              );
+            })}
 
             <div className="panel-section-title" style={{ marginTop: 16 }}>
               Add or update provider key
@@ -497,6 +553,18 @@ export function SettingsModal({
         {tab === "savedAgents" && (
           <div className="setting-group" style={{ borderBottom: "none" }}>
             <SavedAgentsPanel />
+          </div>
+        )}
+
+        {tab === "memory" && (
+          <div className="setting-group" style={{ borderBottom: "none" }}>
+            <MemoryFactsPanel />
+          </div>
+        )}
+
+        {tab === "notifications" && (
+          <div className="setting-group" style={{ borderBottom: "none" }}>
+            <NotificationPreferencesPanel />
           </div>
         )}
 
@@ -558,7 +626,9 @@ export function SettingsModal({
         )}
         {tab === "data" && (
           <div className="setting-group" style={{ borderBottom: "none" }}>
-            <div className="panel-section-title" style={{ marginTop: 0 }}>
+            <DataTrainingOptOutToggle />
+
+            <div className="panel-section-title" style={{ marginTop: 28 }}>
               Download your data
             </div>
             <div className="setting-desc" style={{ marginBottom: 12 }}>
@@ -585,7 +655,7 @@ export function SettingsModal({
               <button
                 type="button"
                 className="mcp-add-btn"
-                style={{ width: "auto", color: "#e25c5c", border: "1px solid rgba(226, 92, 92, 0.4)" }}
+                style={destructiveOutlineStyle}
                 disabled={deleteLoading}
                 onClick={() => setDeleteArmed(true)}
               >
@@ -605,7 +675,7 @@ export function SettingsModal({
                   <button
                     type="button"
                     className="mcp-add-btn"
-                    style={{ width: "auto", color: "#e25c5c", background: "rgba(226, 92, 92, 0.12)" }}
+                    style={destructiveFilledStyle}
                     disabled={deletePhrase !== "DELETE" || deleteLoading}
                     onClick={onDeleteAccount}
                   >
@@ -621,7 +691,7 @@ export function SettingsModal({
                     Cancel
                   </button>
                 </div>
-                {deleteStatus && <div className="memory-text" style={{ color: "#e25c5c" }}>{deleteStatus}</div>}
+                {deleteStatus && <div className="memory-text" style={{ color: "var(--accent-red)" }}>{deleteStatus}</div>}
               </div>
             )}
           </div>
@@ -634,3 +704,80 @@ export function SettingsModal({
 }
 
 export type { AccentKey };
+
+// Self-contained R11.1 data-use opt-out toggle in the Data & Privacy tab.
+// Reads/writes the same /api/preferences row as the Notifications tab.
+function DataTrainingOptOutToggle() {
+  const [optOut, setOptOut] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/preferences");
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message ?? "Failed to load");
+        if (alive) setOptOut(json.preferences.dataTrainingOptOut);
+      } catch (e) {
+        if (alive) setError((e as Error).message);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const toggle = async (next: boolean) => {
+    setSaving(true);
+    setError(null);
+    const prev = optOut;
+    setOptOut(next);
+    try {
+      const res = await fetch("/api/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataTrainingOptOut: next }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? "Failed to save");
+      setOptOut(json.preferences.dataTrainingOptOut);
+    } catch (e) {
+      setOptOut(prev);
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="panel-section-title" style={{ marginTop: 0 }}>Data use</div>
+      <div className="setting-desc" style={{ marginBottom: 12 }}>
+        Control whether your conversations and inputs may be used to improve Aio&apos;s models.
+      </div>
+      {error && (
+        <div className="memory-text" style={{ color: "var(--accent-red)", marginBottom: 8 }}>{error}</div>
+      )}
+      <label
+        className="mcp-server-item"
+        style={{ cursor: saving ? "wait" : "pointer", opacity: saving ? 0.6 : 1 }}
+      >
+        <div className="mcp-server-info">
+          <div className="mcp-server-name">Opt out of model training</div>
+          <div className="mcp-server-url">
+            When on, your data is not used to train or improve models.
+          </div>
+        </div>
+        <input
+          type="checkbox"
+          checked={optOut ?? false}
+          onChange={(e) => toggle(e.target.checked)}
+          disabled={saving || optOut === null}
+          style={{ width: 18, height: 18, flexShrink: 0 }}
+        />
+      </label>
+    </>
+  );
+}

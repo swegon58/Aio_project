@@ -1,7 +1,9 @@
 "use client";
 
+import { useRef } from "react";
 import { Bell, CheckCircle2, ListChecks, Loader2, Search, X } from "lucide-react";
-import type { AioNotification } from "@/components/app/AppHome";
+import type { AioNotification } from "@/components/app/app-home-types";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface NotificationsPanelProps {
   open: boolean;
@@ -27,11 +29,15 @@ export function NotificationsPanel({
   onRead,
   onMarkAllRead,
 }: NotificationsPanelProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open, onClose);
+
   if (!open) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="modal"
         role="dialog"
         aria-modal="true"
@@ -46,15 +52,15 @@ export function NotificationsPanel({
           </button>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" aria-live="polite">
           {error && (
-            <div className="text-[12px] text-red-400 bg-red-400/10 rounded-md px-3 py-2">
+            <div role="status" className="text-[12px] text-red-400 bg-red-400/10 rounded-md px-3 py-2">
               Failed to load notifications: {error}
             </div>
           )}
 
           {notifications === null && !error && (
-            <div className="flex items-center gap-2 text-[12px] text-[var(--text-muted)] py-4 justify-center">
+            <div role="status" className="flex items-center gap-2 text-[12px] text-[var(--text-muted)] py-4 justify-center">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading notifications…
             </div>

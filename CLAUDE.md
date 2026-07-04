@@ -5,11 +5,19 @@
 Before any code change, read:
 
 1. `AIO_PROJECT_STATE.md`
-2. `AIO_MASTER_EXECUTION_PLAN.md`
-3. Current phase checklist under `docs/roadmap/` (active: `R10_EXECUTION_CHECKLIST.md`)
-4. `docs/roadmap/PRODUCT_READY_MASTER_PLAN.md` — parallel 5-phase hardening
-   plan (separate lane from R10, does not block it)
-5. `README.md`
+2. Current phase checklist under `docs/roadmap/` (active: `R11_EXECUTION_CHECKLIST.md`)
+3. `README.md`
+
+Read on demand, not every session (both are large and `AIO_PROJECT_STATE.md`
+already summarizes their outcome):
+
+- `AIO_MASTER_EXECUTION_PLAN.md` — the full R0-R7 code-level execution
+  contract, all closed phases. Only open it for old-phase forensics; use the
+  current phase checklist plus `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`
+  for latest merged-line status.
+- `docs/roadmap/PRODUCT_READY_MASTER_PLAN.md` — parallel 5-phase hardening
+  plan (separate lane from R10, does not block it). Only open it when a task
+  is actually in that lane.
 
 When the user says "continue building Aio", first run:
 
@@ -19,10 +27,6 @@ scripts/aio-context.sh
 
 Follow `AIO_PROJECT_STATE.md`. Continue an approved in-progress task, or present
 the next decision gate when no task has been approved.
-
-The master plan is the full R0-R7 code-level execution contract. Use the
-current phase checklist plus `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`
-for the latest merged-line status.
 
 ## Current Execution
 
@@ -64,6 +68,10 @@ under an unrelated global Hermes profile.
 - Preserve unrelated user changes.
 - Keep changes inside the approved phase.
 - Run task-specific checks before marking work complete.
+- Any change touching `apps/web` UI must be verified with a live Playwright
+  run (`apps/web/e2e/`), not just typecheck/lint — stop `aio-app.service`
+  first (shares the `.next` build lock with Playwright's own dev server),
+  run the relevant specs, then restart the service.
 - Do not force-push, rewrite history, rotate credentials, or choose paid
   infrastructure without explicit approval.
 - `/clear` (or start a new session) when switching between unrelated tasks

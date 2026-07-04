@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import Image from "next/image";
 import { useChat } from "@ai-sdk/react";
+import type { FileUIPart } from "ai";
 import {
   ArrowRight,
   BarChart3,
@@ -24,9 +24,11 @@ import {
   File,
   FileCode,
   Folder,
+  Globe,
   HelpCircle,
   Home,
   ImageIcon,
+  LayoutGrid,
   Link2,
   ListChecks,
   ListTree,
@@ -34,12 +36,12 @@ import {
   Lock,
   Maximize2,
   Menu,
-  Mic,
   Minimize2,
   Pause,
   Paperclip,
   PenLine,
   Play,
+  Plug,
   Plus,
   Printer,
   Send,
@@ -47,6 +49,7 @@ import {
   TerminalSquare,
   Trash2,
   Users,
+  Video,
   X,
 } from "lucide-react";
 import { Mascot, MascotStatusBadge } from "@/components/app/Mascot";
@@ -63,10 +66,13 @@ import {
   ImageGenerationProgress,
 } from "@/components/app/GeneratedImageCard";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
+import { Button } from "@/components/ui/button";
 import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
 import { ScheduledTasksModal } from "@/components/app/ScheduledTasksModal";
 import { NotificationsPanel } from "@/components/app/NotificationsPanel";
 import { OnboardingOverlay } from "@/components/app/OnboardingOverlay";
+import { deriveQuickSuggestions, QuickSuggestionsBar } from "@/components/app/QuickSuggestions";
+import { PreviewPane, ShowcaseErrorDetail, type ActiveFile } from "@/components/app/FilePreview";
 import { brand } from "@/lib/brand.config";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import {
@@ -90,750 +96,60 @@ import {
   type MascotImageState,
 } from "@/lib/hermes/chat-types";
 import type { AioRunEvent, AioRunStatus } from "@/lib/aio/runs/aio-run-events";
+import { friendlyFetchError } from "@/lib/aio/friendly-fetch-error";
 import "@/app/(app)/app/mockup.css";
 
-// Mirrors route.ts PLAN_MODE_INSTRUCTIONS' aio-question protocol: a
-// clarifying turn is ONLY a ```aio-question fenced JSON block, nothing else.
-// Returns null for a normal/final-plan turn so callers fall back to the
-// existing Run/Adjust/Cancel plan card.
-interface PlanQuestion {
-  question: string;
-  choices: string[];
-  recommended?: number;
-}
-
-function parsePlanQuestion(text: string): PlanQuestion | null {
-  // Strip any fence language tag (aio-question, json, or none) — local
-  // models don't reliably use the exact tag we ask for.
-  const fenced = text.match(/```(?:[a-zA-Z-]+)?\s*([\s\S]*?)```/);
-  const candidate = fenced ? fenced[1].trim() : text.trim();
-  if (!candidate.startsWith("{") || !candidate.endsWith("}")) return null;
-  try {
-    const parsed = JSON.parse(candidate);
-    if (
-      typeof parsed.question === "string" &&
-      Array.isArray(parsed.choices) &&
-      parsed.choices.every((c: unknown) => typeof c === "string")
-    ) {
-      return parsed as PlanQuestion;
-    }
-  } catch {
-    // Malformed block — treat as a normal message, not a question card.
-  }
-  return null;
-}
-
-type MessageSegment =
-  | { type: "text"; value: string }
-  | { type: "code"; lang: string; code: string };
-
-// Splits an assistant message into text/code segments so code blocks can be
-// rendered as clickable chips in chat instead of inline (keeps chat bubbles
-// short; full code lives in the workspace panel).
-function splitMessageSegments(text: string): MessageSegment[] {
-  const segments: MessageSegment[] = [];
-  // [^\n]* tolerates trailing junk on the fence line (e.g. "```js extra") —
-  // a strict \n right after the lang token would otherwise drop the whole
-  // block (literal backticks included) to plain text on malformed fences.
-  const regex = /```([a-zA-Z0-9_-]*)[^\n]*\n([\s\S]*?)```/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(text))) {
-    if (match.index > lastIndex) {
-      segments.push({ type: "text", value: text.slice(lastIndex, match.index) });
-    }
-    segments.push({ type: "code", lang: match[1] || "text", code: match[2].trimEnd() });
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < text.length) {
-    const rest = text.slice(lastIndex);
-    // Odd fence count in the remainder means an unterminated trailing fence
-    // (still streaming) — treat it as a code segment now instead of waiting
-    // for the closing ``` so the chat bubble doesn't jump height on close.
-    const openMatch = /```([a-zA-Z0-9_-]*)[^\n]*\n([\s\S]*)$/.exec(rest);
-    const fenceCount = (rest.match(/```/g) ?? []).length;
-    if (openMatch && fenceCount % 2 === 1) {
-      const before = rest.slice(0, openMatch.index);
-      if (before) segments.push({ type: "text", value: before });
-      segments.push({ type: "code", lang: openMatch[1] || "text", code: openMatch[2] });
-    } else {
-      segments.push({ type: "text", value: rest });
-    }
-  }
-  return segments;
-}
-
-function deriveMascotState(
-  status: "submitted" | "streaming" | "ready" | "error",
-  activity: HermesActivityData[],
-  hasText: boolean,
-): MascotImageState {
-  const runningTool = activity.find((item) => item.kind === "tool" && item.status === "running");
-  if (runningTool && runningTool.kind === "tool") return mascotStateForTool(runningTool.tool);
-  if (status === "submitted" || (status === "streaming" && !hasText)) return "thinking";
-  return "idle";
-}
-
-function runEventKey(event: AioRunEvent): string {
-  if ("toolCallId" in event) return `${event.type}:${event.toolCallId}`;
-  if ("approvalId" in event) return `${event.type}:${event.approvalId}`;
-  if ("artifactId" in event) return `${event.type}:${event.artifactId}`;
-  if ("taskId" in event) return `${event.type}:${event.taskId}`;
-  return `${event.type}:${event.runId}:${event.createdAt}`;
-}
-
-function upsertRunEvent(events: AioRunEvent[], event: AioRunEvent): AioRunEvent[] {
-  const key = runEventKey(event);
-  const index = events.findIndex((item) => runEventKey(item) === key);
-  const next = index === -1 ? [...events, event] : events.map((item, i) => (i === index ? event : item));
-  return next.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
-}
-
-function isPendingRunShellEvent(event: AioRunEvent): boolean {
-  return event.type === "run.created" && event.runId.startsWith("pending:");
-}
-
-function mergeDurableRunEvents(existing: AioRunEvent[], incoming: AioRunEvent[]): AioRunEvent[] {
-  let next = existing.filter((event) => !isPendingRunShellEvent(event));
-  for (const event of incoming) {
-    next = upsertRunEvent(next, event);
-  }
-  return next;
-}
-
-function pendingApprovalFromRunEvents(
-  events: AioRunEvent[],
-): Extract<HermesApprovalData, { kind: "request" }> | null {
-  const pending = new Map<string, Extract<HermesApprovalData, { kind: "request" }>>();
-
-  for (const event of events) {
-    if (event.type === "approval.requested") {
-      const requestId = event.requestId ?? event.approvalId;
-      pending.set(requestId, {
-        kind: "request",
-        requestId,
-        runId: event.runId,
-        command: event.command,
-        description: event.description,
-        patternKey: event.patternKey,
-        allowPermanent: event.allowPermanent ?? false,
-        choices: event.choices ?? ["approve", "reject"],
-        ts: event.ts ?? Date.parse(event.createdAt),
-      });
-      continue;
-    }
-
-    if (event.type === "approval.responded") {
-      pending.delete(event.requestId ?? event.approvalId);
-    }
-  }
-
-  const unresolved = Array.from(pending.values());
-  return unresolved.length > 0 ? unresolved[unresolved.length - 1] : null;
-}
-
-function badgeStateForRunStatus(
-  status: AioRunStatus | null,
-  options: {
-    hydrating: boolean;
-    syncError: boolean;
-  },
-): "ready" | "working" | "asking" | "success" | "error" | "confused" {
-  if (options.hydrating) return "working";
-  if (options.syncError && status && !isRunTerminal(status)) return "confused";
-  switch (status) {
-    case "queued":
-    case "running":
-    case "cancelling":
-      return "working";
-    case "waiting_approval":
-      return "asking";
-    case "completed":
-    case "cancelled":
-      return "success";
-    case "failed":
-      return "error";
-    default:
-      return "ready";
-  }
-}
-
-function labelForRunStatus(status: AioRunStatus | null): string {
-  switch (status) {
-    case "queued":
-      return "Queued";
-    case "running":
-      return "Running";
-    case "waiting_approval":
-      return "Needs approval";
-    case "cancelling":
-      return "Stopping";
-    case "completed":
-      return "Completed";
-    case "failed":
-      return "Failed";
-    case "cancelled":
-      return "Cancelled";
-    default:
-      return "Ready";
-  }
-}
-
-type FilesSubTab = "gallery" | "files";
-type TodayAction = "plan" | "run" | "schedule" | "ignore";
-
-interface TodayCard {
-  id: string;
-  kind: "continue" | "review" | "create" | "schedule";
-  label: string;
-  title: string;
-  reason: string;
-  source: string;
-  prompt: string;
-}
-
-interface MetaLogEntry {
-  id: string;
-  text: string;
-  ts: number;
-}
-
-// Aio Output is a human-facing inspector for the current task. Compact
-// keeps the chat primary; focus gives previews more room without turning
-// the product into a developer terminal.
-type TerminalScale = "compact" | "focus";
-type TerminalTab = "activity" | "preview";
-
-// File the agent is actively touching right now, derived from the live
-// activity stream (most recent tool entry that carries a filePath).
-interface ActiveFile {
-  filePath: string;
-  fileName?: string;
-}
-
-const LIVE_PREVIEW_EXTS = new Set(["html", "htm", "js", "jsx", "ts", "tsx"]);
-const PDF_EXTS = new Set(["pdf"]);
-const DOC_EXTS = new Set(["doc", "docx"]);
-const SHEET_EXTS = new Set(["xlsx", "csv"]);
-const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
-const MARKDOWN_EXTS = new Set(["md", "markdown"]);
-
-const KEYWORDS = new Set([
-  "function", "const", "let", "var", "return", "if", "else", "for", "while",
-  "import", "export", "from", "default", "class", "extends", "new", "this",
-  "async", "await", "try", "catch", "finally", "throw", "typeof", "interface",
-  "type", "public", "private", "static", "void", "null", "undefined", "true",
-  "false", "def", "self", "elif", "import", "as", "with", "lambda", "yield",
-]);
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
-}
-
-// Minimal regex tokenizer for the terminal's code blocks — covers
-// comments/strings/numbers/keywords well enough to break up a wall of
-// monochrome text, without pulling in a full highlighter dependency.
-function highlightCode(code: string): string {
-  const tokenPattern = /(\/\/.*$|#.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b\d+(?:\.\d+)?\b)|(\b[a-zA-Z_]\w*\b)/gm;
-  let out = "";
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = tokenPattern.exec(code)) !== null) {
-    out += escapeHtml(code.slice(lastIndex, match.index));
-    const [full, comment, str, num, word] = match;
-    if (comment) out += `<span class="tok-com">${escapeHtml(comment)}</span>`;
-    else if (str) out += `<span class="tok-str">${escapeHtml(str)}</span>`;
-    else if (num) out += `<span class="tok-num">${escapeHtml(num)}</span>`;
-    else if (word && KEYWORDS.has(word)) out += `<span class="tok-kw">${escapeHtml(word)}</span>`;
-    else out += escapeHtml(full);
-    lastIndex = match.index + full.length;
-  }
-  out += escapeHtml(code.slice(lastIndex));
-  return out;
-}
-
-// Q11: error chip shows a short line + an expand toggle for the full
-// stdout/traceback, instead of dumping it inline.
-function ShowcaseErrorDetail({ stdout }: { stdout?: string }) {
-  const [open, setOpen] = useState(false);
-  if (!stdout) return null;
-  const firstLine = stdout.trim().split("\n").pop() ?? stdout;
-  return (
-    <div className="showcase-chip-log" style={{ fontSize: 11.5, color: "var(--aio-error, #e25c5c)", marginTop: 2 }}>
-      <span className="truncate">{firstLine}</span>
-      <button type="button" className="showcase-chip-log-toggle" onClick={() => setOpen((v) => !v)}>
-        {open ? "Hide log" : "View full log"}
-      </button>
-      {open && <pre className="workspace-code-block">{stdout}</pre>}
-    </div>
-  );
-}
-
-// Preview-tab integration point: renders the live-edited file inline in the
-// Aio Terminal panel, switching on extension.
-function PreviewPane({ file }: { file: ActiveFile | null }) {
-  if (!file) {
-    return (
-      <div className="terminal-preview-empty">
-        No preview available yet.
-      </div>
-    );
-  }
-
-  const name = file.fileName ?? file.filePath;
-  const ext = name.split(".").pop()?.toLowerCase() ?? "";
-
-  let body: React.ReactNode;
-  if (LIVE_PREVIEW_EXTS.has(ext)) {
-    body = <LiveAppPreview />;
-  } else if (PDF_EXTS.has(ext)) {
-    body = <PdfPreview url={file.filePath} />;
-  } else if (DOC_EXTS.has(ext)) {
-    body = <DocPreview url={file.filePath} />;
-  } else if (SHEET_EXTS.has(ext)) {
-    body = <SheetPreview url={file.filePath} isCsv={ext === "csv"} />;
-  } else if (IMAGE_EXTS.has(ext)) {
-    body = (
-      // eslint-disable-next-line @next/next/no-img-element -- arbitrary proxied artifact URL, not a static asset
-      <img src={file.filePath} alt={name} className="terminal-preview-image" />
-    );
-  } else if (MARKDOWN_EXTS.has(ext)) {
-    body = <MarkdownPreview url={file.filePath} />;
-  } else {
-    body = <div className="terminal-preview-placeholder">Preview for this file type will render here.</div>;
-  }
-
-  return (
-    <div className="terminal-preview-pane">
-      <div className="terminal-preview-filename">{name}</div>
-      {body}
-    </div>
-  );
-}
-
-// Fetches text/JSON content from the existing artifact-fetch URL
-// (/api/chat/artifact?runId=...&path=...) shared by all non-image preview
-// branches.
-function useArtifactFetch<T>(
-  url: string,
-  parse: (res: Response) => Promise<T>,
-): { data: T | null; error: string | null; loading: boolean } {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setData(null);
-    setError(null);
-    setLoading(true);
-    fetch(url)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Failed to load file (${res.status})`);
-        return parse(res);
-      })
-      .then((parsed) => {
-        if (!cancelled) setData(parsed);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- parse is a stable inline fn per call site
-  }, [url]);
-
-  return { data, error, loading };
-}
-
-function PdfPreview({ url }: { url: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [pageNum, setPageNum] = useState(1);
-  const [numPages, setNumPages] = useState(1);
-  const [error, setError] = useState<string | null>(null);
-  const docRef = useRef<import("pdfjs-dist").PDFDocumentProxy | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setError(null);
-    (async () => {
-      try {
-        const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-          "pdfjs-dist/build/pdf.worker.min.mjs",
-          import.meta.url,
-        ).toString();
-        const doc = await pdfjs.getDocument({ url }).promise;
-        if (cancelled) return;
-        docRef.current = doc;
-        setNumPages(doc.numPages);
-        setPageNum(1);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [url]);
-
-  useEffect(() => {
-    const doc = docRef.current;
-    const canvas = canvasRef.current;
-    if (!doc || !canvas) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const page = await doc.getPage(pageNum);
-        if (cancelled) return;
-        const viewport = page.getViewport({ scale: 1.2 });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [pageNum, numPages]);
-
-  if (error) return <div className="terminal-preview-placeholder">Couldn&apos;t load PDF: {error}</div>;
-
-  return (
-    <div className="terminal-preview-pdf">
-      <canvas ref={canvasRef} className="terminal-preview-pdf-canvas" />
-      {numPages > 1 && (
-        <div className="terminal-preview-pdf-nav">
-          <button
-            type="button"
-            disabled={pageNum <= 1}
-            onClick={() => setPageNum((p) => Math.max(1, p - 1))}
-          >
-            Prev
-          </button>
-          <span>
-            {pageNum} / {numPages}
-          </span>
-          <button
-            type="button"
-            disabled={pageNum >= numPages}
-            onClick={() => setPageNum((p) => Math.min(numPages, p + 1))}
-          >
-            Next
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DocPreview({ url }: { url: string }) {
-  const { data, error, loading } = useArtifactFetch(url, async (res) => {
-    const mammoth = await import("mammoth");
-    const arrayBuffer = await res.arrayBuffer();
-    const { value } = await mammoth.convertToHtml({ arrayBuffer });
-    return value;
-  });
-
-  if (loading) return <div className="terminal-preview-placeholder">Loading document…</div>;
-  if (error) return <div className="terminal-preview-placeholder">Couldn&apos;t load document: {error}</div>;
-  return (
-    <div
-      className="terminal-preview-doc"
-      dangerouslySetInnerHTML={{ __html: data ?? "" }}
-    />
-  );
-}
-
-function SheetPreview({ url, isCsv }: { url: string; isCsv: boolean }) {
-  type SheetCell = string | number | boolean | Date | null;
-  type SheetRows = SheetCell[][];
-
-  const { data, error, loading } = useArtifactFetch<SheetRows>(url, async (res) => {
-    if (isCsv) {
-      const Papa = (await import("papaparse")).default;
-      const result = Papa.parse<SheetCell[]>(await res.text(), { skipEmptyLines: true });
-      if (result.errors.length > 0) throw new Error(result.errors[0].message);
-      return result.data;
-    }
-
-    const { readSheet } = await import("read-excel-file/browser");
-    return readSheet(await res.arrayBuffer()) as Promise<SheetRows>;
-  });
-
-  if (loading) return <div className="terminal-preview-placeholder">Loading spreadsheet…</div>;
-  if (error) return <div className="terminal-preview-placeholder">Couldn&apos;t load spreadsheet: {error}</div>;
-  return (
-    <div className="terminal-preview-sheet">
-      <table>
-        <tbody>
-          {(data ?? []).map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {row.map((cell, cellIndex) => (
-                <td key={cellIndex}>
-                  {cell instanceof Date ? cell.toLocaleString() : String(cell ?? "")}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function MarkdownPreview({ url }: { url: string }) {
-  const { data, error, loading } = useArtifactFetch(url, (res) => res.text());
-
-  if (loading) return <div className="terminal-preview-placeholder">Loading…</div>;
-  if (error) return <div className="terminal-preview-placeholder">Couldn&apos;t load file: {error}</div>;
-  return (
-    <div className="terminal-preview-markdown">
-      <MarkdownMessage text={data ?? ""} />
-    </div>
-  );
-}
-
-// Live app preview (html/js/jsx/ts/tsx): asks the gateway for this session's
-// host workspace dir, starts (or reuses) a Docker preview for it, then loads
-// the resulting same-origin proxy URL in a sandboxed iframe.
-function LiveAppPreview() {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [error, setError] = useState<{ reason: string; message: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/preview/start", { method: "POST" })
-      .then(async (res) => {
-        const body = await res.json();
-        if (!res.ok) throw { reason: body.error ?? "preview_failed", message: body.message ?? "Failed to start preview" };
-        return body as { previewUrl: string };
-      })
-      .then((body) => {
-        if (!cancelled) setPreviewUrl(body.previewUrl);
-      })
-      .catch((err: { reason?: string; message?: string }) => {
-        if (!cancelled) {
-          setError({
-            reason: err.reason ?? "preview_failed",
-            message: err.message ?? "Failed to start preview",
-          });
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (loading) return <div className="terminal-preview-placeholder">Starting live preview…</div>;
-  if (error?.reason === "remote_environment") {
-    return (
-      <div className="terminal-preview-placeholder">
-        Live preview needs a local workspace; this session is running remote.
-      </div>
-    );
-  }
-  if (error) {
-    return <div className="terminal-preview-placeholder">Couldn&apos;t start live preview: {error.message}</div>;
-  }
-  if (!previewUrl) return null;
-
-  return (
-    <iframe
-      src={previewUrl}
-      className="terminal-preview-iframe"
-      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-      title="Live app preview"
-    />
-  );
-}
-
-export interface CronJob {
-  id: string;
-  name: string;
-  schedule: string;
-  prompt: string;
-  enabled?: boolean;
-  next_run?: string | null;
-  last_run?: string | null;
-}
-
-interface GalleryImage {
-  id: string;
-  sessionId: string | null;
-  caption: string | null;
-  createdAt: string;
-  url: string | null;
-}
-
-export interface AioNotification {
-  id: string;
-  source: "scheduled_task" | "research_run";
-  title: string;
-  body: string | null;
-  read: boolean;
-  created_at: string;
-}
-
-type ImageAspectRatio = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
-type ImageResolution = "1K" | "2K" | "4K";
-type ImageGenerationStatus = "preparing" | "generating" | "saving";
-
-const IMAGE_ASPECT_RATIOS: Array<{ value: ImageAspectRatio; label: string }> = [
-  { value: "1:1", label: "Square" },
-  { value: "16:9", label: "Landscape" },
-  { value: "9:16", label: "Portrait" },
-  { value: "4:3", label: "Classic" },
-  { value: "3:4", label: "Tall" },
-];
-
-const IMAGE_COST_USD: Record<ImageResolution, number> = {
-  "1K": 0.03,
-  "2K": 0.05,
-  "4K": 0.08,
-};
-
-interface ConnectionStatus {
-  id: string;
-  label: string;
-  tokenEnvVar: string;
-  connected: boolean;
-}
-
-interface CredentialStatus {
-  id: string;
-  label: string;
-  envVar: string;
-  set: boolean;
-  masked: string | null;
-}
-
-type KanbanStatus = "todo" | "ready" | "running" | "scheduled" | "blocked" | "done" | "archived";
-
-interface KanbanTask {
-  id: string;
-  title: string;
-  status: string;
-  assignee: string | null;
-}
-
-interface KanbanBoard {
-  statuses: KanbanStatus[];
-  columns: Record<string, KanbanTask[]>;
-}
-
-interface FileTreeEntry {
-  name: string;
-  type: "dir" | "file";
-  size: number | null;
-  mtime: number;
-}
-
-interface MemorySnapshot {
-  available: boolean;
-  summary?: string | null;
-  facts?: string[];
-  error?: string;
-  reason?: string;
-}
-
-const TODAY_CARDS: TodayCard[] = [
-  {
-    id: "continue-current-thread",
-    kind: "continue",
-    label: "Continue",
-    title: "Pick up the current thread",
-    reason: "Turn the latest context into a concrete next step.",
-    source: "Recent chat",
-    prompt: "Review our current conversation and suggest the most useful next step. Then help me execute it.",
-  },
-  {
-    id: "review-context",
-    kind: "review",
-    label: "Review",
-    title: "Find what needs attention",
-    reason: "Scan memory, files, and open context for anything worth acting on.",
-    source: "Workspace",
-    prompt: "Review my current Aio context and tell me what deserves attention next, with a short prioritized list.",
-  },
-  {
-    id: "create-artifact",
-    kind: "create",
-    label: "Create",
-    title: "Make a useful artifact",
-    reason: "Convert loose context into a plan, doc, table, or draft.",
-    source: "Aio",
-    prompt: "Based on my current context, propose one useful artifact to create and draft the first version.",
-  },
-  {
-    id: "schedule-followup",
-    kind: "schedule",
-    label: "Schedule",
-    title: "Set up a recurring follow-up",
-    reason: "Convert repeated work into a scheduled check.",
-    source: "Tasks",
-    prompt: "Help me turn one recurring task from my current context into a scheduled Aio follow-up.",
-  },
-];
-
-const ICON_RAIL_ITEMS = [
-  { key: "home", label: "Home", icon: Home, active: true, disabled: false },
-  { key: "scheduled", label: "Scheduled", icon: Clock, active: false, disabled: false },
-  { key: "notifications", label: "Notifications", icon: Bell, active: false, disabled: false },
-  { key: "agents", label: "Agents", icon: Users, active: false, disabled: true },
-  { key: "tasks", label: "Tasks", icon: ListChecks, active: false, disabled: true },
-  { key: "knowledge", label: "Knowledge", icon: Brain, active: false, disabled: true },
-  { key: "analytics", label: "Analytics", icon: BarChart3, active: false, disabled: true },
-  { key: "settings", label: "Settings", icon: Cog, active: false, disabled: false },
-] as const;
-
-const ACCENT_HEX: Record<AccentKey, string> = {
-  purple: "#6c5ce7",
-  green: "#00d2a0",
-  blue: "#0081f2",
-  pink: "#fd79a8",
-  orange: "#ffa726",
-  cyan: "#00cec9",
-  red: "#ff6b6b",
-};
-
-const BG_HEX: Record<"dark" | "light", string> = {
-  dark: "#090909",
-  light: "#f5f5fa",
-};
-
-function mixHex(hex: string, bgHex: string, ratio: number): string {
-  const a = hex.replace("#", "");
-  const b = bgHex.replace("#", "");
-  const ar = parseInt(a.slice(0, 2), 16);
-  const ag = parseInt(a.slice(2, 4), 16);
-  const ab = parseInt(a.slice(4, 6), 16);
-  const br = parseInt(b.slice(0, 2), 16);
-  const bg = parseInt(b.slice(2, 4), 16);
-  const bb = parseInt(b.slice(4, 6), 16);
-  const r = Math.round(ar * ratio + br * (1 - ratio));
-  const g = Math.round(ag * ratio + bg * (1 - ratio));
-  const bl = Math.round(ab * ratio + bb * (1 - ratio));
-  return `#${[r, g, bl].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
-}
-
+import type {
+  PlanQuestion,
+  MessageSegment,
+  FilesSubTab,
+  TodayAction,
+  TodayCard,
+  MetaLogEntry,
+  TerminalScale,
+  TerminalTab,
+  CronJob,
+  GalleryImage,
+  AioNotification,
+  ImageAspectRatio,
+  ImageResolution,
+  ImageGenerationStatus,
+  ConnectionStatus,
+  CredentialStatus,
+  KanbanStatus,
+  KanbanTask,
+  KanbanBoard,
+  FileTreeEntry,
+  MemorySnapshot,
+} from "@/components/app/app-home-types";
+import {
+  parsePlanQuestion,
+  splitMessageSegments,
+  deriveMascotState,
+  runEventKey,
+  upsertRunEvent,
+  isPendingRunShellEvent,
+  mergeDurableRunEvents,
+  pendingApprovalFromRunEvents,
+  badgeStateForRunStatus,
+  labelForRunStatus,
+  escapeHtml,
+  highlightCode,
+  TODAY_CARDS,
+  ICON_RAIL_ITEMS,
+  ACCENT_HEX,
+  BG_HEX,
+  IMAGE_ASPECT_RATIOS,
+  IMAGE_COST_USD,
+  mixHex,
+} from "@/components/app/app-home-utils";
 interface AppHomeProps {
   email: string;
+  userName?: string | null;
+  userAvatarUrl?: string | null;
 }
 
-export function AppHome({ email }: AppHomeProps) {
+export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   const [activity, setActivity] = useState<HermesActivityData[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [runEvents, setRunEvents] = useState<AioRunEvent[]>([]);
@@ -936,6 +252,9 @@ export function AppHome({ email }: AppHomeProps) {
   });
 
   const [input, setInput] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<FileUIPart[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const confirmDeleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -943,6 +262,31 @@ export function AppHome({ email }: AppHomeProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [iconRailMobileOpen, setIconRailMobileOpen] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  // Free drag-resize (R11.3): null = use the CSS preset width for the
+  // current mode; set once the user drags the handle.
+  const [rightPanelWidth, setRightPanelWidth] = useState<number | null>(null);
+  const handleRightPanelResizeStart = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const panelEl = (e.currentTarget as HTMLElement).parentElement;
+    const startWidth = panelEl?.getBoundingClientRect().width ?? 420;
+    const startX = e.clientX;
+    // ponytail: .right-panel has a blanket `transition: all` (for its
+    // collapse/expand animation), which otherwise eases the inline width
+    // during drag instead of tracking the pointer 1:1. Suspend it only
+    // for the drag's duration.
+    if (panelEl) panelEl.style.transition = "none";
+    const onMove = (ev: PointerEvent) => {
+      const next = startWidth + (startX - ev.clientX);
+      setRightPanelWidth(Math.min(Math.max(next, 320), window.innerWidth * 0.8));
+    };
+    const onUp = () => {
+      if (panelEl) panelEl.style.transition = "";
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
   const [filesSubTab, setFilesSubTab] = useState<FilesSubTab>("gallery");
   const [metaLog, setMetaLog] = useState<MetaLogEntry[]>([]);
   const logMeta = (text: string) =>
@@ -961,6 +305,10 @@ export function AppHome({ email }: AppHomeProps) {
   };
   const [connections, setConnections] = useState<ConnectionStatus[] | null>(null);
   const [connectionsError, setConnectionsError] = useState<string | null>(null);
+  // Read-only left-sidebar "Integrations" list (#14 MCP surfacing, R11.3) —
+  // reuses the existing GET /api/integrations/mcp (real Hermes config.yaml
+  // read), just displayed without the word "MCP" per the confirmed brief.
+  const [mcpServers, setMcpServers] = useState<{ name: string; enabled: boolean }[] | null>(null);
   const [tokenPlatform, setTokenPlatform] = useState("");
   const [tokenValue, setTokenValue] = useState("");
   const [tokenSubmitting, setTokenSubmitting] = useState(false);
@@ -975,7 +323,6 @@ export function AppHome({ email }: AppHomeProps) {
   const [kanban, setKanban] = useState<KanbanBoard | null>(null);
   const [kanbanError, setKanbanError] = useState<string | null>(null);
   const [memorySnapshot, setMemorySnapshot] = useState<MemorySnapshot | null>(null);
-  const [memoryError, setMemoryError] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[] | null>(null);
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [galleryUploading, setGalleryUploading] = useState(false);
@@ -1412,9 +759,40 @@ export function AppHome({ email }: AppHomeProps) {
     }
   };
 
+  const MAX_ATTACHMENTS = 4;
+  const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+
+  const addAttachments = async (files: File[]) => {
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    if (images.length === 0) return;
+    const oversized = images.find((f) => f.size > MAX_ATTACHMENT_BYTES);
+    if (oversized) {
+      setAttachmentError(`${oversized.name} is over 8MB.`);
+      return;
+    }
+    if (pendingAttachments.length + images.length > MAX_ATTACHMENTS) {
+      setAttachmentError(`Up to ${MAX_ATTACHMENTS} images per message.`);
+      return;
+    }
+    setAttachmentError(null);
+    const parts = await Promise.all(
+      images.map(
+        (file) =>
+          new Promise<FileUIPart>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () =>
+              resolve({ type: "file", mediaType: file.type, url: reader.result as string, filename: file.name });
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
+    setPendingAttachments((prev) => [...prev, ...parts]);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || status !== "ready" || imageGenerationStatus) return;
+    if ((!input.trim() && pendingAttachments.length === 0) || status !== "ready" || imageGenerationStatus) return;
     const submittedText = input.trim();
     if (imageComposerActive) {
       setInput("");
@@ -1430,8 +808,13 @@ export function AppHome({ email }: AppHomeProps) {
     setPlanAwaitingAction(chatMode === "plan");
     setLastRunMode(chatMode);
     if (chatMode === "research") setActiveResearchQuery(submittedText);
-    sendMessage({ text: submittedText }, { body: { mode: chatMode, savedAgentId: activeSavedAgentId } });
+    sendMessage(
+      { text: submittedText, files: pendingAttachments },
+      { body: { mode: chatMode, savedAgentId: activeSavedAgentId } },
+    );
     setInput("");
+    setPendingAttachments([]);
+    setAttachmentError(null);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     setInputMultiline(false);
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -1522,6 +905,15 @@ export function AppHome({ email }: AppHomeProps) {
   };
 
   const handleRailItemClick = (key: (typeof ICON_RAIL_ITEMS)[number]["key"]) => {
+    if (key === "newChat") {
+      // Auto-open the sidebar if it's currently collapsed (R11.5b) — desktop
+      // only; on mobile handleNewChat already collapses the overlay itself
+      // once the new conversation is created, so opening here would just
+      // flash it open then immediately closed.
+      if (sidebarCollapsed && window.innerWidth > 768) setSidebarCollapsed(false);
+      handleNewChat();
+      return;
+    }
     if (key === "settings") {
       setSettingsOpen(true);
       return;
@@ -1538,7 +930,7 @@ export function AppHome({ email }: AppHomeProps) {
     setConnectionsError(null);
     try {
       const res = await fetch("/api/connections");
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const data = await res.json();
       setConnections(data.platforms);
       if (!tokenPlatform && data.platforms?.[0]) {
@@ -1557,11 +949,21 @@ export function AppHome({ email }: AppHomeProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen, scheduledTasksOpen]);
 
+  // ponytail: best-effort sidebar list — silent no-op on failure (no
+  // profile yet, config unreadable) rather than an error state, since this
+  // is a passive read-only glance, not a primary flow.
+  useEffect(() => {
+    fetch("/api/integrations/mcp")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setMcpServers(data?.servers ?? null))
+      .catch(() => setMcpServers(null));
+  }, []);
+
   const loadGoogleCalendarStatus = async () => {
     setGoogleCalendarError(null);
     try {
       const res = await fetch("/api/connections/google");
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const data = await res.json();
       setGoogleCalendarStatus({
         configured: data.configured,
@@ -1599,7 +1001,7 @@ export function AppHome({ email }: AppHomeProps) {
     setGoogleCalendarDisconnecting(true);
     try {
       const res = await fetch("/api/connections/google/disconnect", { method: "POST" });
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       await loadGoogleCalendarStatus();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1613,7 +1015,7 @@ export function AppHome({ email }: AppHomeProps) {
     setConversationsError(null);
     try {
       const res = await fetch("/api/conversations");
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const data = await res.json();
       setConversations(data.conversations);
     } catch (err) {
@@ -1668,7 +1070,7 @@ export function AppHome({ email }: AppHomeProps) {
     (async () => {
       try {
         const res = await fetch(`/api/conversations/${storedId}`);
-        if (!res.ok) throw new Error(`status ${res.status}`);
+        if (!res.ok) throw new Error(friendlyFetchError(res.status));
         const data = await res.json();
         if (loadConversationRequestRef.current !== storedId) return;
         applyConversationData(data);
@@ -1805,7 +1207,7 @@ export function AppHome({ email }: AppHomeProps) {
   const handleNewChat = async () => {
     try {
       const res = await fetch("/api/conversations", { method: "POST" });
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const data = await res.json();
       loadConversationRequestRef.current = data.id;
       setActiveConversationId(data.id);
@@ -1833,7 +1235,7 @@ export function AppHome({ email }: AppHomeProps) {
     loadConversationRequestRef.current = id;
     try {
       const res = await fetch(`/api/conversations/${id}`);
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const data = await res.json();
       if (loadConversationRequestRef.current !== id) return;
       applyConversationData(data);
@@ -1857,7 +1259,7 @@ export function AppHome({ email }: AppHomeProps) {
     setConfirmDeleteId(null);
     try {
       const res = await fetch(`/api/conversations/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       setConversations((prev) => (prev ?? []).filter((c) => c.id !== id));
       logMeta("Deleted a conversation");
       if (id === activeConversationId) {
@@ -1897,7 +1299,7 @@ export function AppHome({ email }: AppHomeProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),
       });
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       logMeta(`Renamed a conversation to "${title}"`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1912,7 +1314,7 @@ export function AppHome({ email }: AppHomeProps) {
     setCredentialsError(null);
     try {
       const res = await fetch("/api/credentials");
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const data = await res.json();
       setCredentials(data.credentials);
       if (!credentialId && data.credentials?.[0]) {
@@ -1936,7 +1338,7 @@ export function AppHome({ email }: AppHomeProps) {
     setExportStatus(null);
     try {
       const res = await fetch("/api/account/export");
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1966,7 +1368,7 @@ export function AppHome({ email }: AppHomeProps) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.message ?? `status ${res.status}`);
+        throw new Error(data?.message ?? friendlyFetchError(res.status));
       }
       const { createClient } = await import("@/lib/supabase/client");
       await createClient().auth.signOut();
@@ -1982,7 +1384,7 @@ export function AppHome({ email }: AppHomeProps) {
     setKanbanError(null);
     try {
       const res = await fetch("/api/kanban");
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const data = await res.json();
       setKanban(data);
     } catch (err) {
@@ -1992,15 +1394,14 @@ export function AppHome({ email }: AppHomeProps) {
   };
 
   const loadMemorySnapshot = async () => {
-    setMemoryError(null);
     try {
       const res = await fetch("/api/memory");
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const data = await res.json();
       setMemorySnapshot(data);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setMemoryError(msg);
+    } catch {
+      // No pill surfaces memory errors; leave memorySnapshot null so
+      // data-gated UI (e.g. Today cards) simply treats it as unavailable.
     }
   };
 
@@ -2036,7 +1437,7 @@ export function AppHome({ email }: AppHomeProps) {
     setGalleryError(null);
     try {
       const res = await fetch("/api/gallery");
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const data = await res.json();
       setGalleryImages(data.images);
     } catch (err) {
@@ -2056,7 +1457,7 @@ export function AppHome({ email }: AppHomeProps) {
     setNotificationsError(null);
     try {
       const res = await fetch("/api/notifications");
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const data = await res.json();
       setNotifications(data.notifications ?? []);
       setNotificationsUnread(data.unreadCount ?? 0);
@@ -2112,7 +1513,7 @@ export function AppHome({ email }: AppHomeProps) {
         setCronJobs([]);
         return;
       }
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       const data = await res.json();
       if (data.locked) {
         setCronLocked(true);
@@ -2132,7 +1533,7 @@ export function AppHome({ email }: AppHomeProps) {
       const res = await fetch(`/api/cron/${encodeURIComponent(jobId)}?action=${action}`, {
         method: "POST",
       });
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       await loadCronJobs();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -2157,7 +1558,7 @@ export function AppHome({ email }: AppHomeProps) {
     setCronActionPending(jobId);
     try {
       const res = await fetch(`/api/cron/${encodeURIComponent(jobId)}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
       setCronJobs((prev) => prev?.filter((j) => j.id !== jobId) ?? prev);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -2218,7 +1619,7 @@ export function AppHome({ email }: AppHomeProps) {
         setFileTreeError("no_workspace");
         return;
       }
-      if (!res.ok) throw new Error(data?.error ?? `status ${res.status}`);
+      if (!res.ok) throw new Error(data?.error ?? friendlyFetchError(res.status));
       setFileTreeEntries(data.entries ?? []);
       setFileTreePath(data.path ?? path);
     } catch (err) {
@@ -2247,7 +1648,7 @@ export function AppHome({ email }: AppHomeProps) {
       form.append("file", file);
       const res = await fetch("/api/gallery", { method: "POST", body: form });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message ?? `status ${res.status}`);
+      if (!res.ok) throw new Error(data.message ?? friendlyFetchError(res.status));
       await loadGallery();
       logMeta(`Saved image "${file.name}" to gallery`);
     } catch (err) {
@@ -2274,7 +1675,7 @@ export function AppHome({ email }: AppHomeProps) {
     setLightboxImage((prev) => (prev?.id === id ? null : prev));
     try {
       const res = await fetch(`/api/gallery?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`status ${res.status}`);
+      if (!res.ok) throw new Error(friendlyFetchError(res.status));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setGalleryError(msg);
@@ -2451,6 +1852,10 @@ export function AppHome({ email }: AppHomeProps) {
     () => (planAwaitingAction && hasText ? parsePlanQuestion(lastAssistantText) : null),
     [planAwaitingAction, hasText, lastAssistantText],
   );
+  const quickSuggestions = useMemo(
+    () => (hasText ? deriveQuickSuggestions(lastAssistantText) : []),
+    [hasText, lastAssistantText],
+  );
   const mascotState = deriveMascotState(status, activity, hasText);
   const isStreaming = status === "submitted" || status === "streaming";
 
@@ -2466,8 +1871,19 @@ export function AppHome({ email }: AppHomeProps) {
   const lastCompletedTool = activity.findLast(
     (a): a is Extract<HermesActivityData, { kind: "tool" }> => a.kind === "tool",
   );
+  // ponytail: R11 #8 Task Delegation — there's no dedicated
+  // "delegation.started" event/field in the run-event stream (checked
+  // aio-run-events.ts), only the same generic tool.started shape every tool
+  // uses. This substring match on the raw tool name is a best-effort reuse of
+  // the manifest's "delegation" canonicalName (same heuristic style already
+  // used by normalizeHermesRiskLevel in hermes-event-mapper.ts), not a
+  // confirmed backend contract. Upgrade path: once Hermes emits a distinct
+  // delegation event carrying the sub-agent name, key off that field instead.
+  const isDelegating = Boolean(runningTool && /delegat/i.test(runningTool.tool ?? ""));
   const liveStatusText = runningTool
-    ? `${brand.name} is using ${runningTool.label ?? runningTool.tool}…`
+    ? isDelegating
+      ? `${brand.name} is delegating to a sub-agent: ${runningTool.label ?? "working on a subtask"}…`
+      : `${brand.name} is using ${runningTool.label ?? runningTool.tool}…`
     : isStreaming
       ? `${brand.name} is thinking…`
       : timelineHydrating
@@ -2477,20 +1893,15 @@ export function AppHome({ email }: AppHomeProps) {
       : lastCompletedTool
         ? `${brand.name} last ran ${lastCompletedTool.label ?? lastCompletedTool.tool}`
         : `${brand.name} is ready`;
+  // Shimmer runs while Aio is actively processing (any "busy" branch above),
+  // not on the static "ready"/"last ran X" idle states.
+  const liveStatusIsProcessing = Boolean(runningTool) || isStreaming || timelineHydrating
+    || Boolean(persistedRunStatus && !isRunTerminal(persistedRunStatus));
   const recentActivityCount = activity.length + metaLog.length;
-  const memoryLine = memorySnapshot?.available
-    ? (memorySnapshot.facts?.length ?? 0) > 0
-      ? `${memorySnapshot.facts!.length} memory note${memorySnapshot.facts!.length === 1 ? "" : "s"} available`
-      : memorySnapshot.summary
-        ? "Memory summary available"
-        : "No memory recorded yet"
-    : memoryError
-      ? "Memory failed to load"
-      : "Memory not available";
-  const activityLine =
+  const hasReviewableContext =
     recentActivityCount > 0
-      ? `${recentActivityCount} recent signal${recentActivityCount === 1 ? "" : "s"}`
-      : "No recent activity";
+    || (memorySnapshot?.facts?.length ?? 0) > 0
+    || Boolean(memorySnapshot?.summary);
   const timelineEvents = useMemo(
     () =>
       runEvents.length > 0
@@ -2589,7 +2000,15 @@ export function AppHome({ email }: AppHomeProps) {
       )}
     </section>
   );
-  const activeTodayCards = TODAY_CARDS.filter((card) => !ignoredTodayCards.has(card.id));
+  // Each card is a suggested action, not a status report — only surface it
+  // when there's real context behind it, per card kind. No fabricated
+  // defaults when the workspace is actually empty.
+  const hasActiveThread = messages.length > 0;
+  const activeTodayCards = TODAY_CARDS.filter((card) => {
+    if (ignoredTodayCards.has(card.id)) return false;
+    if (card.kind === "continue" || card.kind === "schedule") return hasActiveThread;
+    return hasReviewableContext;
+  });
   const renderTodayCard = (card: TodayCard) => (
     <button
       key={card.id}
@@ -2605,8 +2024,8 @@ export function AppHome({ email }: AppHomeProps) {
       <div className="today-card-reason">{card.reason}</div>
     </button>
   );
-  const username = email.split("@")[0];
-  const userInitial = email.charAt(0).toUpperCase();
+  const username = userName?.trim() || email.split("@")[0];
+  const userInitial = username.charAt(0).toUpperCase();
   const greetingLines = useMemo(
     () => [
       `Hello, ${username}! 👋`,
@@ -2719,6 +2138,21 @@ export function AppHome({ email }: AppHomeProps) {
     : null;
   const mobileWorkspaceIsLive = isStreaming && mobileWorkspaceEntry?.id === lastAssistantMessage?.id;
 
+  // The compact icon rail is a fixed nav, never meant to scroll — but its
+  // items are wider than the rail (full label width, revealed on hover), so
+  // if focus/scroll-into-view ever nudges scrollLeft off 0 the rail visibly
+  // shifts and clips its own icons. Pin it back to 0 whenever that happens.
+  const iconRailRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const rail = iconRailRef.current;
+    if (!rail) return;
+    const resetScroll = () => {
+      if (rail.scrollLeft !== 0) rail.scrollLeft = 0;
+    };
+    rail.addEventListener("scroll", resetScroll);
+    return () => rail.removeEventListener("scroll", resetScroll);
+  }, []);
+
   const workspaceModalRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!mobileWorkspaceEntry) return;
@@ -2781,6 +2215,31 @@ export function AppHome({ email }: AppHomeProps) {
       </div>
       <div className="bottom-glow" aria-hidden />
 
+      {/* Floating chrome (R11.3): replaces the removed top bar. Each side
+          groups into one fixed flex row instead of guessing fixed offsets
+          per element, so the credit chip's variable width never collides
+          with the toggle button next to it. (R11.5b: the left group's sidebar
+          toggle was removed — "New Chat" pinned in the icon rail plus the
+          existing sidebar close/X button now cover that job, and it removed
+          a duplicate-looking circular button next to the mobile hamburger.) */}
+      <div className="floating-actions floating-actions--right">
+        {creditBalance !== null && (
+          <span
+            className={`credit-badge${usageLevel !== "normal" ? ` credit-badge--${usageLevel}` : ""}`}
+          >
+            {creditBalance} credits
+          </span>
+        )}
+        <button
+          type="button"
+          className="toggle-btn toggle-btn--floating toggle-btn--right-panel"
+          onClick={() => setRightPanelCollapsed((c) => !c)}
+          aria-label="Toggle panel"
+        >
+          <Columns className="w-4.5 h-4.5" />
+        </button>
+      </div>
+
       <button
         type="button"
         className="icon-rail-mobile-toggle"
@@ -2814,7 +2273,14 @@ export function AppHome({ email }: AppHomeProps) {
             </button>
           ))}
           <div className="icon-rail-footer">
-            <div className="icon-rail-footer-avatar">{userInitial}</div>
+            <div className="icon-rail-footer-avatar">
+              {userAvatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={userAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+              ) : (
+                userInitial
+              )}
+            </div>
             <span className="icon-rail-label" style={{ opacity: 1 }}>{username}</span>
           </div>
         </nav>
@@ -2822,7 +2288,7 @@ export function AppHome({ email }: AppHomeProps) {
 
       <div className={`app-container${terminalOpen && terminalScale === "focus" ? " output-focus" : ""}`}>
         <div className="icon-rail-slot">
-          <nav className="icon-rail icon-rail--compact">
+          <nav className="icon-rail icon-rail--compact" ref={iconRailRef}>
             <div className="icon-rail-main">
               {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active, disabled }) => (
                 <button
@@ -2845,10 +2311,16 @@ export function AppHome({ email }: AppHomeProps) {
               ))}
             </div>
             <div className="icon-rail-footer">
-              <div className="icon-rail-footer-avatar" title={`${username} · Pro Plan`}>{userInitial}</div>
+              <div className="icon-rail-footer-avatar" title={username}>
+                {userAvatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={userAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                ) : (
+                  userInitial
+                )}
+              </div>
               <div className="icon-rail-footer-info">
                 <div className="icon-rail-footer-name">{username}</div>
-                <div className="icon-rail-footer-plan">Pro Plan</div>
               </div>
             </div>
           </nav>
@@ -2865,13 +2337,6 @@ export function AppHome({ email }: AppHomeProps) {
           }`}
         >
           <div className="sidebar-header">
-            <div className="logo-container">
-              <Image src="/seo/icon.png" alt={brand.name} width={38} height={38} priority />
-            </div>
-            <div className="logo-text">
-              <h1>{brand.name}</h1>
-              <span>{brand.tagline} v2.0</span>
-            </div>
             <button
               type="button"
               className="sidebar-close-btn"
@@ -2965,49 +2430,28 @@ export function AppHome({ email }: AppHomeProps) {
             ))}
           </div>
 
+          {mcpServers && mcpServers.length > 0 && (
+            <div className="sidebar-section" style={{ borderTop: "1px solid var(--border-color)", paddingTop: 10 }}>
+              <div className="sidebar-section-title">Integrations</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {mcpServers.map((s) => (
+                  <div key={s.name} className="mcp-server-item" style={{ marginBottom: 0 }}>
+                    <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
+                      <Plug className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="mcp-server-info">
+                      <div className="mcp-server-name">{s.name}</div>
+                    </div>
+                    <div className={`mcp-server-status ${s.enabled ? "connected" : "disconnected"}`} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </aside>
 
         {/* ===== MAIN CONTENT ===== */}
         <main className="main-content">
-          <div className="top-bar">
-            <button
-              type="button"
-              className="toggle-btn"
-              onClick={() => setSidebarCollapsed((c) => !c)}
-              aria-label="Toggle sidebar"
-            >
-              <Columns className="w-4.5 h-4.5" />
-            </button>
-
-            <div className="current-agent">
-              <div className="current-agent-avatar">
-                <Image src="/seo/icon.png" alt={brand.name} width={30} height={30} />
-              </div>
-              <div className="current-agent-info">
-                <h2>{brand.name}</h2>
-              </div>
-            </div>
-
-            <div className="top-bar-actions">
-              {isCompressing && (
-                <span className="compression-badge">Compressing context…</span>
-              )}
-              {creditBalance !== null && (
-                <span className={`credit-badge${usageLevel !== "normal" ? ` credit-badge--${usageLevel}` : ""}`}>
-                  {creditBalance} credits
-                </span>
-              )}
-              <button
-                type="button"
-                className="toggle-btn toggle-btn--right-panel"
-                onClick={() => setRightPanelCollapsed((c) => !c)}
-                aria-label="Toggle panel"
-              >
-                <Columns className="w-4.5 h-4.5" />
-              </button>
-            </div>
-          </div>
-
           <div className="chat-area" ref={chatAreaRef} onScroll={handleChatScroll}>
             {onboardedAt === null && messages.length === 0 && (
               <OnboardingOverlay onDismiss={() => setOnboardedAt(new Date().toISOString())} />
@@ -3612,41 +3056,176 @@ export function AppHome({ email }: AppHomeProps) {
                     </button>
                   </div>
                 )}
+                {quickSuggestions.length > 0 && status === "ready" && !imageComposerActive && (
+                  <QuickSuggestionsBar
+                    suggestions={quickSuggestions}
+                    onSelect={(prompt) => {
+                      setInput(prompt);
+                      focusComposer();
+                    }}
+                  />
+                )}
+                <input
+                  ref={attachmentInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="sr-only"
+                  onChange={(e) => {
+                    if (e.target.files) void addAttachments(Array.from(e.target.files));
+                    e.target.value = "";
+                  }}
+                />
+                {pendingAttachments.length > 0 && (
+                  <div className="composer-attachments-row">
+                    {pendingAttachments.map((att, i) => (
+                      <button
+                        type="button"
+                        className="image-reference-chip"
+                        key={`${att.filename ?? "image"}-${i}`}
+                        onClick={() => setPendingAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                        aria-label={`Remove ${att.filename ?? "image"}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={att.url} alt="" />
+                        <span>{att.filename ?? "image"}</span>
+                        <X className="w-3 h-3" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {attachmentError && (
+                  <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
+                    <span>{attachmentError}</span>
+                  </div>
+                )}
                 <div
                   className={`input-wrapper${inputFocused ? " focused" : ""}${inputMultiline ? " multiline" : ""}`}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const files = Array.from(e.dataTransfer?.files ?? []);
+                    if (files.length) void addAttachments(files);
+                  }}
                 >
                   <div className="input-tools composer-plus-wrapper" ref={composerMenuRef}>
-                    <button
+                    <Button
                       type="button"
-                      className="input-tool-btn"
+                      variant="outline"
+                      size="icon"
+                      className="rounded-full"
                       aria-label="More options"
                       aria-haspopup="menu"
                       aria-expanded={composerMenuOpen}
                       onClick={() => setComposerMenuOpen((open) => !open)}
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
+                      <Plus className="w-4 h-4" />
+                    </Button>
                     {composerMenuOpen && (
-                      <div className="composer-plus-menu" role="menu">
-                        <button
-                          type="button"
-                          className="composer-plus-menu-item"
-                          role="menuitem"
-                          onClick={() => activateImageComposer()}
-                        >
-                          <ImageIcon className="w-3.5 h-3.5" />
-                          <span>Create image</span>
-                        </button>
-                        <button type="button" className="composer-plus-menu-item" role="menuitem" disabled>
-                          <Paperclip className="w-3.5 h-3.5" />
-                          <span>Attach</span>
-                          <span className="composer-plus-menu-tag">Soon</span>
-                        </button>
-                        <button type="button" className="composer-plus-menu-item" role="menuitem" disabled>
-                          <Mic className="w-3.5 h-3.5" />
-                          <span>Voice</span>
-                          <span className="composer-plus-menu-tag">Soon</span>
-                        </button>
+                      <div className="composer-tray" role="menu">
+                        <div className="composer-tray-section">
+                          <span className="composer-tray-section-label">Attach</span>
+                          <div className="composer-tray-grid">
+                            <button
+                              type="button"
+                              className="composer-tray-card composer-tray-card--wide"
+                              role="menuitem"
+                              onClick={() => {
+                                setComposerMenuOpen(false);
+                                attachmentInputRef.current?.click();
+                              }}
+                            >
+                              <span className="composer-tray-card-icon">
+                                <Paperclip className="w-5 h-5" />
+                              </span>
+                              <span className="composer-tray-card-body">
+                                <span className="composer-tray-card-title">
+                                  <span className="composer-tray-card-title-text">Photos &amp; files</span>
+                                </span>
+                                <span className="composer-tray-card-subtitle">Upload, or drag &amp; drop</span>
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="composer-tray-section">
+                          <span className="composer-tray-section-label">Create</span>
+                          <div className="composer-tray-grid">
+                            <button
+                              type="button"
+                              className="composer-tray-card"
+                              role="menuitem"
+                              onClick={() => activateImageComposer()}
+                            >
+                              <span className="composer-tray-card-icon">
+                                <ImageIcon className="w-5 h-5" />
+                              </span>
+                              <span className="composer-tray-card-body">
+                                <span className="composer-tray-card-title">
+                                  <span className="composer-tray-card-title-text">Image</span>
+                                </span>
+                                <span className="composer-tray-card-subtitle">Generate an image</span>
+                              </span>
+                            </button>
+                            <button type="button" className="composer-tray-card" role="menuitem" disabled>
+                              <span className="composer-tray-card-icon">
+                                <PenLine className="w-5 h-5" />
+                              </span>
+                              <span className="composer-tray-card-body">
+                                <span className="composer-tray-card-title">
+                                  <span className="composer-tray-card-title-text">Edit image</span>
+                                  <span className="composer-tray-card-tag">New</span>
+                                </span>
+                                <span className="composer-tray-card-subtitle">Touch up a photo</span>
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              className="composer-tray-card composer-tray-card--wide"
+                              role="menuitem"
+                              disabled
+                            >
+                              <span className="composer-tray-card-icon">
+                                <Video className="w-5 h-5" />
+                              </span>
+                              <span className="composer-tray-card-body">
+                                <span className="composer-tray-card-title">
+                                  <span className="composer-tray-card-title-text">Video</span>
+                                  <span className="composer-tray-card-tag composer-tray-card-tag--soon">Soon</span>
+                                </span>
+                                <span className="composer-tray-card-subtitle">Generate a short video</span>
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="composer-tray-section">
+                          <span className="composer-tray-section-label">Build &amp; work</span>
+                          <div className="composer-tray-grid">
+                            <button type="button" className="composer-tray-card" role="menuitem" disabled>
+                              <span className="composer-tray-card-icon">
+                                <Globe className="w-5 h-5" />
+                              </span>
+                              <span className="composer-tray-card-body">
+                                <span className="composer-tray-card-title">
+                                  <span className="composer-tray-card-title-text">Website</span>
+                                  <span className="composer-tray-card-tag composer-tray-card-tag--soon">Soon</span>
+                                </span>
+                                <span className="composer-tray-card-subtitle">Build a page</span>
+                              </span>
+                            </button>
+                            <button type="button" className="composer-tray-card" role="menuitem" disabled>
+                              <span className="composer-tray-card-icon">
+                                <LayoutGrid className="w-5 h-5" />
+                              </span>
+                              <span className="composer-tray-card-body">
+                                <span className="composer-tray-card-title">
+                                  <span className="composer-tray-card-title-text">Google Workspace</span>
+                                  <span className="composer-tray-card-tag composer-tray-card-tag--soon">Soon</span>
+                                </span>
+                                <span className="composer-tray-card-subtitle">Docs, Sheets, Slides</span>
+                              </span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -3661,6 +3240,13 @@ export function AppHome({ email }: AppHomeProps) {
                       setComposerMenuOpen(false);
                     }}
                     onBlur={() => setInputFocused(false)}
+                    onPaste={(e) => {
+                      const files = Array.from(e.clipboardData?.files ?? []);
+                      if (files.length) {
+                        e.preventDefault();
+                        void addAttachments(files);
+                      }
+                    }}
                     placeholder={
                       imageComposerActive
                         ? isMobileViewport
@@ -3682,7 +3268,11 @@ export function AppHome({ email }: AppHomeProps) {
                   <button
                     type="submit"
                     className="send-btn"
-                    disabled={status !== "ready" || Boolean(imageGenerationStatus) || !input.trim()}
+                    disabled={
+                      status !== "ready" ||
+                      Boolean(imageGenerationStatus) ||
+                      (!input.trim() && pendingAttachments.length === 0)
+                    }
                     aria-label="Send"
                   >
                     <Send className="w-4 h-4" />
@@ -3698,7 +3288,21 @@ export function AppHome({ email }: AppHomeProps) {
           className={`right-panel${rightPanelCollapsed ? " collapsed" : ""}${
             terminalOpen ? ` output-${terminalScale}` : ""
           }`}
+          style={
+            !rightPanelCollapsed && rightPanelWidth
+              ? { width: rightPanelWidth, minWidth: rightPanelWidth, flex: `0 0 ${rightPanelWidth}px` }
+              : undefined
+          }
         >
+          {!rightPanelCollapsed && (
+            <div
+              className="right-panel-resize-handle"
+              onPointerDown={handleRightPanelResizeStart}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize panel"
+            />
+          )}
           <div className="panel-header">
             <h3>{terminalOpen ? "Aio Output" : "Workspace"}</h3>
             <div className="panel-header-actions">
@@ -3731,21 +3335,11 @@ export function AppHome({ email }: AppHomeProps) {
               <div className="panel-section panel-section--aio">
                 <div className="agent-info-card">
                   <div className="agent-info-avatar">
-                    <Image src="/seo/icon.png" alt={brand.name} width={44} height={44} />
+                    {/* logo removed */}
                   </div>
                   <div className="agent-info-details">
                     <h4>{brand.name}</h4>
-                    <p>{liveStatusText}</p>
-                  </div>
-                </div>
-                <div className="aio-signal-list">
-                  <div className="aio-signal-row">
-                    <Brain className="w-3.5 h-3.5" />
-                    <span>{memoryLine}</span>
-                  </div>
-                  <div className="aio-signal-row">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>{activityLine}</span>
+                    <p className={liveStatusIsProcessing ? "status-line-shimmer" : undefined}>{liveStatusText}</p>
                   </div>
                 </div>
                 {durableRunVisible && renderCurrentRunCard()}
@@ -4255,6 +3849,9 @@ export function AppHome({ email }: AppHomeProps) {
           setSettingsInitialTab("general");
         }}
         initialTab={settingsInitialTab}
+        userName={userName}
+        userAvatarUrl={userAvatarUrl}
+        email={email}
         theme={theme}
         onThemeChange={setTheme}
         accent={accent}
