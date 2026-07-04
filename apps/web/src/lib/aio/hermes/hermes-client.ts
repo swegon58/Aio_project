@@ -1,9 +1,13 @@
+import type { AioRuntimeContentPart } from "@/lib/aio/chat/chat-route-handler";
+
+type AioRuntimeContent = string | AioRuntimeContentPart[];
+
 interface StartHermesRunInput {
   endpoint: string;
   apiServerKey: string;
   userId: string;
-  input: string;
-  conversationHistory: { role: string; content: string }[];
+  input: AioRuntimeContent;
+  conversationHistory: { role: string; content: AioRuntimeContent }[];
   sessionId: string;
   disableTools: boolean;
   instructions: string;

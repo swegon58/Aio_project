@@ -106,8 +106,8 @@ async function installApiMocks(
       "/api/connections": { platforms: [] },
       "/api/credentials": {
         credentials: [
-          { id: "openrouter", label: "OpenRouter API Key", envVar: "OPENROUTER_API_KEY", set: false, masked: null },
-          { id: "kie", label: "Kie.ai Image API Key", envVar: "KIE_API_KEY", set: true, masked: "****test" },
+          { id: "openrouter", label: "OpenRouter API Key", envVar: "OPENROUTER_API_KEY", category: "language", set: false, masked: null },
+          { id: "kie", label: "Kie.ai Image API Key", envVar: "KIE_API_KEY", category: "creative", set: true, masked: "****test" },
         ],
       },
       "/api/knowledge": { files: [] },
@@ -180,7 +180,7 @@ test("chat, research, approval, settings, and image controls work", async ({ pag
   await settingsDialog.getByRole("button", { name: "Close", exact: true }).click();
 
   await page.getByRole("button", { name: "More options" }).click();
-  await page.getByRole("menuitem", { name: "Create image" }).click();
+  await page.getByRole("menuitem", { name: /^Image / }).click();
   await expect(page.getByLabel("Image creation options")).toBeVisible();
   await expect(composer).toHaveAttribute("placeholder", /Describe/);
   expect(await page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true);

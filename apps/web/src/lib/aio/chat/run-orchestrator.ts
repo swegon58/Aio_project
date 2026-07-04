@@ -33,7 +33,7 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import type { HermesShowcaseData, HermesUIMessage } from "@/lib/hermes/chat-types";
 import { buildRuntimeMessages } from "@/lib/aio/chat/chat-route-handler";
-import { persistConversation } from "@/lib/aio/chat/conversation-persistence";
+import { ensureConversationRow, persistConversation } from "@/lib/aio/chat/conversation-persistence";
 import { buildPlanInstructions, GUARDRAIL_SYSTEM_PROMPT } from "@/lib/aio/chat/plan-mode";
 import { buildResearchInstructions, isWebResearchTool } from "@/lib/aio/chat/research-mode";
 import {
@@ -64,7 +64,7 @@ import {
 import { appendEvent } from "@/lib/aio/runs/run-event-repository";
 import { recordToolCallEvent } from "@/lib/aio/tools/tool-call-writer";
 import { recordApprovalEvent } from "@/lib/aio/tools/approval-writer";
-import type { AioRunEvent, ResearchStage } from "@/lib/aio/runs/aio-run-events";
+import type { AioRunEvent, ResearchStage, ResearchStep } from "@/lib/aio/runs/aio-run-events";
 import type { AioRunEventEnvelopeSource } from "@/lib/aio/runs/aio-run-event-schema";
 import { type AioTelemetry, NO_OP_TELEMETRY } from "@/lib/aio/telemetry/telemetry";
 import { SPANS, METRICS, runAttrs } from "@/lib/aio/telemetry/span-builder";
@@ -164,6 +164,23 @@ export function extractResultUrls(resultPreview: string | undefined): string[] {
     if (urls.length >= 5) break;
   }
   return urls;
+}
+
+/** Bare hostname for a source URL, for compact research-checklist labels. */
+function hostnameOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url.slice(0, 40);
+  }
+}
+
+/** Short human-readable text for a tool call, for research-checklist labels. */
+function toolCallDetailText(preview: string | undefined, input: unknown): string | undefined {
+  const raw = preview ?? (typeof input === "string" ? input : undefined);
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  return trimmed ? trimmed.slice(0, 70) : undefined;
 }
 
 /**
@@ -288,6 +305,7 @@ export async function orchestrateAioChatRun(
   const firstUserText = messages[0]?.parts?.find(
     (p): p is { type: "text"; text: string } => p.type === "text",
   )?.text;
+  await ensureConversationRow(db, userId, threadId);
   const created = await createRun(db, {
     customerId: userId,
     threadId,
@@ -339,7 +357,7 @@ export async function orchestrateAioChatRun(
       endpoint: row.endpoint,
       apiServerKey,
       userId,
-      input: typeof lastMessage?.content === "string" ? lastMessage.content : String(lastMessage?.content ?? ""),
+      input: lastMessage?.content ?? "",
       conversationHistory,
       sessionId: hermesSessionId,
       disableTools: Boolean(planMode),
@@ -500,29 +518,45 @@ export async function orchestrateAioChatRun(
       "report",
     ];
     let researchStage: ResearchStage | null = null;
+    const researchSteps: ResearchStep[] = [];
+    let researchStepSeq = 0;
 
-    // R9.0 — best-effort heuristic stage progression. Hermes has no native
-    // "research stage" concept, so stages are inferred from the same tool /
-    // message signals the shipped 4-step ResearchProgressCard heuristic
-    // already uses, just partitioned into 7 buckets. Monotonic: never
-    // regresses, and only fires for research-mode runs.
+    // R9.0/R9.1 — best-effort heuristic stage progression plus a granular,
+    // query-specific checklist (real search queries / sources read) layered
+    // on top, since Hermes has no native "research stage" concept. The 7
+    // fixed buckets drive the progress bar; `researchSteps` drives the
+    // ChatGPT-style checklist rendered in ResearchProgressCard.
+    const emitResearchProgress = async () => {
+      if (mode !== "research" || !researchStage) return;
+      const stageEvent = buildResearchStageEvent(runIdForLegacy, researchStage, {
+        sourceCount: researchSourceIds.size,
+        steps: researchSteps,
+      });
+      await persistEvent(stageEvent, "aio");
+      writeAioRunEventToLegacyStream(writer, stageEvent);
+    };
+    const pushResearchStep = (label: string) => {
+      if (mode !== "research") return;
+      const prev = researchSteps[researchSteps.length - 1];
+      if (prev) prev.status = "done";
+      researchSteps.push({ id: `step-${++researchStepSeq}`, label, status: "active" });
+    };
     const advanceResearchStage = async (stage: ResearchStage) => {
       if (mode !== "research") return;
       const nextIdx = RESEARCH_STAGE_ORDER.indexOf(stage);
       const currentIdx = researchStage ? RESEARCH_STAGE_ORDER.indexOf(researchStage) : -1;
       if (nextIdx <= currentIdx) return;
       researchStage = stage;
-      const stageEvent = buildResearchStageEvent(runIdForLegacy, stage, {
-        sourceCount: researchSourceIds.size,
-      });
-      await persistEvent(stageEvent, "aio");
-      writeAioRunEventToLegacyStream(writer, stageEvent);
       await updateResearchProgress(db, runIdForDurable, userId, {
         stageCompleted: nextIdx + 1,
         searchCount: researchSearchCallIds.size,
       });
+      await emitResearchProgress();
     };
-    if (mode === "research") await advanceResearchStage("understand");
+    if (mode === "research") {
+      pushResearchStep("Understanding your question");
+      await advanceResearchStage("understand");
+    }
 
     // Item 2b: mid-stream budget cutoff.
     const budgetCreditLimit = Math.min(caps.creditBudget, creditCheck.estimate) * BUDGET_EXCEEDED_MARGIN;
@@ -564,6 +598,8 @@ export async function orchestrateAioChatRun(
               await advanceResearchStage("plan");
               if (isWebResearchTool(aioEvent.toolName)) {
                 researchSearchCallIds.add(aioEvent.toolCallId);
+                const query = toolCallDetailText(aioEvent.preview, aioEvent.input);
+                pushResearchStep(query ? `Searching “${query}”` : "Searching the web");
                 await advanceResearchStage("discover");
               }
             }
@@ -571,6 +607,7 @@ export async function orchestrateAioChatRun(
             if (mode === "research" && aioEvent.type === "tool.completed") {
               await advanceResearchStage("inspect");
               if (!aioEvent.error) {
+                const newUrls: string[] = [];
                 for (const url of extractResultUrls(aioEvent.resultPreview)) {
                   if (researchSourceIds.has(url)) continue;
                   const sourceId = await recordResearchSource(db, runIdForDurable, userId, {
@@ -579,6 +616,11 @@ export async function orchestrateAioChatRun(
                     fetchedAt: new Date().toISOString(),
                   });
                   researchSourceIds.set(url, sourceId ?? url);
+                  newUrls.push(url);
+                }
+                if (newUrls.length > 0) {
+                  for (const url of newUrls) pushResearchStep(`Read ${hostnameOf(url)}`);
+                  await emitResearchProgress();
                 }
               }
               if (researchSourceIds.size > 0) {
@@ -591,7 +633,10 @@ export async function orchestrateAioChatRun(
               if (!textStarted) {
                 writer.write({ type: "text-start", id: textPartId });
                 textStarted = true;
-                if (mode === "research") await advanceResearchStage("verify");
+                if (mode === "research") {
+                  pushResearchStep("Writing the report");
+                  await advanceResearchStage("verify");
+                }
               }
               // Runtime sends multi-word bursts; re-chunk into small pieces
               // with a short delay so the UI renders a smooth, slowed-down
@@ -652,7 +697,11 @@ export async function orchestrateAioChatRun(
         });
       }
       if (mode === "research" && succeeded && !budgetExceeded) {
+        pushResearchStep("Finalizing report");
         await advanceResearchStage("report");
+        const lastStep = researchSteps[researchSteps.length - 1];
+        if (lastStep) lastStep.status = "done";
+        await emitResearchProgress();
       }
 
       // Item 3 settlement (success path) / Q29 refund (failure/abort path).

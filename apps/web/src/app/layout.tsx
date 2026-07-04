@@ -12,8 +12,11 @@ const libreBaskerville = localFont({
   display: "swap",
 });
 
-const callingCode = localFont({
-  src: [{ path: "./fonts/CallingCode-Regular.ttf", weight: "400", style: "normal" }],
+const naturalMono = localFont({
+  src: [
+    { path: "./fonts/NaturalMono-Regular.ttf", weight: "400", style: "normal" },
+    { path: "./fonts/NaturalMono-Bold.ttf", weight: "700", style: "normal" },
+  ],
   variable: "--font-code",
   display: "swap",
 });
@@ -36,7 +39,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${libreBaskerville.variable} ${callingCode.variable} h-full antialiased`}>
+    <html lang="en" className={`${libreBaskerville.variable} ${naturalMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

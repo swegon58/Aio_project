@@ -1,0 +1,195 @@
+/* Ported 1:1 from apps/harness/ai_agent_webapp (Copy 2).html — scoped to /app route.
+   Variables and class names match the mockup verbatim so the rendered
+   markup is visually identical. JS behaviors (fake chat, drag-and-drop)
+   are NOT ported — only structure/visuals. */
+
+.aio-mockup {
+  --bg-primary: #090909;
+  --bg-primary-translucent: rgba(9, 9, 9, 0.55);
+  --bg-secondary: #101010;
+  --bg-tertiary: #181818;
+  --bg-card: #141414;
+  --bg-hover: #1f1f1f;
+  --bg-input: #131313;
+  --text-primary: #eaeaf4;
+  --text-secondary: #9090b0;
+  --text-muted: #767690;
+  --accent-primary: #0081f2;
+  --accent-secondary: #5cb3ff;
+  --accent-glow: rgba(0, 129, 242, 0.45);
+  --accent-green: #00d9a6;
+  --accent-green-glow: rgba(0, 217, 166, 0.3);
+  --accent-orange: #ffaa30;
+  --accent-red: #ff6b6b;
+  --accent-cyan: #22d3ee;
+  --accent-on-accent: #0a0a0a;
+  --border-color: rgba(255, 255, 255, 0.06);
+  --border-active: rgba(0, 129, 242, 0.45);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.6);
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Frosted-glass recipe (extracted from gradient-card-showcase ref):
+     white-highlight rgba + backdrop-blur + soft shadow. Opacity/blur
+     tuned up from the original (made for light bg) so it reads on dark. */
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  /* Border/inner-edge opacity bumped (0.16→0.24) and a dark inset edge
+     added so glass stays legible across every accent — cyan/green no longer
+     wash the border into their own glow. Accent-independent recipe. */
+  --glass-border: rgba(255, 255, 255, 0.24);
+  --glass-blur: 16px;
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --radius-standard: 18px;
+  --surface-primary-90: color-mix(in srgb, var(--bg-primary) 90%, transparent);
+  --surface-secondary-90: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
+  --surface-tertiary-90: color-mix(in srgb, var(--bg-tertiary) 90%, transparent);
+  --surface-card-90: color-mix(in srgb, var(--bg-card) 90%, transparent);
+  --surface-hover-90: color-mix(in srgb, var(--bg-hover) 90%, transparent);
+  --surface-primary-opaque: color-mix(in srgb, var(--bg-primary) 98%, transparent);
+  --surface-secondary-opaque: color-mix(in srgb, var(--bg-secondary) 98%, transparent);
+  --surface-tertiary-opaque: color-mix(in srgb, var(--bg-tertiary) 98%, transparent);
+  --surface-card-opaque: color-mix(in srgb, var(--bg-card) 98%, transparent);
+  --surface-hover-opaque: color-mix(in srgb, var(--bg-hover) 98%, transparent);
+
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+.aio-mockup *,
+.aio-mockup *::before,
+.aio-mockup *::after {
+  box-sizing: border-box;
+}
+
+.aio-mockup ::-webkit-scrollbar { width: 4px; }
+.aio-mockup ::-webkit-scrollbar-track { background: transparent; }
+.aio-mockup ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 10px; }
+.aio-mockup ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+/* ===== GLASS SURFACE (reusable frosted-glass utility) =====
+   Apply to any new bubble/tab/card surface that should read as
+   "frosted glass" — stacks a white-highlight layer + blur + shadow
+   on top of whatever background-color the element already has. */
+.glass-surface {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* ===== BOTTOM GLOW ===== */
+.bottom-glow {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 180px;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.bottom-glow::before {
+  content: "";
+  position: absolute;
+  bottom: -40%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 100%;
+  background: radial-gradient(
+    ellipse at center bottom,
+    rgba(124, 108, 240, 0.08) 0%,
+    rgba(0, 217, 166, 0.04) 35%,
+    transparent 70%
+  );
+  animation: glowPulse 6s ease-in-out infinite;
+  filter: blur(30px);
+}
+
+.bottom-glow::after {
+  content: "";
+  position: absolute;
+  bottom: -30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 80%;
+  background: radial-gradient(
+    ellipse at center bottom,
+    rgba(124, 108, 240, 0.05) 0%,
+    rgba(0, 217, 166, 0.03) 40%,
+    transparent 75%
+  );
+  animation: glowPulse 6s ease-in-out infinite reverse;
+  filter: blur(50px);
+  animation-delay: -3s;
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.6; transform: translateX(-50%) scaleX(1) scaleY(1); }
+  50% { opacity: 1; transform: translateX(-50%) scaleX(1.3) scaleY(1.15); }
+}
+
+/* ===== PARTICLES ===== */
+.particles-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.particles-bg .dot-grid {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 50%, rgba(0, 129, 242, 0.08) 0%, transparent 50%);
+}
+
+.particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: 50%;
+  opacity: 0.2;
+  animation: float linear infinite;
+}
+
+@keyframes float {
+  0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.2; }
+  90% { opacity: 0.2; }
+  100% { transform: translateY(-10vh) rotate(720deg); opacity: 0; }
+}
+
+/* ===== LAYOUT ===== */
+.app-container {
+  display: flex;
+  height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-glow::before,
+  .bottom-glow::after,
+  .particle {
+    animation: none;
+  }
+}
+

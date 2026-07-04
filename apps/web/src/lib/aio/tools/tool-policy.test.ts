@@ -8,11 +8,10 @@ import {
   requiresMandatoryApproval,
 } from "./tool-policy";
 
-test("starter cannot access browser automation", () => {
+test("starter can access browser automation (R11.1: opened to all tiers)", () => {
   const policy = resolveAioToolPolicy("browser", "starter");
   assert.ok(policy);
-  assert.equal(policy.available, false);
-  assert.match(policy.reason, /starter/i);
+  assert.equal(policy.available, true);
 });
 
 test("business can access cronjob and it still requires approval", () => {

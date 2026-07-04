@@ -35,6 +35,7 @@ export async function GET() {
         id: c.id,
         label: c.label,
         envVar: c.envVar,
+        category: c.category,
         set: Boolean(value),
         masked: value ? maskSecret(value) : null,
       };
@@ -55,6 +56,7 @@ export async function GET() {
         id: c.id,
         label: c.label,
         envVar: c.envVar,
+        category: c.category,
         set: Boolean(value),
         masked: value ? maskSecret(value) : null,
       };

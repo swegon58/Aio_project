@@ -8,17 +8,29 @@
 // vault_store_credential / vault_read_credential RPCs (migration 0006) in
 // prod, or as flat KEY=value lines in the profile .env in dev — same dual
 // path the rest of Batch E follows.
+// R11.5b: capability grouping for the Settings "Model Providers" tab, so the
+// list reads by what each key does instead of a flat vendor list.
+export type CredentialCategory = "language" | "creative" | "automation" | "memory";
+
+export const CREDENTIAL_CATEGORY_LABELS: Record<CredentialCategory, string> = {
+  language: "Language & Reasoning",
+  creative: "Image & Video Generation",
+  automation: "Code Execution",
+  memory: "Memory & Personalization",
+};
+
 export interface CredentialDef {
   id: string;
   label: string;
   envVar: string;
+  category: CredentialCategory;
 }
 
 export const KNOWN_CREDENTIALS: CredentialDef[] = [
-  { id: "openrouter", label: "OpenRouter API Key", envVar: "OPENROUTER_API_KEY" },
-  { id: "kie", label: "Kie.ai Image API Key", envVar: "KIE_API_KEY" },
-  { id: "daytona", label: "Daytona API Key", envVar: "DAYTONA_API_KEY" },
-  { id: "honcho", label: "Honcho API Key", envVar: "HONCHO_API_KEY" },
+  { id: "openrouter", label: "Language Model Access Key", envVar: "OPENROUTER_API_KEY", category: "language" },
+  { id: "kie", label: "Image Generation Key", envVar: "KIE_API_KEY", category: "creative" },
+  { id: "daytona", label: "Code Sandbox Key", envVar: "DAYTONA_API_KEY", category: "automation" },
+  { id: "honcho", label: "Memory & Personalization Key", envVar: "HONCHO_API_KEY", category: "memory" },
 ];
 
 export function findCredential(id: string): CredentialDef | undefined {
