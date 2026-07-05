@@ -66,7 +66,7 @@ import {
 } from "@/components/app/GeneratedImageCard";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { Button } from "@/components/ui/button";
-import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
+import { SettingsModal } from "@/components/app/SettingsModal";
 import { ScheduledTasksModal } from "@/components/app/ScheduledTasksModal";
 import { NotificationsPanel } from "@/components/app/NotificationsPanel";
 import { OnboardingOverlay } from "@/components/app/OnboardingOverlay";
@@ -99,6 +99,7 @@ import { useCronJobs } from "@/components/app/app-home/hooks/useCronJobs";
 import { useNotifications } from "@/components/app/app-home/hooks/useNotifications";
 import { useConnections } from "@/components/app/app-home/hooks/useConnections";
 import { useCredentials } from "@/components/app/app-home/hooks/useCredentials";
+import { useAccountPrefs } from "@/components/app/app-home/hooks/useAccountPrefs";
 import "@/app/(app)/app/mockup.css";
 
 import type {
@@ -312,7 +313,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<GalleryImage | null>(null);
-  const [upgrading, setUpgrading] = useState(false);
   const {
     notificationsOpen,
     setNotificationsOpen,
@@ -323,22 +323,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     handleMarkAllNotificationsRead,
   } = useNotifications();
 
-  const handleUpgradeToBusiness = async () => {
-    setUpgrading(true);
-    try {
-      const res = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "plan", planTier: "business" }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const session = await res.json();
-      window.location.href = session.url;
-    } catch (err) {
-      console.error("Upgrade checkout failed:", err);
-      setUpgrading(false);
-    }
-  };
   const {
     cronJobs,
     cronError,
@@ -370,10 +354,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [renamingConversationId, setRenamingConversationId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-  const [exportLoading, setExportLoading] = useState(false);
-  const [exportStatus, setExportStatus] = useState<string | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
   const [ignoredTodayCards, setIgnoredTodayCards] = useState<Set<string>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "plan" | "data" | "connections">("general");
@@ -406,9 +386,24 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     credentialMessage,
     handleCredentialSubmit,
   } = useCredentials({ settingsOpen, logMeta });
+  const {
+    theme,
+    setTheme,
+    accent,
+    setAccent,
+    prefsHydrated,
+    onboardedAt,
+    setOnboardedAt,
+    exportLoading,
+    exportStatus,
+    handleExportData,
+    deleteLoading,
+    deleteStatus,
+    handleDeleteAccount,
+    upgrading,
+    handleUpgradeToBusiness,
+  } = useAccountPrefs({ logMeta });
   const [chatsPopoverOpen, setChatsPopoverOpen] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const [accent, setAccent] = useState<AccentKey>("blue");
   const resetRunTimeline = () => {
     setActiveRunId(null);
     setRunEvents([]);
@@ -439,18 +434,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     ]);
   };
 
-  // Read persisted prefs only after mount — reading localStorage during the
-  // useState initializer makes the client's first render diverge from SSR
-  // output (server always sees "dark"/"blue"), which React reports as a
-  // hydration mismatch.
-  const [prefsHydrated, setPrefsHydrated] = useState(false);
-  useEffect(() => {
-    const storedTheme = localStorage.getItem("aio-theme");
-    if (storedTheme === "light") setTheme("light");
-    const storedAccent = localStorage.getItem("aio-accent") as AccentKey | null;
-    if (storedAccent) setAccent(storedAccent);
-    setPrefsHydrated(true);
-  }, []);
 
   useEffect(() => {
     if (window.innerWidth <= 768) setSidebarCollapsed(true);
@@ -471,25 +454,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
       .catch(() => {});
   }, []);
 
-  // R6.1 onboarding: fetched once on mount so the welcome-screen overlay only
-  // shows for accounts that haven't completed (or skipped) it yet.
-  const [onboardedAt, setOnboardedAt] = useState<string | null | undefined>(undefined);
-  useEffect(() => {
-    fetch("/api/onboarding")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { onboardedAt: string | null } | null) => {
-        setOnboardedAt(data ? data.onboardedAt : null);
-      })
-      .catch(() => setOnboardedAt(null));
-  }, []);
 
-  useEffect(() => {
-    if (prefsHydrated) localStorage.setItem("aio-theme", theme);
-  }, [theme, prefsHydrated]);
-
-  useEffect(() => {
-    if (prefsHydrated) localStorage.setItem("aio-accent", accent);
-  }, [accent, prefsHydrated]);
 
   const [inputFocused, setInputFocused] = useState(false);
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
@@ -1208,53 +1173,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
       if (prevTitle !== undefined) {
         setConversations((prev) => (prev ?? []).map((c) => (c.id === id ? { ...c, title: prevTitle } : c)));
       }
-    }
-  };
-
-  const handleExportData = async () => {
-    setExportLoading(true);
-    setExportStatus(null);
-    try {
-      const res = await fetch("/api/account/export");
-      if (!res.ok) throw new Error(friendlyFetchError(res.status));
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "aio-account-export.json";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      setExportStatus("Download started.");
-      logMeta("Exported account data");
-    } catch (err) {
-      setExportStatus(err instanceof Error ? err.message : String(err));
-    } finally {
-      setExportLoading(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    setDeleteLoading(true);
-    setDeleteStatus(null);
-    try {
-      const res = await fetch("/api/account/delete", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: "DELETE" }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.message ?? friendlyFetchError(res.status));
-      }
-      const { createClient } = await import("@/lib/supabase/client");
-      await createClient().auth.signOut();
-      window.location.href = "/";
-    } catch (err) {
-      setDeleteStatus(err instanceof Error ? err.message : String(err));
-    } finally {
-      setDeleteLoading(false);
     }
   };
 
