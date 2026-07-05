@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { useChat } from "@ai-sdk/react";
 import type { FileUIPart } from "ai";
 import {
@@ -141,6 +140,10 @@ import {
   IMAGE_ASPECT_RATIOS,
   IMAGE_COST_USD,
   mixHex,
+  codeBlockFileName,
+  codeBlockSize,
+  reportFileBaseName,
+  buildReportHtmlDocument,
 } from "@/components/app/app-home-utils";
 interface AppHomeProps {
   email: string;
@@ -529,16 +532,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     });
   };
 
-  const codeBlockFileName = (lang: string) => {
-    const ext = lang?.trim() ? lang.trim().toLowerCase() : "txt";
-    return `snippet.${ext}`;
-  };
-
-  const codeBlockSize = (code: string) => {
-    const bytes = new TextEncoder().encode(code).length;
-    return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
-  };
-
   const handleDownloadCodeBlock = (lang: string, code: string) => {
     const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -547,18 +540,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     a.download = codeBlockFileName(lang);
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  // R9.2: research report export. Both paths are client-only (no export
-  // API) since the report text is already fully available in the message.
-  const reportFileBaseName = (query: string) => {
-    const slug = query
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 60);
-    return slug || "research-report";
   };
 
   const handleDownloadReportMarkdown = (query: string, reportText: string) => {
@@ -574,19 +555,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   const handleExportReportPdf = (query: string, reportText: string) => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    const escapedTitle = query.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-    const bodyHtml = renderToStaticMarkup(<MarkdownMessage text={reportText} />);
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>${escapedTitle || "Research report"}</title>
-<meta charset="utf-8">
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.65; }
-  h1.report-title { font-size: 20px; margin-bottom: 24px; }
-  .markdown-message :is(h1, h2, h3) { margin-top: 24px; }
-  .markdown-message a { color: #2563eb; }
-  .markdown-message pre { background: #f4f4f5; padding: 12px; border-radius: 6px; overflow-x: auto; }
-  .markdown-message code { background: #f4f4f5; padding: 1px 4px; border-radius: 3px; }
-</style></head>
-<body><h1 class="report-title">${escapedTitle}</h1>${bodyHtml}</body></html>`);
+    printWindow.document.write(buildReportHtmlDocument(query, reportText));
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();

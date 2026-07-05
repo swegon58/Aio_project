@@ -1,3 +1,5 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   BarChart3,
   Bell,
@@ -9,6 +11,7 @@ import {
   Plus,
   Users,
 } from "lucide-react";
+import { MarkdownMessage } from "@/components/app/MarkdownMessage";
 import {
   mascotStateForTool,
   type HermesActivityData,
@@ -319,6 +322,44 @@ export const IMAGE_COST_USD: Record<ImageResolution, number> = {
   "2K": 0.05,
   "4K": 0.08,
 };
+
+export function codeBlockFileName(lang: string): string {
+  const ext = lang?.trim() ? lang.trim().toLowerCase() : "txt";
+  return `snippet.${ext}`;
+}
+
+export function codeBlockSize(code: string): string {
+  const bytes = new TextEncoder().encode(code).length;
+  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
+}
+
+// R9.2: research report export. Both paths are client-only (no export
+// API) since the report text is already fully available in the message.
+export function reportFileBaseName(query: string): string {
+  const slug = query
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return slug || "research-report";
+}
+
+export function buildReportHtmlDocument(query: string, reportText: string): string {
+  const escapedTitle = query.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+  const bodyHtml = renderToStaticMarkup(createElement(MarkdownMessage, { text: reportText }));
+  return `<!DOCTYPE html><html><head><title>${escapedTitle || "Research report"}</title>
+<meta charset="utf-8">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.65; }
+  h1.report-title { font-size: 20px; margin-bottom: 24px; }
+  .markdown-message :is(h1, h2, h3) { margin-top: 24px; }
+  .markdown-message a { color: #2563eb; }
+  .markdown-message pre { background: #f4f4f5; padding: 12px; border-radius: 6px; overflow-x: auto; }
+  .markdown-message code { background: #f4f4f5; padding: 1px 4px; border-radius: 3px; }
+</style></head>
+<body><h1 class="report-title">${escapedTitle}</h1>${bodyHtml}</body></html>`;
+}
 
 export function mixHex(hex: string, bgHex: string, ratio: number): string {
   const a = hex.replace("#", "");
