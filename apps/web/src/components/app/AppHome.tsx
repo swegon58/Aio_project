@@ -98,6 +98,7 @@ import { friendlyFetchError } from "@/lib/aio/friendly-fetch-error";
 import { useCronJobs } from "@/components/app/app-home/hooks/useCronJobs";
 import { useNotifications } from "@/components/app/app-home/hooks/useNotifications";
 import { useConnections } from "@/components/app/app-home/hooks/useConnections";
+import { useCredentials } from "@/components/app/app-home/hooks/useCredentials";
 import "@/app/(app)/app/mockup.css";
 
 import type {
@@ -113,7 +114,6 @@ import type {
   ImageAspectRatio,
   ImageResolution,
   ImageGenerationStatus,
-  CredentialStatus,
   KanbanStatus,
   KanbanTask,
   KanbanBoard,
@@ -363,12 +363,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   const [fileTreeEntries, setFileTreeEntries] = useState<FileTreeEntry[] | null>(null);
   const [fileTreeError, setFileTreeError] = useState<string | null>(null);
   const [fileTreeLoading, setFileTreeLoading] = useState(false);
-  const [credentials, setCredentials] = useState<CredentialStatus[] | null>(null);
-  const [credentialsError, setCredentialsError] = useState<string | null>(null);
-  const [credentialId, setCredentialId] = useState("");
-  const [credentialValue, setCredentialValue] = useState("");
-  const [credentialSubmitting, setCredentialSubmitting] = useState(false);
-  const [credentialMessage, setCredentialMessage] = useState<string | null>(null);
   const [conversations, setConversations] = useState<
     { id: string; title: string; updatedAt: string }[] | null
   >(null);
@@ -401,6 +395,17 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     googleCalendarDisconnecting,
     handleGoogleCalendarDisconnect,
   } = useConnections({ settingsOpen, scheduledTasksOpen, setSettingsOpen, setSettingsInitialTab, logMeta });
+  const {
+    credentials,
+    credentialsError,
+    credentialId,
+    setCredentialId,
+    credentialValue,
+    setCredentialValue,
+    credentialSubmitting,
+    credentialMessage,
+    handleCredentialSubmit,
+  } = useCredentials({ settingsOpen, logMeta });
   const [chatsPopoverOpen, setChatsPopoverOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [accent, setAccent] = useState<AccentKey>("blue");
@@ -1206,29 +1211,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     }
   };
 
-  const loadCredentials = async () => {
-    setCredentialsError(null);
-    try {
-      const res = await fetch("/api/credentials");
-      if (!res.ok) throw new Error(friendlyFetchError(res.status));
-      const data = await res.json();
-      setCredentials(data.credentials);
-      if (!credentialId && data.credentials?.[0]) {
-        setCredentialId(data.credentials[0].id);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setCredentialsError(msg);
-    }
-  };
-
-  useEffect(() => {
-    if (settingsOpen && credentials === null) {
-      loadCredentials();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settingsOpen]);
-
   const handleExportData = async () => {
     setExportLoading(true);
     setExportStatus(null);
@@ -1421,33 +1403,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
       const msg = err instanceof Error ? err.message : String(err);
       setGalleryError(msg);
       await loadGallery();
-    }
-  };
-
-  const handleCredentialSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!credentialId || !credentialValue.trim()) return;
-    setCredentialSubmitting(true);
-    setCredentialMessage(null);
-    try {
-      const res = await fetch("/api/credentials", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: credentialId, value: credentialValue }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setCredentialMessage(data.message ?? "Failed to save credential");
-      } else {
-        setCredentialValue("");
-        setCredentialMessage("Saved. Restart the gateway for it to take effect.");
-        logMeta(`Saved credential "${credentialId}"`);
-        await loadCredentials();
-      }
-    } catch (err) {
-      setCredentialMessage(err instanceof Error ? err.message : String(err));
-    } finally {
-      setCredentialSubmitting(false);
     }
   };
 
