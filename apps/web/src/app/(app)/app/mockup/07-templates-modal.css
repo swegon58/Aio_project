@@ -71,6 +71,15 @@
 .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .modal-header h2 { font-size: 19px; font-weight: 800; margin: 0; }
 
+.lightbox-bare-img {
+  max-width: 92vw;
+  max-height: 92vh;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  cursor: zoom-out;
+  animation: modalIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .settings-modal {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);

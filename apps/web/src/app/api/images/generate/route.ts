@@ -9,6 +9,7 @@ import {
   persistGeneratedImage,
 } from "@/lib/aio/images/image-storage";
 import { resolveHermesRequestContext } from "@/lib/hermes/request-context";
+import { pickImageReadyReply } from "@/lib/aio/images/image-reply";
 import { resolveProfileSecret } from "@/lib/hermes/profile-secrets";
 import { readCredentialFromVault } from "@/lib/hermes/registry";
 import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
@@ -122,19 +123,20 @@ export async function POST(req: Request) {
           estimatedCostUsd: ESTIMATED_COST_USD[options.resolution],
         };
 
+        const replyText = pickImageReadyReply();
         await persistConversation(
           db,
           userId,
           threadId,
           messages,
-          "Your image is ready.",
+          replyText,
           "auto",
           [],
           [],
           undefined,
           [image],
         );
-        write({ type: "result", image, threadId });
+        write({ type: "result", image, threadId, message: replyText });
       } catch (error) {
         const message = req.signal.aborted
           ? "Image generation was cancelled."

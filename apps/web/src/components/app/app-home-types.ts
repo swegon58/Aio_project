@@ -51,6 +51,7 @@ export interface GalleryImage {
   caption: string | null;
   createdAt: string;
   url: string | null;
+  bare?: boolean;
 }
 
 export interface AioNotification {

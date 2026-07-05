@@ -71,7 +71,6 @@ import { SettingsModal, type AccentKey } from "@/components/app/SettingsModal";
 import { ScheduledTasksModal } from "@/components/app/ScheduledTasksModal";
 import { NotificationsPanel } from "@/components/app/NotificationsPanel";
 import { OnboardingOverlay } from "@/components/app/OnboardingOverlay";
-import { deriveQuickSuggestions, QuickSuggestionsBar } from "@/components/app/QuickSuggestions";
 import { PreviewPane, ShowcaseErrorDetail, type ActiveFile } from "@/components/app/FilePreview";
 import { brand } from "@/lib/brand.config";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
@@ -385,6 +384,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "plan" | "data" | "connections">("general");
   const [scheduledTasksOpen, setScheduledTasksOpen] = useState(false);
+  const [chatsPopoverOpen, setChatsPopoverOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [accent, setAccent] = useState<AccentKey>("blue");
   const resetRunTimeline = () => {
@@ -635,6 +635,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
       caption: image.prompt,
       createdAt: image.createdAt,
       url: image.url,
+      bare: true,
     });
   };
 
@@ -696,6 +697,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
       let buffer = "";
       let resultImage: AioGeneratedImage | null = null;
       let resultThreadId: string | null = null;
+      let resultMessage: string | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -719,6 +721,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
           } else if (event.type === "result" && event.image) {
             resultImage = event.image;
             resultThreadId = event.threadId ?? null;
+            resultMessage = event.message ?? null;
           }
         }
         if (done) break;
@@ -728,7 +731,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
       const assistantMessage: HermesUIMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        parts: [{ type: "text", text: "Your image is ready." }],
+        parts: [{ type: "text", text: resultMessage ?? "Your image is ready." }],
         metadata: { mode: "auto", images: [resultImage] },
       };
       setMessages([...nextMessages, assistantMessage]);
@@ -906,12 +909,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
 
   const handleRailItemClick = (key: (typeof ICON_RAIL_ITEMS)[number]["key"]) => {
     if (key === "newChat") {
-      // Auto-open the sidebar if it's currently collapsed (R11.5b) — desktop
-      // only; on mobile handleNewChat already collapses the overlay itself
-      // once the new conversation is created, so opening here would just
-      // flash it open then immediately closed.
-      if (sidebarCollapsed && window.innerWidth > 768) setSidebarCollapsed(false);
-      handleNewChat();
+      setChatsPopoverOpen(true);
       return;
     }
     if (key === "settings") {
@@ -1852,10 +1850,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     () => (planAwaitingAction && hasText ? parsePlanQuestion(lastAssistantText) : null),
     [planAwaitingAction, hasText, lastAssistantText],
   );
-  const quickSuggestions = useMemo(
-    () => (hasText ? deriveQuickSuggestions(lastAssistantText) : []),
-    [hasText, lastAssistantText],
-  );
   const mascotState = deriveMascotState(status, activity, hasText);
   const isStreaming = status === "submitted" || status === "streaming";
 
@@ -2345,89 +2339,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
             >
               <X className="w-4 h-4" />
             </button>
-          </div>
-
-          <button type="button" className="new-chat-btn" onClick={handleNewChat}>
-            <Plus className="w-3.5 h-3.5" />
-            New Chat
-          </button>
-
-          <div className="sidebar-section">
-            <div className="sidebar-section-title">Recent Chats</div>
-          </div>
-          <div className="chat-list">
-            {conversationsError && (
-              <div className="chat-item-time" style={{ padding: "6px 4px" }}>
-                Failed to load history
-              </div>
-            )}
-            {conversations !== null && conversations.length === 0 && !conversationsError && (
-              <div className="chat-item-time" style={{ padding: "6px 4px" }}>
-                No conversations yet
-              </div>
-            )}
-            {(conversations ?? []).map((c) => (
-              <div
-                key={c.id}
-                className={`chat-item${c.id === activeConversationId ? " active" : ""}`}
-                onClick={() => handleLoadConversation(c.id)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    handleLoadConversation(c.id);
-                  }
-                }}
-              >
-                <div className="chat-item-icon">
-                  <Bot className="w-3.5 h-3.5" />
-                </div>
-                <div className="chat-item-info">
-                  {renamingConversationId === c.id ? (
-                    <input
-                      autoFocus
-                      className="chat-item-rename-input"
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onBlur={() => handleRenameConversation(c.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleRenameConversation(c.id);
-                        } else if (e.key === "Escape") {
-                          setRenamingConversationId(null);
-                        }
-                      }}
-                    />
-                  ) : (
-                    <div className="chat-item-title">{c.title}</div>
-                  )}
-                  <div className="chat-item-time">
-                    {new Date(c.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="chat-item-delete"
-                  onClick={(e) => handleStartRename(c.id, c.title, e)}
-                  aria-label="Rename conversation"
-                  title="Rename conversation"
-                >
-                  <PenLine className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  className={`chat-item-delete${confirmDeleteId === c.id ? " confirming" : ""}`}
-                  onClick={(e) => handleDeleteConversation(c.id, e)}
-                  aria-label={confirmDeleteId === c.id ? "Confirm delete conversation" : "Delete conversation"}
-                  title={confirmDeleteId === c.id ? "Click again to delete" : "Delete conversation"}
-                >
-                  {confirmDeleteId === c.id ? <Trash2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            ))}
           </div>
 
           {mcpServers && mcpServers.length > 0 && (
@@ -3056,15 +2967,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
                     </button>
                   </div>
                 )}
-                {quickSuggestions.length > 0 && status === "ready" && !imageComposerActive && (
-                  <QuickSuggestionsBar
-                    suggestions={quickSuggestions}
-                    onSelect={(prompt) => {
-                      setInput(prompt);
-                      focusComposer();
-                    }}
-                  />
-                )}
                 <input
                   ref={attachmentInputRef}
                   type="file"
@@ -3308,17 +3210,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
             <div className="panel-header-actions">
               <button
                 type="button"
-                className={`panel-action-btn panel-action-btn--terminal${terminalOpen ? " active" : ""}`}
-                onClick={cycleTerminal}
-                aria-label={!terminalOpen ? "Open Aio Output" : "Close Aio Output"}
-                aria-pressed={terminalOpen}
-                title={!terminalOpen ? "Open Aio Output" : "Close Aio Output"}
-              >
-                <TerminalSquare className="w-4 h-4" />
-                <span>Output</span>
-              </button>
-              <button
-                type="button"
                 className="panel-action-btn"
                 onClick={() => setRightPanelCollapsed(true)}
                 aria-label="Collapse"
@@ -3328,10 +3219,21 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
             </div>
           </div>
 
+          <button
+            type="button"
+            className={`panel-action-btn--terminal${terminalOpen ? " active" : ""}`}
+            onClick={cycleTerminal}
+            aria-label={!terminalOpen ? "Open Terminal" : "Close Terminal"}
+            aria-pressed={terminalOpen}
+            title={!terminalOpen ? "Open Terminal" : "Close Terminal"}
+          >
+            <TerminalSquare className="w-4 h-4" />
+            <span>Terminal</span>
+          </button>
+
           {!terminalOpen && (
           <div className="panel-tab-content">
           <div>
-              <div className="panel-section-heading">Aio</div>
               <div className="panel-section panel-section--aio">
                 <div className="agent-info-card">
                   <div className="agent-info-avatar">
@@ -3813,7 +3715,16 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
         </div>
       )}
 
-      {lightboxImage && (
+      {lightboxImage && lightboxImage.bare && (
+        <div className="modal-overlay" onClick={() => setLightboxImage(null)}>
+          {lightboxImage.url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={lightboxImage.url} alt={lightboxImage.caption ?? "Generated image"} className="lightbox-bare-img" />
+          )}
+        </div>
+      )}
+
+      {lightboxImage && !lightboxImage.bare && (
         <div className="modal-overlay" onClick={() => setLightboxImage(null)}>
           <div className="modal gallery-lightbox" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -3921,6 +3832,109 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
         onRead={handleNotificationRead}
         onMarkAllRead={handleMarkAllNotificationsRead}
       />
+
+      {chatsPopoverOpen && (
+        <div className="modal-overlay" onClick={() => setChatsPopoverOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Chats</h2>
+              <button type="button" className="modal-close" onClick={() => setChatsPopoverOpen(false)} aria-label="Close">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              type="button"
+              className="new-chat-btn"
+              onClick={() => {
+                handleNewChat();
+                setChatsPopoverOpen(false);
+              }}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Chat
+            </button>
+            <div className="sidebar-section-title" style={{ marginTop: 12 }}>Recent Chats</div>
+            <div className="chat-list">
+              {conversationsError && (
+                <div className="chat-item-time" style={{ padding: "6px 4px" }}>
+                  Failed to load history
+                </div>
+              )}
+              {conversations !== null && conversations.length === 0 && !conversationsError && (
+                <div className="chat-item-time" style={{ padding: "6px 4px" }}>
+                  No conversations yet
+                </div>
+              )}
+              {(conversations ?? []).map((c) => (
+                <div
+                  key={c.id}
+                  className={`chat-item${c.id === activeConversationId ? " active" : ""}`}
+                  onClick={() => {
+                    handleLoadConversation(c.id);
+                    setChatsPopoverOpen(false);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleLoadConversation(c.id);
+                      setChatsPopoverOpen(false);
+                    }
+                  }}
+                >
+                  <div className="chat-item-icon">
+                    <Bot className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="chat-item-info">
+                    {renamingConversationId === c.id ? (
+                      <input
+                        autoFocus
+                        className="chat-item-rename-input"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onBlur={() => handleRenameConversation(c.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleRenameConversation(c.id);
+                          } else if (e.key === "Escape") {
+                            setRenamingConversationId(null);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="chat-item-title">{c.title}</div>
+                    )}
+                    <div className="chat-item-time">
+                      {new Date(c.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="chat-item-delete"
+                    onClick={(e) => handleStartRename(c.id, c.title, e)}
+                    aria-label="Rename conversation"
+                    title="Rename conversation"
+                  >
+                    <PenLine className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    className={`chat-item-delete${confirmDeleteId === c.id ? " confirming" : ""}`}
+                    onClick={(e) => handleDeleteConversation(c.id, e)}
+                    aria-label={confirmDeleteId === c.id ? "Confirm delete conversation" : "Delete conversation"}
+                    title={confirmDeleteId === c.id ? "Click again to delete" : "Delete conversation"}
+                  >
+                    {confirmDeleteId === c.id ? <Trash2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

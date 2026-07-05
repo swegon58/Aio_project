@@ -1,6 +1,6 @@
 /* ===== INPUT AREA ===== */
 .input-area {
-  padding: 12px 20px 20px;
+  padding: 8px 20px 14px;
   background: transparent;
   backdrop-filter: none;
   position: relative;
@@ -28,39 +28,6 @@
 .input-wrapper.focused {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px var(--accent-glow), 0 0 20px rgba(124, 108, 240, 0.1);
-}
-
-.quick-suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 4px 8px;
-  max-width: 780px;
-  margin: 0 auto;
-}
-
-.quick-suggestion-chip {
-  padding: 5px 12px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
-  border-radius: 16px;
-  background: var(--surface-card-opaque);
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.2;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.quick-suggestion-chip:hover {
-  background: color-mix(in srgb, var(--bg-card) 86%, var(--accent-primary) 14%);
-  border-color: color-mix(in srgb, var(--accent-primary) 34%, transparent);
-  color: var(--text-primary);
-}
-
-.quick-suggestion-chip:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
 }
 
 .input-tools { display: flex; gap: 2px; }
@@ -398,30 +365,30 @@
 }
 
 .generated-image-card {
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
   margin: 8px 0 0;
   overflow: hidden;
-  border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  background: var(--surface-tertiary-opaque);
+  background: transparent;
 }
 
 .generated-image-preview {
   position: relative;
   display: block;
-  width: 100%;
   padding: 0;
   overflow: hidden;
   border: none;
-  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
   cursor: zoom-in;
-  min-height: 220px;
 }
 
 .generated-image-preview img {
   display: block;
-  width: 100%;
-  max-height: 540px;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(540px, 60vh);
   object-fit: contain;
   opacity: 0;
   transition: opacity 180ms ease;
@@ -430,8 +397,10 @@
 .generated-image-preview img.ready { opacity: 1; }
 
 .generated-image-loading {
-  position: absolute;
-  inset: 0;
+  display: block;
+  width: 220px;
+  height: 160px;
+  border-radius: var(--radius-sm);
   background:
     linear-gradient(
       90deg,
@@ -449,12 +418,14 @@
 }
 
 .generated-image-failed {
-  position: absolute;
-  inset: 0;
   display: flex;
+  width: 220px;
+  height: 160px;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-tertiary-opaque);
   color: var(--text-muted);
   font-size: 12.5px;
 }
@@ -478,8 +449,9 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 8px;
+  padding: 8px 0 0;
 }
 
 .generated-image-action {

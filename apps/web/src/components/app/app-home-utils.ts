@@ -244,9 +244,9 @@ export const TODAY_CARDS: TodayCard[] = [
 
 export const ICON_RAIL_ITEMS = [
   // Pinned first (R11.5b sidebar redesign, Kimo Option 1): always-visible
-  // entry point for starting a new chat, so it's reachable even when the
-  // conversations sidebar is collapsed — no separate floating toggle needed.
-  { key: "newChat", label: "New Chat", icon: Plus, active: false, disabled: false },
+  // entry point for the chats card (recent chats + start new), so it's
+  // reachable even when the conversations sidebar is collapsed.
+  { key: "newChat", label: "Chats", icon: Plus, active: false, disabled: false },
   { key: "home", label: "Home", icon: Home, active: true, disabled: false },
   { key: "scheduled", label: "Scheduled", icon: Clock, active: false, disabled: false },
   { key: "notifications", label: "Notifications", icon: Bell, active: false, disabled: false },
