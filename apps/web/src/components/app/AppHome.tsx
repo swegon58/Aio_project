@@ -95,6 +95,7 @@ import {
 } from "@/lib/hermes/chat-types";
 import type { AioRunEvent, AioRunStatus } from "@/lib/aio/runs/aio-run-events";
 import { friendlyFetchError } from "@/lib/aio/friendly-fetch-error";
+import { useCronJobs } from "@/components/app/app-home/hooks/useCronJobs";
 import "@/app/(app)/app/mockup.css";
 
 import type {
@@ -106,7 +107,6 @@ import type {
   MetaLogEntry,
   TerminalScale,
   TerminalTab,
-  CronJob,
   GalleryImage,
   AioNotification,
   ImageAspectRatio,
@@ -329,9 +329,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<GalleryImage | null>(null);
-  const [cronJobs, setCronJobs] = useState<CronJob[] | null>(null);
-  const [cronError, setCronError] = useState<string | null>(null);
-  const [cronLocked, setCronLocked] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AioNotification[] | null>(null);
@@ -354,13 +351,25 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
       setUpgrading(false);
     }
   };
-  const [cronActionPending, setCronActionPending] = useState<string | null>(null);
-  const [cronName, setCronName] = useState("");
-  const [cronSchedule, setCronSchedule] = useState("");
-  const [cronPrompt, setCronPrompt] = useState("");
-  const [cronNotifyDiscord, setCronNotifyDiscord] = useState(false);
-  const [cronCreating, setCronCreating] = useState(false);
-  const [cronCreateMessage, setCronCreateMessage] = useState<string | null>(null);
+  const {
+    cronJobs,
+    cronError,
+    cronLocked,
+    cronActionPending,
+    cronName,
+    setCronName,
+    cronSchedule,
+    setCronSchedule,
+    cronPrompt,
+    setCronPrompt,
+    cronNotifyDiscord,
+    setCronNotifyDiscord,
+    cronCreating,
+    cronCreateMessage,
+    handleCronAction,
+    handleCronDelete,
+    handleCronCreate,
+  } = useCronJobs({ confirmDeleteId, setConfirmDeleteId, confirmDeleteTimeoutRef });
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
   const [fileTreePath, setFileTreePath] = useState(".");
   const [fileTreeEntries, setFileTreeEntries] = useState<FileTreeEntry[] | null>(null);
@@ -1469,111 +1478,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   useEffect(() => {
     if (notificationsOpen) loadNotifications();
   }, [notificationsOpen]);
-
-  const loadCronJobs = async () => {
-    setCronError(null);
-    setCronLocked(false);
-    try {
-      const res = await fetch("/api/cron");
-      if (res.status === 403) {
-        setCronLocked(true);
-        setCronJobs([]);
-        return;
-      }
-      if (!res.ok) throw new Error(friendlyFetchError(res.status));
-      const data = await res.json();
-      if (data.locked) {
-        setCronLocked(true);
-        setCronJobs([]);
-        return;
-      }
-      setCronJobs(Array.isArray(data) ? data : data.jobs ?? []);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setCronError(msg);
-    }
-  };
-
-  const handleCronAction = async (jobId: string, action: "pause" | "resume" | "run") => {
-    setCronActionPending(jobId);
-    try {
-      const res = await fetch(`/api/cron/${encodeURIComponent(jobId)}?action=${action}`, {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error(friendlyFetchError(res.status));
-      await loadCronJobs();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setCronError(msg);
-    } finally {
-      setCronActionPending(null);
-    }
-  };
-
-  const handleCronDelete = async (jobId: string) => {
-    if (confirmDeleteId !== jobId) {
-      setConfirmDeleteId(jobId);
-      if (confirmDeleteTimeoutRef.current) clearTimeout(confirmDeleteTimeoutRef.current);
-      confirmDeleteTimeoutRef.current = setTimeout(
-        () => setConfirmDeleteId((cur) => (cur === jobId ? null : cur)),
-        3000,
-      );
-      return;
-    }
-    if (confirmDeleteTimeoutRef.current) clearTimeout(confirmDeleteTimeoutRef.current);
-    setConfirmDeleteId(null);
-    setCronActionPending(jobId);
-    try {
-      const res = await fetch(`/api/cron/${encodeURIComponent(jobId)}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(friendlyFetchError(res.status));
-      setCronJobs((prev) => prev?.filter((j) => j.id !== jobId) ?? prev);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setCronError(msg);
-    } finally {
-      setCronActionPending(null);
-    }
-  };
-
-  const handleCronCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cronName.trim() || !cronSchedule.trim()) return;
-    setCronCreating(true);
-    setCronCreateMessage(null);
-    try {
-      const res = await fetch("/api/cron", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: cronName.trim(),
-          schedule: cronSchedule.trim(),
-          prompt: cronPrompt.trim(),
-          notifyDiscord: cronNotifyDiscord,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setCronCreateMessage(data.error ?? "Failed to create task");
-      } else {
-        setCronName("");
-        setCronSchedule("");
-        setCronPrompt("");
-        setCronNotifyDiscord(false);
-        await loadCronJobs();
-      }
-    } catch (err) {
-      setCronCreateMessage(err instanceof Error ? err.message : String(err));
-    } finally {
-      setCronCreating(false);
-    }
-  };
-
-  useEffect(() => {
-    if (cronJobs === null) {
-      loadCronJobs();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const loadFileTree = async (path: string) => {
     setFileTreeLoading(true);
