@@ -110,6 +110,11 @@ export interface ConversationSummary {
   updatedAt: string;
 }
 
+export interface WorkspaceEntry {
+  id: string;
+  blocks: { lang: string; code: string }[];
+}
+
 export interface MemorySnapshot {
   available: boolean;
   summary?: string | null;

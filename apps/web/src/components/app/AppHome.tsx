@@ -8,26 +8,17 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  ChevronRight,
   CircleAlert,
-  Clock,
   Copy,
   Download,
-  Eye,
-  File,
   FileCode,
-  Folder,
   Globe,
   HelpCircle,
   ImageIcon,
   LayoutGrid,
   Link2,
   ListChecks,
-  ListTree,
   Loader2,
-  Maximize2,
-  Minimize2,
-  Pause,
   Paperclip,
   PenLine,
   Play,
@@ -35,7 +26,6 @@ import {
   Printer,
   Send,
   SkipForward,
-  TerminalSquare,
   Video,
   X,
 } from "lucide-react";
@@ -44,7 +34,7 @@ import { MarkdownMessage } from "@/components/app/MarkdownMessage";
 import { DotGrid } from "@/components/app/DotGrid";
 import TextType from "@/components/app/TextType";
 import { TASK_TEMPLATES } from "@/components/app/TemplateGallery";
-import { AgentStateBadge, RunTimeline, legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timeline";
+import { legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timeline";
 import { ResearchProgressCard } from "@/components/app/ResearchProgressCard";
 import { ChatModeMenu } from "@/components/app/ChatModeMenu";
 import { SavedAgentMenu } from "@/components/app/SavedAgentMenu";
@@ -52,10 +42,9 @@ import {
   GeneratedImageCard,
   ImageGenerationProgress,
 } from "@/components/app/GeneratedImageCard";
-import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { Button } from "@/components/ui/button";
 import { OnboardingOverlay } from "@/components/app/OnboardingOverlay";
-import { PreviewPane, ShowcaseErrorDetail, type ActiveFile } from "@/components/app/FilePreview";
+import { ShowcaseErrorDetail, type ActiveFile } from "@/components/app/FilePreview";
 import { brand } from "@/lib/brand.config";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import {
@@ -86,6 +75,9 @@ import { AppHomeProviders } from "@/components/app/app-home/AppHomeProviders";
 import { AppModals } from "@/components/app/app-home/sections/AppModals";
 import { LeftSidebar } from "@/components/app/app-home/sections/LeftSidebar";
 import { FloatingChrome } from "@/components/app/app-home/sections/FloatingChrome";
+import { RightPanel } from "@/components/app/app-home/sections/RightPanel";
+import { CurrentRunCard } from "@/components/app/app-home/sections/CurrentRunCard";
+import { TodayCard } from "@/components/app/app-home/sections/TodayCard";
 import type {
   ChatRuntimeContextValue,
   WorkspaceContextValue,
@@ -94,11 +86,11 @@ import type {
 import "@/app/(app)/app/mockup.css";
 
 import type {
-  FilesSubTab,
   TodayAction,
-  TodayCard,
+  TodayCard as TodayCardData,
   ImageAspectRatio,
   ImageResolution,
+  WorkspaceEntry,
 } from "@/components/app/app-home-types";
 import {
   parsePlanQuestion,
@@ -106,7 +98,6 @@ import {
   deriveMascotState,
   badgeStateForRunStatus,
   labelForRunStatus,
-  highlightCode,
   TODAY_CARDS,
   ICON_RAIL_ITEMS,
   ACCENT_HEX,
@@ -115,7 +106,6 @@ import {
   IMAGE_COST_USD,
   mixHex,
   codeBlockFileName,
-  codeBlockSize,
   reportFileBaseName,
   buildReportHtmlDocument,
 } from "@/components/app/app-home-utils";
@@ -473,7 +463,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
       });
   };
 
-  const handleTodayAction = (card: TodayCard, action: TodayAction) => {
+  const handleTodayAction = (card: TodayCardData, action: TodayAction) => {
     if (action === "ignore") {
       setIgnoredTodayCards((prev) => {
         const next = new Set(prev);
@@ -796,52 +786,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     && persistedRunStatus !== null
     && isRunStoppable(persistedRunStatus)
     && !runStopPending;
-  const renderCurrentRunCard = (className?: string) => (
-    <section className={`current-run-card${className ? ` ${className}` : ""}`} aria-label="Current run">
-      <div className="current-run-card-topline">
-        <span className="current-run-label">Current Run</span>
-        <AgentStateBadge state={currentRunBadgeState} />
-      </div>
-      <div className="current-run-head">
-        <div>
-          <h4>{currentRunStatusLabel}</h4>
-          <p>{currentRunNote}</p>
-        </div>
-        {currentRunCanStop && (
-          <button
-            type="button"
-            className="approval-btn deny current-run-stop-btn"
-            onClick={() => void handleDurableRunStop()}
-            disabled={runStopPending}
-          >
-            {runStopPending ? <Loader2 className="w-3.5 h-3.5 icon-spin" /> : <Pause className="w-3.5 h-3.5" />}
-            {runStopPending ? "Stopping…" : "Stop run"}
-          </button>
-        )}
-      </div>
-      <div className={`current-run-banner current-run-banner--${currentRunTone}`}>
-        {timelineHydrating || runStopPending ? (
-          <Loader2 className="w-3.5 h-3.5 icon-spin" />
-        ) : timelineSyncError || runStopError ? (
-          <CircleAlert className="w-3.5 h-3.5" />
-        ) : persistedRunStatus === "waiting_approval" ? (
-          <Clock className="w-3.5 h-3.5" />
-        ) : (
-          <CheckCircle2 className="w-3.5 h-3.5" />
-        )}
-        <span>{currentRunNote}</span>
-      </div>
-      {timelineEvents.length > 0 ? (
-        <div className="current-run-timeline">
-          <RunTimeline events={timelineEvents} compact onResolveApproval={handleTimelineApprovalResolve} />
-        </div>
-      ) : (
-        <PanelEmpty icon={<ListTree className="w-5 h-5" />}>
-          Durable run activity will appear here.
-        </PanelEmpty>
-      )}
-    </section>
-  );
   // Each card is a suggested action, not a status report — only surface it
   // when there's real context behind it, per card kind. No fabricated
   // defaults when the workspace is actually empty.
@@ -851,21 +795,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     if (card.kind === "continue" || card.kind === "schedule") return hasActiveThread;
     return hasReviewableContext;
   });
-  const renderTodayCard = (card: TodayCard) => (
-    <button
-      key={card.id}
-      type="button"
-      className={`today-card today-card--${card.kind}`}
-      onClick={() => handleTodayAction(card, "plan")}
-    >
-      <div className="today-card-topline">
-        <span className="today-card-label">{card.label}</span>
-        <span className="today-card-source">{card.source}</span>
-      </div>
-      <div className="today-card-title">{card.title}</div>
-      <div className="today-card-reason">{card.reason}</div>
-    </button>
-  );
   const username = userName?.trim() || email.split("@")[0];
   const userInitial = username.charAt(0).toUpperCase();
   const greetingLines = useMemo(
@@ -890,10 +819,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   // Workspace panel: one accordion entry per assistant message that contains
   // code. The live entry auto-expands while streaming and auto-collapses
   // once the turn finishes, making room for the next live entry.
-  interface WorkspaceEntry {
-    id: string;
-    blocks: { lang: string; code: string }[];
-  }
   const workspaceEntries = useMemo<WorkspaceEntry[]>(() => {
     const entries: WorkspaceEntry[] = [];
     for (const message of messages) {
@@ -1298,10 +1223,29 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
                 {isMobileViewport && (activeTodayCards.length > 0 || durableRunVisible) && (
                   <section className="mobile-today-panel" aria-label="Today">
                     <div className="mobile-today-heading">Today</div>
-                    {durableRunVisible && renderCurrentRunCard("current-run-card--mobile")}
+                    {durableRunVisible && (
+                      <CurrentRunCard
+                        className="current-run-card--mobile"
+                        currentRunBadgeState={currentRunBadgeState}
+                        currentRunStatusLabel={currentRunStatusLabel}
+                        currentRunNote={currentRunNote}
+                        currentRunCanStop={currentRunCanStop}
+                        runStopPending={runStopPending}
+                        handleDurableRunStop={handleDurableRunStop}
+                        currentRunTone={currentRunTone}
+                        timelineHydrating={timelineHydrating}
+                        runStopError={runStopError}
+                        timelineSyncError={timelineSyncError}
+                        persistedRunStatus={persistedRunStatus}
+                        timelineEvents={timelineEvents}
+                        handleTimelineApprovalResolve={handleTimelineApprovalResolve}
+                      />
+                    )}
                     {activeTodayCards.length > 0 && (
                       <div className="mobile-today-strip">
-                        {activeTodayCards.map(renderTodayCard)}
+                        {activeTodayCards.map((card) => (
+                          <TodayCard key={card.id} card={card} onAction={handleTodayAction} />
+                        ))}
                       </div>
                     )}
                   </section>
@@ -2098,534 +2042,51 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
         </main>
 
         {/* ===== RIGHT PANEL ===== */}
-        <aside
-          className={`right-panel${rightPanelCollapsed ? " collapsed" : ""}${
-            terminalOpen ? ` output-${terminalScale}` : ""
-          }`}
-          style={
-            !rightPanelCollapsed && rightPanelWidth
-              ? { width: rightPanelWidth, minWidth: rightPanelWidth, flex: `0 0 ${rightPanelWidth}px` }
-              : undefined
-          }
-        >
-          {!rightPanelCollapsed && (
-            <div
-              className="right-panel-resize-handle"
-              onPointerDown={handleRightPanelResizeStart}
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize panel"
-            />
-          )}
-          <div className="panel-header">
-            <h3></h3>
-            <div className="panel-header-actions">
-              <button
-                type="button"
-                className="panel-action-btn"
-                onClick={() => setRightPanelCollapsed(true)}
-                aria-label="Collapse"
-              >
-                <ChevronRight className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className={`panel-action-btn--terminal${terminalOpen ? " active" : ""}`}
-            onClick={cycleTerminal}
-            aria-label={!terminalOpen ? "Open Terminal" : "Close Terminal"}
-            aria-pressed={terminalOpen}
-            title={!terminalOpen ? "Open Terminal" : "Close Terminal"}
-          >
-            <TerminalSquare className="w-4 h-4" />
-            <span>Terminal</span>
-          </button>
-
-          {!terminalOpen && (
-          <div className="panel-tab-content">
-          <div>
-              <div className="panel-section panel-section--aio">
-                <div className="agent-info-card">
-                  <div className="agent-info-avatar">
-                    {/* logo removed */}
-                  </div>
-                  <div className="agent-info-details">
-                    <h4>{brand.name}</h4>
-                    <p className={liveStatusIsProcessing ? "status-line-shimmer" : undefined}>{liveStatusText}</p>
-                  </div>
-                </div>
-                {durableRunVisible && renderCurrentRunCard()}
-                {usedPercentLabel && (
-                  <div className={`usage-meter${usageLevel !== "normal" ? ` usage-meter--${usageLevel}` : ""}`}>
-                    <div className="usage-meter-bar">
-                      <div
-                        className="usage-meter-fill"
-                        style={{ width: `${Math.min(100, usagePercentValue)}%` }}
-                      />
-                    </div>
-                    <div className="usage-meter-label">
-                      <span>{usedPercentLabel} used</span>
-                      {resetDateLabel && <span>Resets {resetDateLabel}</span>}
-                    </div>
-                    {usageLevel === "critical" && (
-                      <div className="usage-meter-warning">Almost out of credits — resets {resetDateLabel ?? "soon"}.</div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="panel-section panel-section--today">
-                <div className="panel-section-heading panel-section-heading--inline">Today</div>
-                <div className="today-card-grid">
-                  {activeTodayCards.map(renderTodayCard)}
-                  {activeTodayCards.length === 0 && (
-                    <PanelEmpty icon={<CheckCircle2 className="w-5 h-5" />}>Today is clear.</PanelEmpty>
-                  )}
-                </div>
-              </div>
-
-            </div>
-
-          {openShowcase && (
-            <div className="panel-section">
-              <div className="panel-section-heading">Code Execution</div>
-              <div className="panel-section-title">
-                {openShowcase.taskData.scriptPath?.split("/").pop() ?? "script"}
-              </div>
-              <pre className="workspace-code-block">
-                <code>{openShowcase.taskData.code ?? "No source captured."}</code>
-              </pre>
-              {openShowcase.status === "error" && (
-                <ShowcaseErrorDetail stdout={openShowcase.taskData.stdout} />
-              )}
-              <div className="panel-section-title" style={{ marginTop: 14 }}>
-                Results
-              </div>
-              {openShowcase.taskData.resultsTable && openShowcase.taskData.resultsTable.length > 0 ? (
-                <table className="showcase-results-table">
-                  <thead>
-                    <tr>
-                      {Object.keys(openShowcase.taskData.resultsTable[0]).map((col) => (
-                        <th key={col}>{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {openShowcase.taskData.resultsTable.map((row, i) => (
-                      <tr key={i}>
-                        {Object.keys(openShowcase.taskData.resultsTable![0]).map((col) => (
-                          <td key={col}>{row[col]}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <PanelEmpty icon={<FileCode className="w-5 h-5" />}>No results table yet.</PanelEmpty>
-              )}
-              {openShowcase.taskData.resultsFile && (
-                <a
-                  href={openShowcase.taskData.resultsFile}
-                  download
-                  className="message-artifact-card"
-                  style={{ marginTop: 8 }}
-                >
-                  <Download className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--aio-subtle)" }} aria-hidden />
-                  <span className="truncate">Download results file</span>
-                </a>
-              )}
-            </div>
-          )}
-
-          <div className="panel-section panel-section--files">
-              <div className="panel-section-heading">Files</div>
-              <div className="panel-tabs panel-tabs--segmented" style={{ marginBottom: 12 }}>
-                {(["gallery", "files"] as FilesSubTab[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={`panel-tab${filesSubTab === t ? " active" : ""}`}
-                    onClick={() => setFilesSubTab(t)}
-                  >
-                    {t === "gallery" ? "Gallery" : "Files"}
-                  </button>
-                ))}
-              </div>
-
-              {filesSubTab === "gallery" && (
-                <>
-                  <input
-                    ref={galleryFileInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: "none" }}
-                    onChange={handleGalleryFileSelected}
-                  />
-                  <button
-                    type="button"
-                    className="mcp-add-btn"
-                    disabled={galleryUploading}
-                    onClick={() => galleryFileInputRef.current?.click()}
-                    style={{ marginBottom: 12 }}
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    {galleryUploading ? "Uploading…" : "Save Image to Gallery"}
-                  </button>
-
-                  {galleryError && (
-                    <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
-                      Failed to load: {galleryError}
-                    </div>
-                  )}
-
-                  {galleryImages === null && !galleryError && <PanelLoading />}
-
-                  {galleryImages?.length === 0 && (
-                    <PanelEmpty icon={<ImageIcon className="w-5 h-5" />}>
-                      No saved images yet. Save an image from chat to keep it here across sessions.
-                    </PanelEmpty>
-                  )}
-
-                  {galleryImages && galleryImages.length > 0 && (
-                    <div className="gallery-grid">
-                      {galleryImages.map((img) => (
-                        <button
-                          key={img.id}
-                          type="button"
-                          className="gallery-thumb"
-                          onClick={() => setLightboxImage(img)}
-                          aria-label={img.caption ?? "Saved image"}
-                        >
-                          {img.url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={img.url} alt={img.caption ?? "Saved image"} />
-                          ) : (
-                            <div className="gallery-thumb-fallback">
-                              <ImageIcon className="w-4 h-4" />
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                </>
-              )}
-
-              {filesSubTab === "files" && (
-                <>
-                  {fileTreePath !== "." && (
-                    <button
-                      type="button"
-                      className="mcp-add-btn"
-                      style={{ marginBottom: 8 }}
-                      onClick={() => {
-                        const parent = fileTreePath.split("/").slice(0, -1).join("/") || ".";
-                        setFileTreeEntries(null);
-                        loadFileTree(parent);
-                      }}
-                    >
-                      ← Up
-                    </button>
-                  )}
-
-                  <div className="memory-text" style={{ marginBottom: 8, opacity: 0.7 }}>
-                    {fileTreePath}
-                  </div>
-
-                  {fileTreeError && fileTreeError !== "no_workspace" && (
-                    <div className="memory-text" style={{ color: "var(--accent-secondary)", marginBottom: 8 }}>
-                      Failed to load: {fileTreeError}
-                    </div>
-                  )}
-
-                  {fileTreeLoading && fileTreeEntries === null && <PanelLoading />}
-
-                  {!fileTreeLoading && fileTreeEntries && fileTreeEntries.length === 0 && fileTreeError === "no_workspace" && (
-                    <PanelEmpty icon={<Folder className="w-5 h-5" />}>
-                      Send a message first to start a workspace.
-                    </PanelEmpty>
-                  )}
-
-                  {!fileTreeLoading && fileTreeEntries && fileTreeEntries.length === 0 && !fileTreeError && (
-                    <PanelEmpty icon={<Folder className="w-5 h-5" />}>Empty directory.</PanelEmpty>
-                  )}
-
-                  {fileTreeEntries && fileTreeEntries.length > 0 && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {fileTreeEntries.map((entry) => (
-                        <button
-                          key={entry.name}
-                          type="button"
-                          className="mcp-server-item"
-                          disabled={entry.type !== "dir"}
-                          style={entry.type !== "dir" ? { cursor: "default" } : undefined}
-                          onClick={() => {
-                            if (entry.type !== "dir") return;
-                            const next = fileTreePath === "." ? entry.name : `${fileTreePath}/${entry.name}`;
-                            setFileTreeEntries(null);
-                            loadFileTree(next);
-                          }}
-                        >
-                          <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
-                            {entry.type === "dir" ? (
-                              <Folder className="w-3.5 h-3.5" />
-                            ) : (
-                              <File className="w-3.5 h-3.5" />
-                            )}
-                          </div>
-                          <div className="mcp-server-info">
-                            <div className="mcp-server-name">{entry.name}</div>
-                            <div className="mcp-server-url">
-                              {entry.type === "dir" ? "Directory" : `${entry.size ?? 0} bytes`}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-          </div>
-          )}
-
-          {terminalOpen && (
-            <div className={`aio-terminal aio-terminal--${terminalScale}`}>
-              <div className="aio-terminal-tabs" role="tablist" aria-label="Aio Output views">
-                <button
-                  type="button"
-                  className={`aio-terminal-tab${terminalTab === "activity" ? " active" : ""}`}
-                  onClick={() => setTerminalTab("activity")}
-                  role="tab"
-                  aria-selected={terminalTab === "activity"}
-                >
-                  <ListTree className="w-4 h-4" />
-                  Activity
-                </button>
-                <button
-                  type="button"
-                  className={`aio-terminal-tab${terminalTab === "preview" ? " active" : ""}`}
-                  onClick={() => setTerminalTab("preview")}
-                  role="tab"
-                  aria-selected={terminalTab === "preview"}
-                >
-                  <Eye className="w-4 h-4" />
-                  Preview
-                </button>
-                <button
-                  type="button"
-                  className="aio-terminal-tab-expand"
-                  onClick={() => setTerminalScale(terminalScale === "focus" ? "compact" : "focus")}
-                  aria-label={terminalScale === "focus" ? "Use compact output view" : "Focus output"}
-                  title={terminalScale === "focus" ? "Compact view" : "Focus view"}
-                >
-                  {terminalScale === "focus"
-                    ? <Minimize2 className="w-4 h-4" />
-                    : <Maximize2 className="w-4 h-4" />}
-                </button>
-              </div>
-
-              {terminalTab === "activity" ? (
-                <div className="aio-terminal-body">
-                  {workspaceEntries.length === 0 && timelineEvents.length === 0 ? (
-                    <div className="output-empty-state">
-                      <div className="output-empty-icon"><ListTree className="w-5 h-5" /></div>
-                      <h4>No activity yet</h4>
-                      <p>Current task activity will appear here.</p>
-                    </div>
-                  ) : (
-                    <>
-                      {timelineEvents.length > 0 && <RunTimeline events={timelineEvents} compact onResolveApproval={handleTimelineApprovalResolve} />}
-                      {workspaceEntries.map((entry, idx) => {
-                        const isLive = isStreaming && entry.id === lastAssistantMessage?.id;
-                        const isOpen = expandedWorkspaceId === entry.id;
-                        return (
-                          <div key={entry.id} className={`workspace-entry${isOpen ? " open" : ""}`}>
-                            <button
-                              type="button"
-                              className="workspace-entry-header"
-                              onClick={() => setExpandedWorkspaceId(isOpen ? null : entry.id)}
-                            >
-                              <ChevronRight className={`w-3.5 h-3.5 workspace-entry-chevron${isOpen ? " open" : ""}`} />
-                              <span>{isLive ? "Live" : `Turn ${idx + 1}`}</span>
-                              {isLive && <span className="workspace-entry-live-dot" aria-hidden />}
-                            </button>
-                            {isOpen && (
-                              <div className="workspace-entry-body">
-                                {entry.blocks.map((block, i) => {
-                                  const blockId = `${entry.id}-${i}`;
-                                  return (
-                                    <div key={i} className="code-file-card">
-                                      <div className="code-file-card-header">
-                                        <FileCode className="w-4 h-4 code-file-card-icon" />
-                                        <div className="code-file-card-meta">
-                                          <span className="code-file-card-name">{codeBlockFileName(block.lang)}</span>
-                                          <span className="code-file-card-size">{codeBlockSize(block.code)}</span>
-                                        </div>
-                                        <button
-                                          type="button"
-                                          className="code-file-card-copy"
-                                          onClick={() => handleCopyMessage(blockId, block.code)}
-                                        >
-                                          <Copy className="w-3 h-3" />
-                                          {copiedMessageId === blockId ? "Copied" : "Copy"}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="code-file-card-download"
-                                          onClick={() => handleDownloadCodeBlock(block.lang, block.code)}
-                                        >
-                                          <Download className="w-3 h-3" />
-                                          Download
-                                        </button>
-                                      </div>
-                                      <pre className="workspace-code-block">
-                                        <code dangerouslySetInnerHTML={{ __html: highlightCode(block.code) }} />
-                                      </pre>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="aio-terminal-body">
-                  {activeFile ? (
-                    <PreviewPane file={activeFile} />
-                  ) : latestCodeBlock && ["html", "htm"].includes(latestCodeBlock.lang.toLowerCase()) ? (
-                    <iframe
-                      srcDoc={latestCodeBlock.code}
-                      className="terminal-results-iframe"
-                      sandbox="allow-scripts"
-                      title="Preview"
-                    />
-                  ) : latestCodeBlock ? (
-                    <div className="terminal-preview-pane">
-                      <div className="terminal-preview-filename">{codeBlockFileName(latestCodeBlock.lang)}</div>
-                      <pre className="workspace-code-block">
-                        <code dangerouslySetInnerHTML={{ __html: highlightCode(latestCodeBlock.code) }} />
-                      </pre>
-                    </div>
-                  ) : (
-                    <PreviewPane file={activeFile} />
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </aside>
+        <RightPanel
+          rightPanelCollapsed={rightPanelCollapsed}
+          setRightPanelCollapsed={setRightPanelCollapsed}
+          rightPanelWidth={rightPanelWidth}
+          handleRightPanelResizeStart={handleRightPanelResizeStart}
+          liveStatusIsProcessing={liveStatusIsProcessing}
+          liveStatusText={liveStatusText}
+          durableRunVisible={durableRunVisible}
+          currentRunBadgeState={currentRunBadgeState}
+          currentRunStatusLabel={currentRunStatusLabel}
+          currentRunNote={currentRunNote}
+          currentRunCanStop={currentRunCanStop}
+          runStopPending={runStopPending}
+          handleDurableRunStop={handleDurableRunStop}
+          currentRunTone={currentRunTone}
+          timelineHydrating={timelineHydrating}
+          runStopError={runStopError}
+          timelineSyncError={timelineSyncError}
+          persistedRunStatus={persistedRunStatus}
+          timelineEvents={timelineEvents}
+          handleTimelineApprovalResolve={handleTimelineApprovalResolve}
+          usedPercentLabel={usedPercentLabel}
+          usageLevel={usageLevel}
+          usagePercentValue={usagePercentValue}
+          resetDateLabel={resetDateLabel}
+          activeTodayCards={activeTodayCards}
+          handleTodayAction={handleTodayAction}
+          openShowcase={openShowcase}
+          workspaceEntries={workspaceEntries}
+          isStreaming={isStreaming}
+          lastAssistantMessage={lastAssistantMessage}
+          expandedWorkspaceId={expandedWorkspaceId}
+          setExpandedWorkspaceId={setExpandedWorkspaceId}
+          copiedMessageId={copiedMessageId}
+          handleCopyMessage={handleCopyMessage}
+          handleDownloadCodeBlock={handleDownloadCodeBlock}
+          activeFile={activeFile}
+          latestCodeBlock={latestCodeBlock}
+          mobileWorkspaceEntry={mobileWorkspaceEntry}
+          mobileWorkspaceIsLive={mobileWorkspaceIsLive}
+          workspaceModalRef={workspaceModalRef}
+          mobileShowcaseOpen={mobileShowcaseOpen}
+          setMobileShowcaseOpen={setMobileShowcaseOpen}
+        />
       </div>
-
-      {mobileWorkspaceEntry && (
-        <div
-          className="workspace-mobile-modal-overlay"
-          onClick={() => setExpandedWorkspaceId(null)}
-        >
-          <div
-            className="workspace-mobile-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={mobileWorkspaceIsLive ? "Live" : "Workspace"}
-            ref={workspaceModalRef}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="workspace-mobile-modal-header">
-              <span>{mobileWorkspaceIsLive ? "Live" : "Workspace"}</span>
-              <button
-                type="button"
-                className="workspace-mobile-modal-close"
-                onClick={() => setExpandedWorkspaceId(null)}
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="workspace-entry-body">
-              {mobileWorkspaceIsLive && <RunTimeline events={timelineEvents} compact onResolveApproval={handleTimelineApprovalResolve} />}
-              {mobileWorkspaceEntry.blocks.map((block, i) => (
-                <pre key={i} className="workspace-code-block">
-                  <code>{block.code}</code>
-                </pre>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {mobileShowcaseOpen && openShowcase && (
-        <div
-          className="workspace-mobile-modal-overlay"
-          onClick={() => setMobileShowcaseOpen(false)}
-        >
-          <div
-            className="workspace-mobile-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Code Execution"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="workspace-mobile-modal-header">
-              <span>Code Execution</span>
-              <button
-                type="button"
-                className="workspace-mobile-modal-close"
-                onClick={() => setMobileShowcaseOpen(false)}
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="workspace-entry-body">
-              <pre className="workspace-code-block">
-                <code>{openShowcase.taskData.code ?? "No source captured."}</code>
-              </pre>
-              {openShowcase.status === "error" && (
-                <ShowcaseErrorDetail stdout={openShowcase.taskData.stdout} />
-              )}
-              {openShowcase.taskData.resultsTable && openShowcase.taskData.resultsTable.length > 0 && (
-                <table className="showcase-results-table">
-                  <thead>
-                    <tr>
-                      {Object.keys(openShowcase.taskData.resultsTable[0]).map((col) => (
-                        <th key={col}>{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {openShowcase.taskData.resultsTable.map((row, i) => (
-                      <tr key={i}>
-                        {Object.keys(openShowcase.taskData.resultsTable![0]).map((col) => (
-                          <td key={col}>{row[col]}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              {openShowcase.taskData.resultsFile && (
-                <a
-                  href={openShowcase.taskData.resultsFile}
-                  download
-                  className="message-artifact-card"
-                  style={{ marginTop: 8 }}
-                >
-                  <Download className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--aio-subtle)" }} aria-hidden />
-                  <span className="truncate">Download results file</span>
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       <AppModals
         email={email}
