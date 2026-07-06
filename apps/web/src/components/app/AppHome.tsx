@@ -5,17 +5,13 @@ import { useChat } from "@ai-sdk/react";
 import type { FileUIPart } from "ai";
 import {
   ArrowRight,
-  BarChart3,
-  Bell,
   Bot,
-  Brain,
   Check,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   CircleAlert,
   Clock,
-  Cog,
   Columns,
   Copy,
   Download,
@@ -25,14 +21,12 @@ import {
   Folder,
   Globe,
   HelpCircle,
-  Home,
   ImageIcon,
   LayoutGrid,
   Link2,
   ListChecks,
   ListTree,
   Loader2,
-  Lock,
   Maximize2,
   Menu,
   Minimize2,
@@ -47,7 +41,6 @@ import {
   SkipForward,
   TerminalSquare,
   Trash2,
-  Users,
   Video,
   X,
 } from "lucide-react";
@@ -79,14 +72,12 @@ import {
   isRunStoppable,
   type AioPublicResearchSource,
 } from "@/lib/aio/runs/run-client";
-import {
-  mascotStateForTool,
-  type HermesActivityData,
-  type HermesApprovalData,
-  type HermesCreditsData,
-  type HermesShowcaseData,
-  type HermesUIMessage,
-  type MascotImageState,
+import type {
+  HermesActivityData,
+  HermesApprovalData,
+  HermesCreditsData,
+  HermesShowcaseData,
+  HermesUIMessage,
 } from "@/lib/hermes/chat-types";
 import { useCronJobs } from "@/components/app/app-home/hooks/useCronJobs";
 import { useNotifications } from "@/components/app/app-home/hooks/useNotifications";
@@ -99,28 +90,27 @@ import { usePlanFlow } from "@/components/app/app-home/hooks/usePlanFlow";
 import { useConversations } from "@/components/app/app-home/hooks/useConversations";
 import { useRunTimeline } from "@/components/app/app-home/hooks/useRunTimeline";
 import { useChatComposer } from "@/components/app/app-home/hooks/useChatComposer";
+import { AppHomeProviders } from "@/components/app/app-home/AppHomeProviders";
+import type {
+  ChatRuntimeContextValue,
+  WorkspaceContextValue,
+  AccountDataContextValue,
+} from "@/components/app/app-home/context";
 import "@/app/(app)/app/mockup.css";
 
 import type {
-  PlanQuestion,
-  MessageSegment,
   FilesSubTab,
   TodayAction,
   TodayCard,
   ImageAspectRatio,
   ImageResolution,
-  KanbanStatus,
-  KanbanTask,
 } from "@/components/app/app-home-types";
 import {
   parsePlanQuestion,
   splitMessageSegments,
   deriveMascotState,
-  runEventKey,
-  upsertRunEvent,
   badgeStateForRunStatus,
   labelForRunStatus,
-  escapeHtml,
   highlightCode,
   TODAY_CARDS,
   ICON_RAIL_ITEMS,
@@ -157,7 +147,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   >(null);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [creditUsage, setCreditUsage] = useState<HermesCreditsData | null>(null);
-  const [isCompressing, setIsCompressing] = useState(false);
+  const [, setIsCompressing] = useState(false);
 
   const { messages, sendMessage, status, setMessages, stop, error: chatError, regenerate, clearError } = useChat<HermesUIMessage>({
     onData: (dataPart) => ingestDataPart(dataPart),
@@ -225,14 +215,11 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     metaLog,
     logMeta,
     terminalOpen,
-    setTerminalOpen,
     terminalScale,
     setTerminalScale,
     terminalTab,
     setTerminalTab,
     cycleTerminal,
-    kanban,
-    kanbanError,
     memorySnapshot,
     galleryImages,
     setGalleryImages,
@@ -316,7 +303,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     setTheme,
     accent,
     setAccent,
-    prefsHydrated,
     onboardedAt,
     setOnboardedAt,
     exportLoading,
@@ -325,8 +311,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     deleteLoading,
     deleteStatus,
     handleDeleteAccount,
-    upgrading,
-    handleUpgradeToBusiness,
   } = useAccountPrefs({ logMeta });
   const [chatsPopoverOpen, setChatsPopoverOpen] = useState(false);
 
@@ -588,7 +572,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     activeRunId,
     runEvents,
     persistedRunStatus,
-    persistedEventSequence,
     timelineHydrating,
     timelineSyncError,
     runStopPending,
@@ -1052,7 +1035,175 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     }
   }
 
+  // Step 2 of the AppHome decomposition: package already-extracted hook
+  // returns into the 3 cadence-based contexts. JSX below still reads the
+  // local destructured vars directly — this wrapping is a pure addition,
+  // not yet consumed — so section extraction (step 3) can switch to
+  // useChatRuntime()/useWorkspace()/useAccountData() without a behavior change.
+  const chatRuntimeValue: ChatRuntimeContextValue = {
+    messages,
+    sendMessage,
+    status,
+    setMessages,
+    stop,
+    chatError,
+    regenerate,
+    clearError,
+    addAttachments,
+    handleSubmit,
+    handleKeyDown,
+    handleInput,
+    focusComposer,
+    handleResearchStopAndEdit,
+    activeRunId,
+    runEvents,
+    persistedRunStatus,
+    timelineHydrating,
+    timelineSyncError,
+    runStopPending,
+    runStopError,
+    resetRunTimeline,
+    primeOptimisticRun,
+    ingestDataPart,
+    handleDurableRunStop,
+    planAwaitingAction,
+    setPlanAwaitingAction,
+    planOtherText,
+    setPlanOtherText,
+    planQuestion,
+    handlePlanRun,
+    handlePlanAdjust,
+    handlePlanCancel,
+    handlePlanAnswer,
+    handlePlanSkipToPlan,
+  };
+
+  const workspaceValue: WorkspaceContextValue = {
+    filesSubTab,
+    setFilesSubTab,
+    metaLog,
+    logMeta,
+    terminalOpen,
+    terminalScale,
+    setTerminalScale,
+    terminalTab,
+    setTerminalTab,
+    cycleTerminal,
+    memorySnapshot,
+    galleryImages,
+    setGalleryImages,
+    galleryError,
+    galleryUploading,
+    lightboxImage,
+    setLightboxImage,
+    galleryFileInputRef,
+    fileTreePath,
+    fileTreeEntries,
+    setFileTreeEntries,
+    fileTreeError,
+    fileTreeLoading,
+    loadFileTree,
+    handleGalleryFileSelected,
+    handleGalleryDelete,
+    imageComposerActive,
+    setImageComposerActive,
+    imageAspectRatio,
+    setImageAspectRatio,
+    imageResolution,
+    setImageResolution,
+    imageReference,
+    setImageReference,
+    imageGenerationStatus,
+    imageGenerationError,
+    setImageGenerationError,
+    imageLastPrompt,
+    activateImageComposer,
+    handleGeneratedImageOpen,
+    handleGeneratedImageEdit,
+    handleGeneratedImageVariation,
+    cancelImageGeneration,
+    submitImageGeneration,
+  };
+
+  const accountDataValue: AccountDataContextValue = {
+    conversations,
+    conversationsError,
+    activeConversationId,
+    setActiveConversationId,
+    renamingConversationId,
+    setRenamingConversationId,
+    renameValue,
+    setRenameValue,
+    loadConversations,
+    handleNewChat,
+    handleLoadConversation,
+    handleDeleteConversation,
+    handleStartRename,
+    handleRenameConversation,
+    connections,
+    connectionsError,
+    mcpServers,
+    tokenPlatform,
+    setTokenPlatform,
+    tokenValue,
+    setTokenValue,
+    tokenSubmitting,
+    tokenMessage,
+    handleTokenSubmit,
+    handleTokenRemove,
+    googleCalendarStatus,
+    googleCalendarError,
+    googleCalendarDisconnecting,
+    handleGoogleCalendarDisconnect,
+    credentials,
+    credentialsError,
+    credentialId,
+    setCredentialId,
+    credentialValue,
+    setCredentialValue,
+    credentialSubmitting,
+    credentialMessage,
+    handleCredentialSubmit,
+    cronJobs,
+    cronError,
+    cronLocked,
+    cronActionPending,
+    cronName,
+    setCronName,
+    cronSchedule,
+    setCronSchedule,
+    cronPrompt,
+    setCronPrompt,
+    cronNotifyDiscord,
+    setCronNotifyDiscord,
+    cronCreating,
+    cronCreateMessage,
+    handleCronAction,
+    handleCronDelete,
+    handleCronCreate,
+    notificationsOpen,
+    setNotificationsOpen,
+    notifications,
+    notificationsUnread,
+    notificationsError,
+    handleNotificationRead,
+    handleMarkAllNotificationsRead,
+    theme,
+    setTheme,
+    accent,
+    setAccent,
+    onboardedAt,
+    setOnboardedAt,
+    exportLoading,
+    exportStatus,
+    handleExportData,
+    deleteLoading,
+    deleteStatus,
+    handleDeleteAccount,
+  };
+
   return (
+    <AppHomeProviders chatRuntime={chatRuntimeValue} workspace={workspaceValue} accountData={accountDataValue}>
     <div className="aio-mockup" data-theme={theme} data-accent={accent} suppressHydrationWarning>
       <div className="particles-bg" aria-hidden>
         <DotGrid
@@ -2795,5 +2946,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
         </div>
       )}
     </div>
+    </AppHomeProviders>
   );
 }
