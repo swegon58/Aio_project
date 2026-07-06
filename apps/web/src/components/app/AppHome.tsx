@@ -98,6 +98,7 @@ import { useImageGeneration } from "@/components/app/app-home/hooks/useImageGene
 import { usePlanFlow } from "@/components/app/app-home/hooks/usePlanFlow";
 import { useConversations } from "@/components/app/app-home/hooks/useConversations";
 import { useRunTimeline } from "@/components/app/app-home/hooks/useRunTimeline";
+import { useChatComposer } from "@/components/app/app-home/hooks/useChatComposer";
 import "@/app/(app)/app/mockup.css";
 
 import type {
@@ -493,93 +494,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
       });
   };
 
-  const MAX_ATTACHMENTS = 4;
-  const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
-
-  const addAttachments = async (files: File[]) => {
-    const images = files.filter((f) => f.type.startsWith("image/"));
-    if (images.length === 0) return;
-    const oversized = images.find((f) => f.size > MAX_ATTACHMENT_BYTES);
-    if (oversized) {
-      setAttachmentError(`${oversized.name} is over 8MB.`);
-      return;
-    }
-    if (pendingAttachments.length + images.length > MAX_ATTACHMENTS) {
-      setAttachmentError(`Up to ${MAX_ATTACHMENTS} images per message.`);
-      return;
-    }
-    setAttachmentError(null);
-    const parts = await Promise.all(
-      images.map(
-        (file) =>
-          new Promise<FileUIPart>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () =>
-              resolve({ type: "file", mediaType: file.type, url: reader.result as string, filename: file.name });
-            reader.onerror = () => reject(reader.error);
-            reader.readAsDataURL(file);
-          }),
-      ),
-    );
-    setPendingAttachments((prev) => [...prev, ...parts]);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if ((!input.trim() && pendingAttachments.length === 0) || status !== "ready" || imageGenerationStatus) return;
-    const submittedText = input.trim();
-    if (imageComposerActive) {
-      setInput("");
-      if (textareaRef.current) textareaRef.current.style.height = "auto";
-      setInputMultiline(false);
-      void submitImageGeneration(submittedText);
-      return;
-    }
-    setActivity([]);
-    primeOptimisticRunRef.current();
-    setShowcases([]);
-    setPendingApproval(null);
-    setPlanAwaitingAction(chatMode === "plan");
-    setLastRunMode(chatMode);
-    if (chatMode === "research") setActiveResearchQuery(submittedText);
-    sendMessage(
-      { text: submittedText, files: pendingAttachments },
-      { body: { mode: chatMode, savedAgentId: activeSavedAgentId } },
-    );
-    setInput("");
-    setPendingAttachments([]);
-    setAttachmentError(null);
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-    setInputMultiline(false);
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e as unknown as React.FormEvent);
-    }
-  };
-
-  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    const el = e.target;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
-    setInputMultiline(el.scrollHeight > 40);
-  };
-
-  const focusComposer = () => {
-    requestAnimationFrame(() => textareaRef.current?.focus());
-  };
-
-  const handleResearchStopAndEdit = (query: string) => {
-    if (status !== "ready") void stop();
-    setChatMode("research");
-    setInput(query);
-    focusComposer();
-  };
-
   const handleTodayAction = (card: TodayCard, action: TodayAction) => {
     if (action === "ignore") {
       setIgnoredTodayCards((prev) => {
@@ -742,6 +656,34 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     resetRunTimeline,
     setPlanAwaitingAction,
   });
+
+  const { addAttachments, handleSubmit, handleKeyDown, handleInput, focusComposer, handleResearchStopAndEdit } =
+    useChatComposer({
+      status,
+      stop,
+      sendMessage,
+      input,
+      setInput,
+      pendingAttachments,
+      setPendingAttachments,
+      setAttachmentError,
+      setInputMultiline,
+      chatMode,
+      setChatMode,
+      activeSavedAgentId,
+      setLastRunMode,
+      setActiveResearchQuery,
+      imageGenerationStatus,
+      imageComposerActive,
+      submitImageGeneration,
+      setActivity,
+      primeOptimisticRunRef,
+      setShowcases,
+      setPendingApproval,
+      setPlanAwaitingAction,
+      textareaRef,
+      messagesEndRef,
+    });
 
   const handleApprovalRespond = async (requestId: string, targetRunId: string, choice: "session" | "deny") => {
     try {
@@ -999,7 +941,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- derives from prevStatusRef, no render-time equivalent
       setExpandedWorkspaceId(lastAssistantMessage.id);
     } else if (status === "ready" && prevStatusRef.current !== "ready") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- derives from prevStatusRef, no render-time equivalent
       setExpandedWorkspaceId(null);
     }
     prevStatusRef.current = status;
