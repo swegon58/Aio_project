@@ -3,32 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import type { FileUIPart } from "ai";
-import {
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  CircleAlert,
-  Copy,
-  Download,
-  FileCode,
-  HelpCircle,
-  Link2,
-  Loader2,
-  Printer,
-} from "lucide-react";
-import { Mascot, MascotStatusBadge } from "@/components/app/Mascot";
-import { MarkdownMessage } from "@/components/app/MarkdownMessage";
 import { DotGrid } from "@/components/app/DotGrid";
-import TextType from "@/components/app/TextType";
-import { TASK_TEMPLATES } from "@/components/app/TemplateGallery";
 import { legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timeline";
-import { ResearchProgressCard } from "@/components/app/ResearchProgressCard";
-import {
-  GeneratedImageCard,
-  ImageGenerationProgress,
-} from "@/components/app/GeneratedImageCard";
-import { OnboardingOverlay } from "@/components/app/OnboardingOverlay";
-import { ShowcaseErrorDetail, type ActiveFile } from "@/components/app/FilePreview";
+import type { ActiveFile } from "@/components/app/FilePreview";
 import { brand } from "@/lib/brand.config";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import {
@@ -61,8 +38,7 @@ import { LeftSidebar } from "@/components/app/app-home/sections/LeftSidebar";
 import { FloatingChrome } from "@/components/app/app-home/sections/FloatingChrome";
 import { RightPanel } from "@/components/app/app-home/sections/RightPanel";
 import { Composer } from "@/components/app/app-home/sections/Composer";
-import { CurrentRunCard } from "@/components/app/app-home/sections/CurrentRunCard";
-import { TodayCard } from "@/components/app/app-home/sections/TodayCard";
+import { MessageList } from "@/components/app/app-home/sections/MessageList";
 import type {
   ChatRuntimeContextValue,
   WorkspaceContextValue,
@@ -1181,365 +1157,51 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
 
         {/* ===== MAIN CONTENT ===== */}
         <main className="main-content">
-          <div className="chat-area" ref={chatAreaRef} onScroll={handleChatScroll}>
-            {onboardedAt === null && messages.length === 0 && (
-              <OnboardingOverlay onDismiss={() => setOnboardedAt(new Date().toISOString())} />
-            )}
-            {messages.length === 0 ? (
-              <div className="welcome-screen">
-                <div className="mascot-container">
-                  <Mascot state={mascotState} />
-                </div>
-                <TextType
-                  as="h2"
-                  className="welcome-title"
-                  text={greetingLines}
-                  typingSpeed={55}
-                  pauseDuration={2200}
-                  deletingSpeed={25}
-                  loop
-                  showCursor
-                  cursorCharacter="|"
-                />
-                {isMobileViewport && (activeTodayCards.length > 0 || durableRunVisible) && (
-                  <section className="mobile-today-panel" aria-label="Today">
-                    <div className="mobile-today-heading">Today</div>
-                    {durableRunVisible && (
-                      <CurrentRunCard
-                        className="current-run-card--mobile"
-                        currentRunBadgeState={currentRunBadgeState}
-                        currentRunStatusLabel={currentRunStatusLabel}
-                        currentRunNote={currentRunNote}
-                        currentRunCanStop={currentRunCanStop}
-                        runStopPending={runStopPending}
-                        handleDurableRunStop={handleDurableRunStop}
-                        currentRunTone={currentRunTone}
-                        timelineHydrating={timelineHydrating}
-                        runStopError={runStopError}
-                        timelineSyncError={timelineSyncError}
-                        persistedRunStatus={persistedRunStatus}
-                        timelineEvents={timelineEvents}
-                        handleTimelineApprovalResolve={handleTimelineApprovalResolve}
-                      />
-                    )}
-                    {activeTodayCards.length > 0 && (
-                      <div className="mobile-today-strip">
-                        {activeTodayCards.map((card) => (
-                          <TodayCard key={card.id} card={card} onAction={handleTodayAction} />
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                )}
-                <div className="quick-actions">
-                  {TASK_TEMPLATES.slice(0, 4).map((template) => {
-                    const Icon = template.icon;
-                    return (
-                      <button
-                        key={template.id}
-                        type="button"
-                        className="quick-action"
-                        onClick={() => setInput(template.prompt)}
-                      >
-                        <span
-                          className="quick-action-icon"
-                          style={{ background: "var(--accent-glow)", color: "var(--accent-secondary)" }}
-                        >
-                          <Icon className="w-3.5 h-3.5" />
-                        </span>
-                        <span className="quick-action-text">
-                          <h3>{template.title}</h3>
-                          <p>{template.description}</p>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <>
-                {messages.map((message, messageIndex) => {
-                  const textParts = message.parts.filter(
-                    (part) => part.type === "text" && part.text.length > 0,
-                  );
-                  if (message.role === "assistant" && textParts.length === 0) return null;
-                  const isLatestAssistant =
-                    message.role === "assistant" && message.id === lastAssistantMessage?.id;
-                  const isActiveAssistant =
-                    isLatestAssistant && isStreaming;
-                  const fullText = textParts.map((part) => (part.type === "text" ? part.text : "")).join("");
-                  const messageImages = message.role === "assistant"
-                    ? message.metadata?.images ?? []
-                    : [];
-                  const messageQuestion = message.role === "assistant" ? parsePlanQuestion(fullText) : null;
-                  const precedingUserMessage = message.role === "assistant"
-                    ? messages.slice(0, messageIndex).findLast((item) => item.role === "user")
-                    : null;
-                  const precedingUserText = precedingUserMessage?.parts
-                    .filter((part) => part.type === "text")
-                    .map((part) => (part.type === "text" ? part.text : ""))
-                    .join("") ?? "";
-                  const isResearchMessage = message.role === "assistant"
-                    && (
-                      message.metadata?.mode === "research"
-                      || (isLatestAssistant && lastRunMode === "research")
-                    );
-                  const researchQuery = precedingUserText || activeResearchQuery;
-                  const researchRunId =
-                    message.metadata?.research?.runId ?? (isLatestAssistant ? activeRunId : null) ?? null;
-                  // Q14 auto-attach: persisted artifacts (metadata.artifacts) survive
-                  // reload; the live turn instead reads straight off the in-memory
-                  // `activity` stream since persistence only happens once the turn ends.
-                  const messageArtifacts =
-                    message.role === "assistant"
-                      ? message.metadata?.artifacts ??
-                        (isActiveAssistant
-                          ? activity
-                              .filter(
-                                (item): item is HermesActivityData & { kind: "tool"; filePath: string } =>
-                                  item.kind === "tool" && item.status === "completed" && !item.error && Boolean(item.filePath),
-                              )
-                              .map((item) => ({ filePath: item.filePath, fileName: item.fileName }))
-                          : [])
-                      : [];
-                  // Same persisted-vs-live split as messageArtifacts, for the
-                  // code_exec showcase chip (Q12 reload survival).
-                  const messageShowcases: HermesShowcaseData[] =
-                    message.role === "assistant"
-                      ? message.metadata?.showcases ?? (isActiveAssistant ? showcases : [])
-                      : [];
-                  return (
-                    <div key={message.id} className={`message ${message.role === "user" ? "user" : "ai"}`}>
-                      <div className="message-content">
-                        <div
-                          className={`message-bubble${isResearchMessage ? " research-message-bubble" : ""}${
-                            messageImages.length ? " generated-image-message" : ""
-                          }`}
-                        >
-                          {isResearchMessage && (
-                            <ResearchProgressCard
-                              query={researchQuery}
-                              events={isLatestAssistant ? timelineEvents : []}
-                              summary={message.metadata?.research}
-                              isRunning={isActiveAssistant}
-                              hasReportText={fullText.length > 0}
-                              onStopAndEdit={
-                                isActiveAssistant
-                                  ? () => handleResearchStopAndEdit(researchQuery)
-                                  : undefined
-                              }
-                            />
-                          )}
-                          {isActiveAssistant && !isResearchMessage && <MascotStatusBadge state={mascotState} />}
-                          {message.role === "assistant" ? (
-                            messageQuestion ? (
-                              <p className="plan-question-recap">
-                                <HelpCircle className="w-3.5 h-3.5" /> {messageQuestion.question}
-                              </p>
-                            ) : (
-                              splitMessageSegments(fullText).map((seg, i) =>
-                                seg.type === "code" ? (
-                                  <button
-                                    key={i}
-                                    type="button"
-                                    className="code-chip"
-                                    onClick={() => openWorkspaceEntry(message.id)}
-                                  >
-                                    <FileCode className="w-3.5 h-3.5" />
-                                    {seg.lang || "code"} — view in panel
-                                  </button>
-                                ) : (
-                                  seg.value.trim() && <MarkdownMessage key={i} text={seg.value} />
-                                ),
-                              )
-                            )
-                          ) : (
-                            textParts.map((part, i) => (
-                              <span key={i} className="whitespace-pre-wrap">
-                                {part.type === "text" ? part.text : null}
-                              </span>
-                            ))
-                          )}
-                          {messageImages.map((image) => (
-                            <GeneratedImageCard
-                              key={image.id}
-                              image={image}
-                              onEdit={handleGeneratedImageEdit}
-                              onVariation={handleGeneratedImageVariation}
-                              onOpen={handleGeneratedImageOpen}
-                            />
-                          ))}
-                          {messageArtifacts.length > 0 && (
-                            <div className="message-artifacts">
-                              {messageArtifacts.map((artifact, i) => (
-                                <a
-                                  key={i}
-                                  href={artifact.filePath}
-                                  download={artifact.fileName}
-                                  className="message-artifact-card"
-                                >
-                                  <Download className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--aio-subtle)" }} aria-hidden />
-                                  <span className="truncate">{artifact.fileName ?? "Download file"}</span>
-                                </a>
-                              ))}
-                            </div>
-                          )}
-                          {messageShowcases.map((showcase) => {
-                            const running = showcase.status === "running";
-                            const errored = showcase.status === "error";
-                            const scriptName = showcase.taskData.scriptPath?.split("/").pop() ?? "script";
-                            return (
-                              <div key={showcase.taskId}>
-                                <button
-                                  type="button"
-                                  className={`showcase-chip${errored ? " error" : ""}`}
-                                  disabled={running}
-                                  onClick={() => openShowcasePanel(showcase)}
-                                >
-                                  {running ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" />
-                                  ) : errored ? (
-                                    <CircleAlert className="w-3.5 h-3.5" />
-                                  ) : (
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                  )}
-                                  <span>Code Execution</span>
-                                  {!isMobileViewport && (
-                                    <span className="truncate">
-                                      {errored ? "Run failed for " : "Created & ran "}
-                                      {scriptName}
-                                    </span>
-                                  )}
-                                </button>
-                                {errored && (
-                                  <ShowcaseErrorDetail stdout={showcase.taskData.stdout} />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {message.role === "assistant" && !isActiveAssistant && (
-                          <div className="message-meta">
-                            <button
-                              type="button"
-                              className="copy-btn"
-                              onClick={() => handleCopyMessage(message.id, fullText)}
-                              aria-label="Copy message"
-                            >
-                              {copiedMessageId === message.id ? (
-                                <Check className="w-3.5 h-3.5" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                            {isResearchMessage && fullText.length > 0 && (
-                              <>
-                                <button
-                                  type="button"
-                                  className="copy-btn"
-                                  onClick={() => handleDownloadReportMarkdown(researchQuery, fullText)}
-                                  aria-label="Download report as Markdown"
-                                  title="Download report as Markdown"
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="copy-btn"
-                                  onClick={() => handleExportReportPdf(researchQuery, fullText)}
-                                  aria-label="Export report as PDF"
-                                  title="Export report as PDF"
-                                >
-                                  <Printer className="w-3.5 h-3.5" />
-                                </button>
-                                {researchRunId && (
-                                  <button
-                                    type="button"
-                                    className="copy-btn"
-                                    onClick={() => handleToggleSources(researchRunId)}
-                                    aria-label="Show sources"
-                                    title="Show sources"
-                                  >
-                                    <Link2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        )}
-                        {isResearchMessage && researchRunId && openSourcesRunId === researchRunId && (
-                          <div className="research-sources-panel">
-                            {sourcesLoadingRunId === researchRunId ? (
-                              <p className="research-sources-status">Loading sources…</p>
-                            ) : sourcesErrorRunId === researchRunId ? (
-                              <p className="research-sources-status">Couldn&apos;t load sources.</p>
-                            ) : (sourcesByRunId[researchRunId]?.length ?? 0) === 0 ? (
-                              <p className="research-sources-status">No sources recorded for this run.</p>
-                            ) : (
-                              <ul className="research-sources-list">
-                                {sourcesByRunId[researchRunId]!.map((source) => (
-                                  <li key={source.id} className="research-source-item">
-                                    <a href={source.url} target="_blank" rel="noopener noreferrer">
-                                      {source.title || source.url}
-                                    </a>
-                                    <span className="research-source-type">{source.sourceType}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {imageGenerationStatus && (
-                  <div className="message ai">
-                    <div className="message-content">
-                      <div className="message-bubble generated-image-message">
-                        <ImageGenerationProgress
-                          status={imageGenerationStatus}
-                          onCancel={cancelImageGeneration}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {isStreaming && !hasText && (
-                  <div className="message ai">
-                    <div className="message-content">
-                      <div className={`message-bubble${lastRunMode === "research" ? " research-message-bubble" : ""}`}>
-                        {lastRunMode === "research" ? (
-                          <ResearchProgressCard
-                            query={activeResearchQuery}
-                            events={timelineEvents}
-                            isRunning
-                            hasReportText={false}
-                            onStopAndEdit={() => handleResearchStopAndEdit(activeResearchQuery)}
-                          />
-                        ) : (
-                          <MascotStatusBadge state={mascotState} />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {showScrollToBottom && (
-                  <button
-                    type="button"
-                    className="scroll-to-bottom-btn"
-                    onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })}
-                    aria-label="Scroll to latest message"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
-                )}
-                <div ref={messagesEndRef} />
-              </>
-            )}
-          </div>
+          <MessageList
+            chatAreaRef={chatAreaRef}
+            handleChatScroll={handleChatScroll}
+            messages={messages}
+            mascotState={mascotState}
+            greetingLines={greetingLines}
+            isMobileViewport={isMobileViewport}
+            activeTodayCards={activeTodayCards}
+            handleTodayAction={handleTodayAction}
+            durableRunVisible={durableRunVisible}
+            currentRunBadgeState={currentRunBadgeState}
+            currentRunStatusLabel={currentRunStatusLabel}
+            currentRunNote={currentRunNote}
+            currentRunCanStop={currentRunCanStop}
+            runStopPending={runStopPending}
+            handleDurableRunStop={handleDurableRunStop}
+            currentRunTone={currentRunTone}
+            timelineHydrating={timelineHydrating}
+            runStopError={runStopError}
+            timelineSyncError={timelineSyncError}
+            persistedRunStatus={persistedRunStatus}
+            timelineEvents={timelineEvents}
+            handleTimelineApprovalResolve={handleTimelineApprovalResolve}
+            setInput={setInput}
+            lastAssistantMessage={lastAssistantMessage}
+            isStreaming={isStreaming}
+            hasText={hasText}
+            activity={activity}
+            showcases={showcases}
+            lastRunMode={lastRunMode}
+            activeResearchQuery={activeResearchQuery}
+            openWorkspaceEntry={openWorkspaceEntry}
+            openShowcasePanel={openShowcasePanel}
+            copiedMessageId={copiedMessageId}
+            handleCopyMessage={handleCopyMessage}
+            handleDownloadReportMarkdown={handleDownloadReportMarkdown}
+            handleExportReportPdf={handleExportReportPdf}
+            handleToggleSources={handleToggleSources}
+            openSourcesRunId={openSourcesRunId}
+            sourcesByRunId={sourcesByRunId}
+            sourcesLoadingRunId={sourcesLoadingRunId}
+            sourcesErrorRunId={sourcesErrorRunId}
+            showScrollToBottom={showScrollToBottom}
+            messagesEndRef={messagesEndRef}
+          />
 
           <Composer
             pendingApproval={pendingApproval}
