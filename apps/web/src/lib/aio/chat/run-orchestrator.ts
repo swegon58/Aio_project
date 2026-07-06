@@ -35,6 +35,7 @@ import type { HermesShowcaseData, HermesUIMessage } from "@/lib/hermes/chat-type
 import { buildRuntimeMessages } from "@/lib/aio/chat/chat-route-handler";
 import { ensureConversationRow, persistConversation } from "@/lib/aio/chat/conversation-persistence";
 import { buildPlanInstructions, GUARDRAIL_SYSTEM_PROMPT } from "@/lib/aio/chat/plan-mode";
+import { applyPromptVariables } from "@/lib/aio/chat/prompt-variables";
 import { buildResearchInstructions, isWebResearchTool } from "@/lib/aio/chat/research-mode";
 import {
   buildResearchStageEvent,
@@ -349,6 +350,12 @@ export async function orchestrateAioChatRun(
   metrics.increment(METRICS.RUNS_STARTED, { mode, plan_tier: planTier });
 
   // ---- start the Hermes run ----
+  // {{ USER_NAME }} derivation: account email handle (no display_name column
+  // exists yet). ponytail: derive inline from row.normalized_email — single
+  // use site, no new query. Swap for a profile/display_name value here if one
+  // is added later.
+  const promptUserName =
+    row.normalized_email.split("@")[0]?.replace(/[._+-]+/g, " ").trim() || "there";
   let startResponse: Response;
   const hermesStartSpan = tracer.startSpan(SPANS.HERMES_START, { "aio.run_id": aioRunId, "aio.mode": mode });
   const hermesStartT = Date.now();
@@ -361,15 +368,18 @@ export async function orchestrateAioChatRun(
       conversationHistory,
       sessionId: hermesSessionId,
       disableTools: Boolean(planMode),
-      instructions: [
-        GUARDRAIL_SYSTEM_PROMPT,
-        planInstructions,
-        researchInstructions,
-        savedAgentInstructions,
-        knowledgeContext,
-      ]
-        .filter(Boolean)
-        .join(" "),
+      instructions: applyPromptVariables(
+        [
+          GUARDRAIL_SYSTEM_PROMPT,
+          planInstructions,
+          researchInstructions,
+          savedAgentInstructions,
+          knowledgeContext,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        promptUserName,
+      ),
       signal: abortController.signal,
     });
     metrics.histogram(METRICS.HERMES_START_LATENCY_MS, Date.now() - hermesStartT, { mode });

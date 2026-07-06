@@ -546,6 +546,7 @@ export function SettingsModal({
 
         {tab === "knowledge" && (
           <div className="setting-group" style={{ borderBottom: "none" }}>
+            <RetrievalValvesPanel />
             <KnowledgeCenterPanel />
           </div>
         )}
@@ -779,5 +780,122 @@ function DataTrainingOptOutToggle() {
         />
       </label>
     </>
+  );
+}
+
+// R12: per-customer retrieval valves (knowledge_retrieval tool). Reads/writes
+// /api/account/valves — same shape as DataTrainingOptOutToggle but for two
+// numeric knobs. Slider value is bm25_weight (0=semantic, 1=lexical).
+function RetrievalValvesPanel() {
+  const [bm25Weight, setBm25Weight] = useState(0.5);
+  const [matchCount, setMatchCount] = useState(5);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/account/valves?tool_id=knowledge_retrieval");
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message ?? "Failed to load");
+        if (alive) {
+          const v = json.valves ?? {};
+          if (typeof v.bm25_weight === "number") setBm25Weight(v.bm25_weight);
+          if (typeof v.match_count === "number") setMatchCount(v.match_count);
+        }
+      } catch (e) {
+        if (alive) setError((e as Error).message);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/account/valves", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tool_id: "knowledge_retrieval",
+          valves: { bm25_weight: bm25Weight, match_count: matchCount },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? "Failed to save");
+      setSavedAt(Date.now());
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} style={{ marginBottom: 20 }}>
+      <div className="panel-section-title" style={{ marginTop: 0 }}>Retrieval tuning</div>
+      <div className="setting-desc" style={{ marginBottom: 12 }}>
+        Control how Aio searches your knowledge base when you ask a question.
+      </div>
+
+      {loading ? (
+        <PanelLoading />
+      ) : (
+        <>
+          {error && (
+            <div className="memory-text" style={{ color: "var(--accent-red)", marginBottom: 8 }}>{error}</div>
+          )}
+          <div className="setting-label" style={{ fontSize: 13 }}>
+            Semantic ↔ lexical balance
+          </div>
+          <div className="memory-text" style={{ marginBottom: 6 }}>
+            Lower favors meaning; higher favors exact keywords. Current: {bm25Weight.toFixed(1)}
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.1}
+            value={bm25Weight}
+            onChange={(e) => setBm25Weight(parseFloat(e.target.value))}
+            disabled={saving}
+            style={{ width: "100%", marginBottom: 16 }}
+            aria-label="Semantic to lexical balance"
+          />
+
+          <div className="setting-label" style={{ fontSize: 13 }}>Results per search</div>
+          <div className="memory-text" style={{ marginBottom: 6 }}>Number of passages retrieved (1–20).</div>
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={matchCount}
+            onChange={(e) =>
+              setMatchCount(Math.max(1, Math.min(20, Number(e.target.value) || 5)))
+            }
+            disabled={saving}
+            className="message-input"
+            style={{ height: 32, width: 120, marginBottom: 12 }}
+            aria-label="Results per search"
+          />
+
+          <button type="submit" className="mcp-add-btn" disabled={saving} style={{ width: "auto" }}>
+            {saving ? "Saving…" : "Save retrieval settings"}
+          </button>
+          {savedAt && !error && (
+            <div className="memory-text" style={{ marginTop: 8 }}>Saved.</div>
+          )}
+        </>
+      )}
+    </form>
   );
 }

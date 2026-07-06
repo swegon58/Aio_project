@@ -6,7 +6,8 @@ const RESEARCH_INSTRUCTIONS = [
   "Prefer primary and authoritative sources. Cross-check consequential claims across independent sources when possible.",
   "Keep the research moving without asking for confirmation when the request is sufficiently clear.",
   "Ask one concise clarifying question only when a missing constraint would materially change the result.",
-  "In the final report, cite claims inline with direct source URLs and include a Sources section.",
+  "In the final report, include a numbered Sources list (each source on its own line as: [N] <URL>) and cite claims inline as [N] pointing at that list, one citation per discrete claim.",
+  "Never cite a source that is not in the Sources list, and never add a source to the list that you did not actually retrieve during research.",
   "Clearly distinguish verified evidence, your inference, and unresolved uncertainty.",
   "Do not invent sources, search counts, findings, or completed work.",
 ].join(" ");
