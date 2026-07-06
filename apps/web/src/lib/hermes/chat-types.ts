@@ -117,6 +117,24 @@ export interface HermesCompressionData {
 // surfaced by tool.completed during the turn, so the download card in the
 // chat bubble survives a reload instead of only existing in the live
 // `activity` stream.
+export type HermesDataTypes = {
+  "hermes-activity": HermesActivityData;
+  "hermes-approval": HermesApprovalData;
+  "hermes-reasoning": HermesReasoningData;
+  "hermes-run": HermesRunData;
+  "hermes-credits": HermesCreditsData;
+  "hermes-compression": HermesCompressionData;
+  "hermes-showcase": HermesShowcaseData;
+  "aio-event": AioRunEvent;
+  "aio-activity": HermesActivityData;
+  "aio-approval": HermesApprovalData;
+  "aio-reasoning": HermesReasoningData;
+  "aio-run": HermesRunData;
+  "aio-credits": HermesCreditsData;
+  "aio-compression": HermesCompressionData;
+  "aio-showcase": HermesShowcaseData;
+};
+
 export type HermesUIMessage = UIMessage<
   {
     planMode?: boolean;
@@ -128,23 +146,7 @@ export type HermesUIMessage = UIMessage<
     // (DB-backed, not session/RAM-only) — see route.ts persistConversation.
     showcases?: HermesShowcaseData[];
   },
-  {
-    "hermes-activity": HermesActivityData;
-    "hermes-approval": HermesApprovalData;
-    "hermes-reasoning": HermesReasoningData;
-    "hermes-run": HermesRunData;
-    "hermes-credits": HermesCreditsData;
-    "hermes-compression": HermesCompressionData;
-    "hermes-showcase": HermesShowcaseData;
-    "aio-event": AioRunEvent;
-    "aio-activity": HermesActivityData;
-    "aio-approval": HermesApprovalData;
-    "aio-reasoning": HermesReasoningData;
-    "aio-run": HermesRunData;
-    "aio-credits": HermesCreditsData;
-    "aio-compression": HermesCompressionData;
-    "aio-showcase": HermesShowcaseData;
-  }
+  HermesDataTypes
 >;
 
 // Mascot emotion states (BUILD_SPEC §10 Q18). Derived client-side from the
