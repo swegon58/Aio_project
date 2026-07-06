@@ -101,6 +101,7 @@ import { useCredentials } from "@/components/app/app-home/hooks/useCredentials";
 import { useAccountPrefs } from "@/components/app/app-home/hooks/useAccountPrefs";
 import { useWorkspacePanel } from "@/components/app/app-home/hooks/useWorkspacePanel";
 import { useImageGeneration } from "@/components/app/app-home/hooks/useImageGeneration";
+import { usePlanFlow } from "@/components/app/app-home/hooks/usePlanFlow";
 import "@/app/(app)/app/mockup.css";
 
 import type {
@@ -168,11 +169,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   const [pendingApproval, setPendingApproval] = useState<
     Extract<HermesApprovalData, { kind: "request" }> | null
   >(null);
-  // Plan mode (stateless plan-gate): flipped true when the user submits with
-  // the Auto/Plan toggle on "plan". When that turn finishes (status → ready),
-  // the Run/Adjust/Cancel card renders under the assistant message. Any action
-  // (or the next submit) clears it.
-  const [planAwaitingAction, setPlanAwaitingAction] = useState(false);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [creditUsage, setCreditUsage] = useState<HermesCreditsData | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -459,7 +455,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   const [activeSavedAgentId, setActiveSavedAgentId] = useState<string | null>(null);
   const [lastRunMode, setLastRunMode] = useState<AioChatMode>("auto");
   const [activeResearchQuery, setActiveResearchQuery] = useState("");
-  const [planOtherText, setPlanOtherText] = useState("");
 
   const composerMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -488,6 +483,40 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, status]);
+
+  const lastAssistantMessage = messages.findLast((m) => m.role === "assistant");
+  const hasText = Boolean(
+    lastAssistantMessage?.parts.some((p) => p.type === "text" && p.text.length > 0),
+  );
+  const lastAssistantText = lastAssistantMessage?.parts
+    .filter((p) => p.type === "text")
+    .map((p) => (p.type === "text" ? p.text : ""))
+    .join("") ?? "";
+
+  const {
+    planAwaitingAction,
+    setPlanAwaitingAction,
+    planOtherText,
+    setPlanOtherText,
+    planQuestion,
+    handlePlanRun,
+    handlePlanAdjust,
+    handlePlanCancel,
+    handlePlanAnswer,
+    handlePlanSkipToPlan,
+  } = usePlanFlow({
+    status,
+    sendMessage,
+    setActivity,
+    primeOptimisticRun,
+    setShowcases,
+    setPendingApproval,
+    setChatMode,
+    setLastRunMode,
+    textareaRef,
+    hasText,
+    lastAssistantText,
+  });
 
   const handleChatScroll = () => {
     const el = chatAreaRef.current;
@@ -1091,63 +1120,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     );
   };
 
-  // Plan-gate actions. Run = confirm and execute (next turn sent with
-  // planMode off; the plan itself is already in conversation history, so the
-  // agent picks it up). Adjust = hand focus to the composer so the user can
-  // refine (a re-submit re-plans while the toggle stays on "plan"). Cancel =
-  // dismiss the card; the plan stays in the transcript, nothing is sent.
-  const handlePlanRun = () => {
-    if (status !== "ready") return;
-    setPlanAwaitingAction(false);
-    setChatMode("auto");
-    setLastRunMode("auto");
-    setActivity([]);
-    primeOptimisticRun();
-    setShowcases([]);
-    setPendingApproval(null);
-    sendMessage(
-      { text: "Proceed with the plan above, step by step." },
-      { body: { mode: "auto" } },
-    );
-  };
-  const handlePlanAdjust = () => {
-    setPlanAwaitingAction(false);
-    textareaRef.current?.focus();
-  };
-  const handlePlanCancel = () => {
-    setPlanAwaitingAction(false);
-    setChatMode("auto");
-  };
-
-  // Multi-round clarify (grill-me style): answering a question or skipping
-  // ahead is just a normal chat turn with planMode still on — the Q&A lives
-  // in ordinary conversation_history, no extra session state to track.
-  const handlePlanAnswer = (answer: string) => {
-    if (status !== "ready" || !answer.trim()) return;
-    setActivity([]);
-    primeOptimisticRun();
-    setShowcases([]);
-    setPendingApproval(null);
-    setPlanOtherText("");
-    setPlanAwaitingAction(true);
-    setLastRunMode("plan");
-    sendMessage({ text: answer.trim() }, { body: { mode: "plan" } });
-  };
-  const handlePlanSkipToPlan = () =>
-    handlePlanAnswer("Skip the remaining questions and write the final plan now, using your best judgment for anything still unclear.");
-
-  const lastAssistantMessage = messages.findLast((m) => m.role === "assistant");
-  const hasText = Boolean(
-    lastAssistantMessage?.parts.some((p) => p.type === "text" && p.text.length > 0),
-  );
-  const lastAssistantText = lastAssistantMessage?.parts
-    .filter((p) => p.type === "text")
-    .map((p) => (p.type === "text" ? p.text : ""))
-    .join("") ?? "";
-  const planQuestion = useMemo(
-    () => (planAwaitingAction && hasText ? parsePlanQuestion(lastAssistantText) : null),
-    [planAwaitingAction, hasText, lastAssistantText],
-  );
   const mascotState = deriveMascotState(status, activity, hasText);
   const isStreaming = status === "submitted" || status === "streaming";
 
