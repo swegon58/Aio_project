@@ -41,6 +41,38 @@ Aio product code depends on Aio contracts first. Hermes-specific requests and
 events stay behind adapters so the runtime can evolve without leaking its
 payloads into the product UI.
 
+### AppHome Component Architecture (2026-07-06 Refactor Complete)
+
+The main `AppHome.tsx` component (originally 3940 lines) has been decomposed
+into a thin shell + 11 domain hooks + 3 React contexts + 6 JSX sections:
+
+```text
+AppHome.tsx (shell, 1299 lines)
+  |
+  +-- domain hooks (app-home/hooks/)
+  |   +-- useChat, useRunTimeline, usePlanFlow, useWorkspacePanel, ...
+  |   +-- useImageGeneration, useConversations, useConnections, ...
+  |
+  +-- 3 React contexts (app-home/context.ts)
+  |   +-- useChatRuntime() [HOT: per-token updates]
+  |   +-- useWorkspace() [WARM: navigation-time updates]
+  |   +-- useAccountData() [COLD: modal/sidebar actions]
+  |
+  +-- 6 JSX sections (app-home/sections/)
+      +-- AppModals (lightbox, settings, scheduled tasks, notifications, chats)
+      +-- LeftSidebar (MCP integrations sidebar)
+      +-- FloatingChrome (credit badge, right-panel toggle, icon rail)
+      +-- RightPanel (workspace, gallery, file tree, live activity, timeline)
+      +-- Composer (input area, approvals, plan cards, attachments, image gen)
+      +-- MessageList (conversation, welcome screen, research sources)
+```
+
+Each section consumes contexts via typed accessor hooks (`useChatRuntime()`,
+`useWorkspace()`, `useAccountData()`) or receives AppHome-local lifted state
+as props. This decomposition enables independent testing and future memoization
+without changing runtime behavior. All extractions verified via typecheck,
+eslint, and Playwright desktop-chromium (18/18 passing).
+
 ## Repository
 
 ```text
