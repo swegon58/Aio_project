@@ -1,37 +1,30 @@
 # Aio — Bộ giải thích dễ hiểu cho chủ nhân
 
-> Bộ này là bản **giải thích bằng ngôn ngữ đời thường** cho toàn bộ roadmap của
-> Aio từ `R0` đến `R12`. Nó không thay thế tài liệu kỹ thuật. Nó giúp chủ nhân
-> nhìn nhanh: giai đoạn đó làm gì, tại sao phải làm, người dùng sẽ cảm thấy gì,
-> và nó mở đường cho bước sau ra sao.
+> Bộ này là bản **giải thích bằng ngôn ngữ đời thường** cho các giai đoạn đang
+> mở của Aio: `R10`, `R11`, `R12` (cộng `OWNER_PENDING_OPENWEBUI.md`). Nó không
+> thay thế tài liệu kỹ thuật. Nó giúp chủ nhân nhìn nhanh: giai đoạn đó làm gì,
+> tại sao phải làm, người dùng sẽ cảm thấy gì, và nó mở đường cho bước sau ra sao.
+>
+> Các giải thích `R0`–`R9` (đã đóng) đã chuyển sang `docs/archive/explainers/` —
+> đọc khi cần nhớ lại. Tóm tắt 1 dòng/giai đoạn cho toàn bộ R0–R12:
+> `docs/archive/CLOSED_PHASES.md`.
 
 ## Đọc thế nào cho dễ nhất
 
-Nếu muốn hiểu toàn cảnh rất nhanh:
-
 1. Đọc file này trước.
-2. Đọc `R1`, `R4`, `R6` trước vì đây là ba trục lớn nhất của Aio:
-   - `R1`: làm Aio bền vững
-   - `R4`: làm Deep Research thật sự đáng dùng
-   - `R6`: biến Aio thành sản phẩm beta có thể mời người dùng thật
-3. Sau đó đọc `R2`, `R3`, `R5`, `R7`.
-4. Các phase gần đây (`R8`–`R12`) nói về phần vận hành, Deep Research cờ lá, kỷ luật chiến lược, control panel, và đánh bóng UI.
+2. Đọc `R10`, `R11`, `R12` — ba giai đoạn đang mở (notify/OAuth, settings,
+   dọn nhà code + RAG/valves).
+3. Nếu cần nhớ lại `R0`–`R9`: mở `docs/archive/explainers/`
+   (R1 bền vững · R4 Deep Research · R6 private beta là ba trục lớn nhất).
 
-## Danh sách file
+## Danh sách file (folder này — đang mở)
 
-- `R0_GIAI_THICH_DE_HIEU.md`
-- `R1_GIAI_THICH_DE_HIEU.md`
-- `R2_GIAI_THICH_DE_HIEU.md`
-- `R3_GIAI_THICH_DE_HIEU.md`
-- `R4_GIAI_THICH_DE_HIEU.md`
-- `R5_GIAI_THICH_DE_HIEU.md`
-- `R6_GIAI_THICH_DE_HIEU.md`
-- `R7_GIAI_THICH_DE_HIEU.md`
-- `R8_GIAI_THICH_DE_HIEU.md`
-- `R9_GIAI_THICH_DE_HIEU.md`
 - `R10_GIAI_THICH_DE_HIEU.md`
 - `R11_GIAI_THICH_DE_HIEU.md`
 - `R12_GIAI_THICH_DE_HIEU.md`
+- `OWNER_PENDING_OPENWEBUI.md`
+
+`R0`–`R9` (đã đóng): `docs/archive/explainers/`.
 
 ## 1 câu cho mỗi giai đoạn
 
@@ -72,9 +65,11 @@ Không thêm feature; ngồi audit sẵn sàng sản phẩm, chốt “chắc tr
 ### R11 — Bảng điều khiển riêng tư + giới hạn chi phí
 Settings nhiều tab, trần chi phí từng tool, đính kèm ảnh, khay soạn thảo lại, bắt đầu đo chất lượng UX.
 
-### R12 — Đánh bóng UI + dọn nhà code (code xong, chưa merge `main`)
+### R12 — Đánh bóng UI + dọn nhà code (đã merge `main` 2026-07-07)
 Đẹp/mượt hơn (đặc biệt mobile), bỏ branding thừa, cắt AppHome ~4000 dòng ra
-hook + context + section riêng (xong 2026-07-06) để dễ sửa.
+hook + context + section riêng, plus RAG lai (BM25+vector) + tool valves + trích
+nguồn `[N]` lấy cảm hứng từ open-webui. Migration `0031`/`0032` commit rồi, chủ
+nhân quyết định khi nào apply lên Supabase chung.
 
 ## Bức tranh lớn: Aio đang đi theo hướng nào
 

@@ -2,27 +2,32 @@
 
 ## Start Here
 
-Before any code change, read:
+Before any code change, read (**Tầng 1** — every session):
 
-1. `AIO_PROJECT_STATE.md`
-2. Current phase checklist under `docs/roadmap/` (active: `R11_EXECUTION_CHECKLIST.md`;
-   R12 work — AppHome.tsx decomposition + open-webui-inspired RAG/Valves —
-   is happening on `feat/r12-fixes` without a formal checklist file yet)
-3. `README.md`
+1. `AIO_PROJECT_STATE.md` — status index, current branch, open gates.
+2. Active checklist `docs/roadmap/R12_EXECUTION_CHECKLIST.md`
+   (`R10`/`R11` checklists stay readable while owner Google OAuth is pending).
+3. `README.md` — setup.
 
-Read on demand, not every session (both are large and `AIO_PROJECT_STATE.md`
-already summarizes their outcome):
+**Read on demand** (**Tầng 2** — only when the task is actually in that lane):
 
-- `AIO_MASTER_EXECUTION_PLAN.md` — the full R0-R7 code-level execution
-  contract, all closed phases. Only open it for old-phase forensics; use the
-  current phase checklist plus `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`
-  for latest merged-line status.
+- `AIO_MASTER_EXECUTION_PLAN.md` — full R0–R7 code-level contract, all closed.
+  Old-phase forensics only; latest merged-line status lives in the current
+  checklist + `docs/operations/OWNER_CLOSEOUT_CHECKLIST.md`.
 - `docs/roadmap/PRODUCT_READY_MASTER_PLAN.md` — parallel 5-phase hardening
-  plan (separate lane from R10, does not block it). Only open it when a task
-  is actually in that lane.
-- `AIO_GIAI_THICH_DE_HIEU/README.md` — plain-language (Vietnamese) explainer
-  of every phase R0-R12 for the owner; useful for a quick "why does this
-  exist" read, not a substitute for the checklist/state files above.
+  lane (separate from the R-phases, doesn't block them). Only open it when a
+  task is in that lane.
+- `AIO_GIAI_THICH_DE_HIEU/` — plain-Vietnamese explainers (active R10–R12 +
+  owner-pending). R0–R9 explainers moved to `docs/archive/explainers/`.
+
+**Archive** (**Tầng 3** — forensics, never auto-loaded): start at
+`docs/archive/CLOSED_PHASES.md` (1 line/phase, the entry point), then
+`docs/archive/{roadmap,explainers,team-os,operations}/` for full detail.
+
+**Archive hygiene (anti state-lag):** when a phase closes, `git mv` its
+checklist to `docs/archive/roadmap/`, add one line to `CLOSED_PHASES.md`, and
+trim `AIO_PROJECT_STATE.md` — **same session**. (This is the fix for the
+state-lag that forced the R12 reorg.)
 
 When the user says "continue building Aio", first run:
 
