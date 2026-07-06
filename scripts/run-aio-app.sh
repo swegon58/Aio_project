@@ -8,4 +8,4 @@ export PATH="$NODE_V24_BIN:$USER_HOME/.local/bin:/usr/local/sbin:/usr/local/bin:
 export NEXT_TELEMETRY_DISABLED=1
 
 cd /home/swegon/AI_Agent/Aio_project/apps/web
-exec npm run dev -- --hostname 127.0.0.1 --port 3000
+exec npm run dev -- --hostname 0.0.0.0 --port 3000

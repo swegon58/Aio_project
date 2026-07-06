@@ -61,6 +61,8 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* ponytail: Inter font from Google Fonts for cleaner, more legible labels */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .icon-rail-footer {
@@ -136,27 +138,89 @@
   text-align: center;
 }
 
-.icon-rail-item:hover { background: color-mix(in srgb, var(--bg-hover) 32%, transparent); color: var(--text-primary); }
+.icon-rail-item { font-size: 14px; font-weight: 500; }
+
+/* ponytail: hover highlight only on text content, not full row */
+.icon-rail-item:hover { background: none; color: var(--text-primary); }
+.icon-rail-item:hover .icon-rail-label-inner { background: color-mix(in srgb, var(--accent-primary) 8%, transparent); padding: 2px 6px; border-radius: var(--radius-sm); }
 .icon-rail-item.active { color: var(--accent-secondary); }
 .icon-rail-item:disabled { opacity: 0.4; cursor: not-allowed; }
 .icon-rail-item:disabled:hover { background: none; color: var(--text-muted); }
 
-.icon-rail-label {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-6px);
-  transition: opacity 0.14s ease, transform 0.14s ease;
-}
+/* Desktop icon rail polish */
+@media (min-width: 641px) {
+  .icon-rail-main { gap: 12px; }
 
-.icon-rail:hover .icon-rail-label,
-.icon-rail:focus-within .icon-rail-label {
-  opacity: 1;
-  transform: translateX(0);
+  .icon-rail-item.active {
+    border-left: 3px solid var(--accent-primary);
+    background: color-mix(in srgb, var(--accent-primary) 7%, transparent);
+    box-shadow: inset -4px 0 8px rgba(124, 108, 240, 0.06);
+  }
+
+  .icon-rail-item.active svg {
+    filter: brightness(0.9) saturate(0.95);
+  }
+
+  .icon-rail-label {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-6px);
+    transition: opacity 0.14s ease, transform 0.14s ease;
+  }
+
+  /* ponytail: hover-expand labels only on desktop rail */
+  .icon-rail:hover .icon-rail-label,
+  .icon-rail:focus-within .icon-rail-label {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .icon-rail-mobile-toggle { display: none; }
 
 .icon-rail-mobile-sheet { display: none; }
+
+/* Mobile nav polish (max-width: 640px — sidebar is full-height) */
+@media (max-width: 640px) {
+  .icon-rail-main { gap: 4px; }
+
+  .icon-rail-item {
+    padding: 8px 12px;
+    margin: 0;
+    border-radius: var(--radius-sm);
+    width: auto;
+    min-width: auto;
+  }
+
+  .icon-rail-item.active {
+    background: var(--accent-primary);
+    color: white;
+    box-shadow: none;
+    border-left: none;
+  }
+
+  .icon-rail-label {
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+
+  /* Footer becomes compact */
+  .icon-rail-footer {
+    flex-wrap: wrap;
+    gap: 14px 28px;
+    padding: 10px 0 0;
+  }
+
+  .icon-rail-footer-avatar {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    font-size: 11.5px;
+  }
+
+  .icon-rail-footer-info .icon-rail-footer-name { font-size: 13.5px; }
+  .icon-rail-footer-plan { font-size: 11.5px; }
+}
 
 /* ===== ICON RAIL — compact desktop variant ===== */
 .icon-rail--compact { width: 76px; }
@@ -311,7 +375,7 @@
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -323,6 +387,20 @@
 
 .new-chat-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px var(--accent-glow); }
 .new-chat-btn:active { transform: translateY(0); }
+
+/* New Chat button — spread across available width on mobile */
+@media (max-width: 560px) {
+  .new-chat-btn {
+    margin-left: 8px;
+    margin-right: auto;
+    max-width: calc(100% - 24px);
+    justify-content: center;
+    padding-inline: 20px;
+    font-size: 14.5px;
+  }
+
+  .new-chat-btn svg { font-size: 16px; }
+}
 
 .sidebar-section { padding: 10px 16px 4px; }
 

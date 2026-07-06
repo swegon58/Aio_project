@@ -9,6 +9,12 @@
 
 .input-container { max-width: 780px; margin: 0 auto; position: relative; }
 
+/* ponytail: hide textarea scrollbar on small viewports so mobile viewport stays clean */
+@media (max-width: 425px) {
+  .message-input::-webkit-scrollbar { display: none; }
+  .message-input { overflow-y: hidden !important; -ms-overflow-style: none; scrollbar-width: none; }
+}
+
 .input-wrapper {
   display: flex;
   align-items: center;
