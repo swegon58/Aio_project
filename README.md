@@ -226,6 +226,7 @@ See [Aio Model Supply and Gateway Strategy](docs/research/2026-06-27_model_suppl
 ## Documentation
 
 - [Current project state](AIO_PROJECT_STATE.md)
+- [Plain-language phase explainers (R0-R12)](AIO_GIAI_THICH_DE_HIEU/README.md)
 - [Master execution plan](AIO_MASTER_EXECUTION_PLAN.md)
 - [R0 closure checklist](docs/roadmap/R0_EXECUTION_CHECKLIST.md)
 - [R6 execution checklist](docs/roadmap/R6_EXECUTION_CHECKLIST.md)

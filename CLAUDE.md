@@ -5,7 +5,9 @@
 Before any code change, read:
 
 1. `AIO_PROJECT_STATE.md`
-2. Current phase checklist under `docs/roadmap/` (active: `R11_EXECUTION_CHECKLIST.md`)
+2. Current phase checklist under `docs/roadmap/` (active: `R11_EXECUTION_CHECKLIST.md`;
+   R12 work — AppHome.tsx decomposition + open-webui-inspired RAG/Valves —
+   is happening on `feat/r12-fixes` without a formal checklist file yet)
 3. `README.md`
 
 Read on demand, not every session (both are large and `AIO_PROJECT_STATE.md`
@@ -18,6 +20,9 @@ already summarizes their outcome):
 - `docs/roadmap/PRODUCT_READY_MASTER_PLAN.md` — parallel 5-phase hardening
   plan (separate lane from R10, does not block it). Only open it when a task
   is actually in that lane.
+- `AIO_GIAI_THICH_DE_HIEU/README.md` — plain-language (Vietnamese) explainer
+  of every phase R0-R12 for the owner; useful for a quick "why does this
+  exist" read, not a substitute for the checklist/state files above.
 
 When the user says "continue building Aio", first run:
 
