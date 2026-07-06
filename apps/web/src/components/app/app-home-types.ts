@@ -104,6 +104,12 @@ export interface FileTreeEntry {
   mtime: number;
 }
 
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
 export interface MemorySnapshot {
   available: boolean;
   summary?: string | null;
