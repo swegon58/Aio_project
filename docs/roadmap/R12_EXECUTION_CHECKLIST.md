@@ -30,15 +30,16 @@ ff-merged into local `main` (2026-07-07). Two tracks shipped independently:
       264/264 unit tests pass, Playwright desktop green.
       Commits: `84d0e28` … `5e10f45`; documented in `441520d`.
 
-## R12.2 — open-webui RAG/Valves [~]
+## R12.2 — open-webui RAG/Valves [x]
 
 - [x] **Hybrid BM25+vector search** — migration `0031_knowledge_hybrid_search.sql`
       (RRF fusion of `tsvector` + `pgvector`), wired into
-      `lib/aio/knowledge/retrieve-context.ts`. **`[~]` remote apply owner-gated**
-      (shared Supabase — see gate 1).
+      `lib/aio/knowledge/retrieve-context.ts`. **Applied to cloud 2026-07-07**
+      (fixed first: referenced dropped `hermes_knowledge_chunks` → corrected to
+      `aio_knowledge_chunks` / `user_id` / `doc_id`).
 - [x] **Per-tool valves** — migration `0032_aio_tool_valves.sql`,
       `lib/aio/knowledge/valves.ts`, `/api/account/valves/`, Settings → Knowledge
-      tab. **`[~]` remote apply owner-gated.**
+      tab. **Applied to cloud 2026-07-07.**
 - [x] **`[N]` research citations** — `lib/aio/chat/research-mode.ts` +
       `run-orchestrator.ts` emit numbered source refs in research-mode replies.
 - [x] **Prompt-variable interpolation** — `lib/aio/chat/prompt-variables.ts`
@@ -67,10 +68,10 @@ ff-merged into local `main` (2026-07-07). Two tracks shipped independently:
 
 ## Open decision gates (owner)
 
-1. **Apply migrations `0031`/`0032` to remote Supabase** — shared DB; unblocks
-   live hybrid search + valves. (R10 `0026`/`0027` are in the same gate.)
-2. **Internal knowledge endpoints → Hermes tools** — gate for T1.3.
-3. **Push local `main` → `origin/main`** — deploy/CI timing is owner-controlled.
+1. **Internal knowledge endpoints → Hermes tools** — gate for T1.3.
+2. **Push local `main` → `origin/main`** — deploy/CI timing is owner-controlled.
+
+> ✅ Closed 2026-07-07: migrations `0031`/`0032` applied to cloud (was gate 1).
 
 ## Evidence Log
 
@@ -83,3 +84,9 @@ ff-merged into local `main` (2026-07-07). Two tracks shipped independently:
   prompt-variables) committed as `f4ce9f4`; UI polish `d464723`; explainers
   `c2408a4`. Migrations committed to git **only** — remote DB apply remains
   owner-gated (no `supabase db push` ran). T1.3 + Tier-3 deferred.
+- 2026-07-07 (late): `0031`/`0032` **applied to cloud** via `supabase db push`.
+  `0031` was broken on first push — referenced `hermes_knowledge_chunks`
+  (dropped by `0024`); corrected in place to `aio_knowledge_chunks` (`user_id`,
+  `doc_id`) and re-pushed clean. Cloud now at `0001`–`0032`;
+  `match_knowledge_chunks_hybrid` live; `/api/account/valves` reads (400 no-auth,
+  not 500); `tsc` clean.

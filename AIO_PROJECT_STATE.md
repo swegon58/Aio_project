@@ -3,8 +3,9 @@
 **Repo:** `/home/swegon/AI_Agent/Aio_project` · **Canonical branch:** `main`
 **Updated:** 2026-07-07 — R12 (AppHome decomposition + open-webui RAG/Valves)
 committed on `feat/r12-fixes` and ff-merged into local `main`; **not pushed to
-`origin`**. Migrations `0031`/`0032` committed to git only (remote DB apply still
-owner-gated).
+`origin`**. Migrations `0031`/`0032` **applied to cloud Supabase** this session
+(cloud now at `0001`–`0032`); `0031` fixed first — it referenced the dropped
+`hermes_knowledge_chunks` table and was corrected to `aio_knowledge_chunks`.
 
 First file an agent reads. Status index only — detail lives in phase checklists.
 
@@ -18,11 +19,10 @@ merged in earlier (`main` tip was `193bb77 Merge feat/r11-settings`).
 `docs/archive/CLOSED_PHASES.md`; full detail in `docs/archive/roadmap/`.
 
 **R10 (notifications + Google Calendar) — shipped, owner-gate open:** engineering
-complete; owner-side Google Cloud OAuth consent screen still pending (4 items in
-`docs/roadmap/R10_EXECUTION_CHECKLIST.md`). `/api/notifications` +
-`/api/connections/google` return 500 in live dev because migrations
-`0026`/`0027` were never pushed to remote Supabase — shared-DB change, needs
-owner approval.
+complete; migrations `0026`/`0027` applied on cloud (live dev target), so
+`/api/notifications` + `/api/connections/google` return 200. Remaining: owner-side
+Google Cloud OAuth consent screen (4 items in
+`docs/roadmap/R10_EXECUTION_CHECKLIST.md`).
 
 **R11 (settings) — shipped:** R11.1–R11.5 (Account/Notifications/Memory tabs,
 composer tray, terminal/workspace polish, vision, spend-cap sub-limits).
@@ -35,19 +35,19 @@ deliberately deferred.
 - **open-webui RAG/Valves** (`f4ce9f4`): migration `0031` hybrid BM25+vector
   search, `0032` tool valves, `/api/account/valves`, Settings Knowledge tab,
   `prompt-variables.ts`, internal knowledge endpoints, `[N]` research citations.
+  Migrations `0031`/`0032` now **applied to cloud** (live).
 - **UI polish** (`d464723`): sidebar/composer CSS, mobile LAN config fix.
 - **Deferred:** T1.3 knowledge-as-tool wiring + Tier-3 UX (blocked/rate-limited).
 
 ## Open Decision Gates (owner)
 
-1. **Push migrations `0026`/`0027`/`0031`/`0032` to remote Supabase** — shared
-   DB; unblocks live dev 500s + hybrid search/valves. (Remote currently has
-   `0001`–`0025` + `0028`–`0030`.)
-2. **Internal knowledge endpoints → Hermes wiring** — code complete; owner
+1. **Internal knowledge endpoints → Hermes wiring** — code complete; owner
    decides if/when to expose as Hermes tools.
-3. **Push local `main` → `origin/main`** — owner controls deploy/CI timing.
-4. 🚨 **Stuck run `66a29fab-ce6f-40e1-8914-c2fc73528361`** — `running` since
+2. **Push local `main` → `origin/main`** — owner controls deploy/CI timing.
+3. 🚨 **Stuck run `66a29fab-ce6f-40e1-8914-c2fc73528361`** — `running` since
    2026-07-03; live state, needs owner go-ahead before anyone touches it.
+
+> ✅ Closed 2026-07-07: migrations `0031`/`0032` applied to cloud (was gate 1).
 
 **Standing decisions:** keep the product line on `main`; no history rewrite for
 the old `.mcp.json` secret exposure (current-tree protection + CI scanning is the

@@ -22,7 +22,7 @@ Aio's specialist agents you can delegate to:
 
 State files (always check before starting a phase):
 - `AIO_PROJECT_STATE.md` — current phase and approved tasks
-- `docs/roadmap/R8_EXECUTION_CHECKLIST.md` — R8 task queue
+- `docs/roadmap/<ACTIVE>_EXECUTION_CHECKLIST.md` — active phase task queue (closed phases, e.g. R8, in `docs/archive/roadmap/`)
 - `.claude/agents/coordination/ACTIVE_CHUNK.md` — current chunk
 - `.claude/agents/coordination/HANDOFF_LOG.md` — append-only handoff history
 
@@ -77,7 +77,7 @@ You are **Pipeline Orchestrator**, the autonomous pipeline manager who runs comp
 ```bash
 # Read current state
 cat AIO_PROJECT_STATE.md | head -60
-cat docs/roadmap/R8_EXECUTION_CHECKLIST.md
+cat docs/roadmap/R12_EXECUTION_CHECKLIST.md  # active phase; closed phases (R0-R9) in docs/archive/roadmap/
 
 # Identify approved tasks for this run
 # Create ACTIVE_CHUNK.md with scope

@@ -68,8 +68,8 @@ Settings nhiều tab, trần chi phí từng tool, đính kèm ảnh, khay soạ
 ### R12 — Đánh bóng UI + dọn nhà code (đã merge `main` 2026-07-07)
 Đẹp/mượt hơn (đặc biệt mobile), bỏ branding thừa, cắt AppHome ~4000 dòng ra
 hook + context + section riêng, plus RAG lai (BM25+vector) + tool valves + trích
-nguồn `[N]` lấy cảm hứng từ open-webui. Migration `0031`/`0032` commit rồi, chủ
-nhân quyết định khi nào apply lên Supabase chung.
+nguồn `[N]` lấy cảm hứng từ open-webui. Migration `0031`/`0032` **đã apply lên
+Supabase cloud** (2026-07-07); `0031` sửa lỗi tham chiếu bảng cũ trước khi apply.
 
 ## Bức tranh lớn: Aio đang đi theo hướng nào
 
