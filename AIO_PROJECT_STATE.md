@@ -67,6 +67,15 @@ silently never appears if the key is actually dead), depth-guardrail is
 UX left as auto-start default (revisit if a closer Gemini-match wanted).
 Detail: `docs/roadmap/R13_EXECUTION_CHECKLIST.md` R13.3.
 
+**R14 (codebase cleanup) — in progress on `refactor/r14-codebase-cleanup`:**
+behavior-preserving refactor so every file is light to read/edit; backend first.
+Plan in `docs/roadmap/R14_CODEBASE_CLEANUP.md`. Phase 2 done (`94622d5`): shared
+state-machine factory + repository-types extracted across 4 state machines + 2
+repos; 281/281 tests green, qa-reviewer confirmed identical transition
+semantics. Next: Phase 1 characterization test-net on `run-orchestrator.ts` →
+Phase 3 god-object carve. Pure refactor — does NOT change product behavior or
+block R13 owner gates.
+
 ## Open Decision Gates (owner)
 
 1. **Internal knowledge endpoints → Hermes wiring** — code complete; owner

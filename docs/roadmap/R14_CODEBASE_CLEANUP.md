@@ -1,6 +1,7 @@
 # R14 — Codebase Cleanup (Light & Clean)
 
-**Status:** planned 2026-07-08 · **Branch:** `refactor/r14-codebase-cleanup` (off clean `main` post-R13 commit) · **Multi-session**
+**Status:** in progress 2026-07-08 · **Branch:** `refactor/r14-codebase-cleanup` (off clean `main` post-R13 commit) · **Multi-session**
+**Progress:** Gate 0 ✅ · Phase 2 ✅ done (`94622d5` — shared state-machine + repo-types, 281/281 tests, qa-confirmed behavior preserved) · Phase 1 in progress (run-orchestrator test net)
 
 ## Context
 

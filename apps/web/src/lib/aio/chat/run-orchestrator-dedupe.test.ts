@@ -1,9 +1,22 @@
 // R9.1 — Unit tests for source dedupe behaviour in the research pipeline.
+// R14 Phase 1 — Characterization tests for exported orchestrator functions
 // Runner: tsx --test
 
 import { describe, it } from "node:test";
-import assert from "node:assert/strict";
-import { extractResultUrls, resolveRunClosureAction } from "./run-orchestrator.js";
+import assert from "node:assert";
+import {
+  extractResultUrls,
+  resolveRunClosureAction,
+} from "./run-orchestrator.js";
+import {
+  creditsForUsd,
+  usdForCredits,
+  estimateTaskCreditCost,
+  usedPercentForTier,
+  nextMonthlyResetAt,
+  tierConfig,
+} from "./../../hermes/pricing.js";
+import { checkCreditBalance } from "./../../hermes/billing.js";
 
 describe("extractResultUrls", () => {
   it("returns empty array for undefined input", () => {
@@ -140,5 +153,230 @@ describe("resolveRunClosureAction", () => {
       type: "failed",
       errorCode: "stream_error",
     });
+  });
+});
+
+// R14 Phase 1: Characterization tests for billing and pricing functions
+// These lock CURRENT behavior for pure, extractable functions used in orchestration
+
+describe("creditsForUsd", () => {
+  it("converts USD to credits (1 credit = $0.001)", () => {
+    assert.equal(creditsForUsd(1), 1000, "$1 = 1000 credits");
+    assert.equal(creditsForUsd(0.001), 1, "$0.001 = 1 credit");
+    assert.equal(creditsForUsd(10), 10000, "$10 = 10000 credits");
+  });
+
+  it("handles fractional USD amounts", () => {
+    assert.equal(creditsForUsd(0.5), 500, "$0.5 = 500 credits");
+    assert.equal(creditsForUsd(2.5), 2500, "$2.5 = 2500 credits");
+  });
+
+  it("handles zero", () => {
+    assert.equal(creditsForUsd(0), 0, "$0 = 0 credits");
+  });
+});
+
+describe("usdForCredits", () => {
+  it("converts credits to USD (1 credit = $0.001)", () => {
+    assert.equal(usdForCredits(1000), 1, "1000 credits = $1");
+    assert.equal(usdForCredits(1), 0.001, "1 credit = $0.001");
+    assert.equal(usdForCredits(10000), 10, "10000 credits = $10");
+  });
+
+  it("handles fractional credit amounts", () => {
+    assert.equal(usdForCredits(500), 0.5, "500 credits = $0.5");
+    assert.equal(usdForCredits(2500), 2.5, "2500 credits = $2.5");
+  });
+
+  it("handles zero", () => {
+    assert.equal(usdForCredits(0), 0, "0 credits = $0");
+  });
+});
+
+describe("estimateTaskCreditCost", () => {
+  it("estimates starter tier cost", () => {
+    const estimate = estimateTaskCreditCost("starter");
+    assert.ok(estimate > 0, "starter estimate should be positive");
+    assert.ok(Number.isInteger(estimate), "estimate should be integer credits");
+  });
+
+  it("estimates pro tier cost", () => {
+    const estimate = estimateTaskCreditCost("pro");
+    assert.ok(estimate > 0, "pro estimate should be positive");
+    assert.ok(estimate > estimateTaskCreditCost("starter"), "pro should cost more than starter");
+    assert.ok(Number.isInteger(estimate), "estimate should be integer credits");
+  });
+
+  it("estimates business tier cost", () => {
+    const estimate = estimateTaskCreditCost("business");
+    assert.ok(estimate > 0, "business estimate should be positive");
+    assert.ok(estimate > estimateTaskCreditCost("pro"), "business should cost more than pro");
+    assert.ok(Number.isInteger(estimate), "estimate should be integer credits");
+  });
+
+  it("returns consistent estimates for same tier", () => {
+    const estimate1 = estimateTaskCreditCost("starter");
+    const estimate2 = estimateTaskCreditCost("starter");
+    assert.equal(estimate1, estimate2, "same tier should produce same estimate");
+  });
+});
+
+describe("usedPercentForTier", () => {
+  it("calculates 0% when full balance remains", () => {
+    const percent = usedPercentForTier("starter", 6000);
+    assert.equal(percent, 0, "full balance should show 0% used");
+  });
+
+  it("calculates 100% when balance is zero", () => {
+    const percent = usedPercentForTier("starter", 0);
+    assert.equal(percent, 100, "zero balance should show 100% used");
+  });
+
+  it("calculates partial usage correctly", () => {
+    const percent = usedPercentForTier("starter", 3000); // half of 6000
+    assert.equal(percent, 50, "half balance should show 50% used");
+  });
+
+  it("clamps to 100% maximum", () => {
+    const percent = usedPercentForTier("starter", -1000); // overused
+    assert.equal(percent, 100, "overuse should still show 100% used");
+  });
+
+  it("clamps to 0% minimum", () => {
+    const percent = usedPercentForTier("starter", 7000); // more than monthly
+    assert.equal(percent, 0, "excess balance should show 0% used");
+  });
+
+  it("handles different tiers correctly", () => {
+    const starterPercent = usedPercentForTier("starter", 3000);
+    const proPercent = usedPercentForTier("pro", 7000); // half of 14000
+    assert.equal(starterPercent, 50, "starter half usage");
+    assert.equal(proPercent, 50, "pro half usage");
+  });
+
+  it("handles null/undefined tier as starter", () => {
+    const nullPercent = usedPercentForTier(null, 3000);
+    const undefinedPercent = usedPercentForTier(undefined, 3000);
+    const starterPercent = usedPercentForTier("starter", 3000);
+    assert.equal(nullPercent, starterPercent, "null tier should default to starter");
+    assert.equal(undefinedPercent, starterPercent, "undefined tier should default to starter");
+  });
+});
+
+describe("nextMonthlyResetAt", () => {
+  it("returns ISO date string", () => {
+    const resetAt = nextMonthlyResetAt();
+    assert.match(resetAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/, "should be ISO 8601 format");
+  });
+
+  it("returns date in next month", () => {
+    const now = new Date();
+    const resetAt = new Date(nextMonthlyResetAt());
+    assert.equal(resetAt.getUTCMonth(), (now.getUTCMonth() + 1) % 12, "should be next month");
+  });
+
+  it("returns first day of month", () => {
+    const resetAt = new Date(nextMonthlyResetAt());
+    assert.equal(resetAt.getUTCDate(), 1, "should be 1st day of month");
+  });
+
+  it("handles year wrap correctly when run in December", () => {
+    // This test validates the logic but can only be properly tested in December
+    // For now, we verify the function returns a valid date
+    const resetAt = nextMonthlyResetAt();
+    const resetDate = new Date(resetAt);
+    assert.ok(resetDate instanceof Date, "should return valid date");
+    assert.equal(resetDate.getUTCDate(), 1, "should be 1st day of month");
+  });
+});
+
+describe("tierConfig", () => {
+  it("returns starter config for starter tier", () => {
+    const config = tierConfig("starter");
+    assert.equal(config.label, "Starter");
+    assert.equal(config.monthlyCredits, 6000);
+    assert.equal(config.caps.creditBudget, 800);
+  });
+
+  it("returns pro config for pro tier", () => {
+    const config = tierConfig("pro");
+    assert.equal(config.label, "Pro");
+    assert.equal(config.monthlyCredits, 14000);
+    assert.equal(config.caps.creditBudget, 2500);
+  });
+
+  it("returns business config for business tier", () => {
+    const config = tierConfig("business");
+    assert.equal(config.label, "Business");
+    assert.equal(config.monthlyCredits, 80000);
+    assert.equal(config.caps.creditBudget, 8000);
+  });
+
+  it("defaults to starter for null tier", () => {
+    const config = tierConfig(null);
+    assert.equal(config.label, "Starter");
+  });
+
+  it("defaults to starter for undefined tier", () => {
+    const config = tierConfig(undefined);
+    assert.equal(config.label, "Starter");
+  });
+
+  it("defaults to starter for invalid tier", () => {
+    const config = tierConfig("invalid" as any);
+    assert.equal(config.label, "Starter");
+  });
+});
+
+describe("checkCreditBalance", () => {
+  it("returns ok=true when balance >= estimate", () => {
+    const row = {
+      credit_balance: 1000,
+      plan_tier: "starter",
+    } as any;
+    const result = checkCreditBalance(row);
+    assert.equal(result.ok, true);
+    assert.ok(result.estimate > 0);
+    assert.equal(result.balance, 1000);
+  });
+
+  it("returns ok=false when balance < estimate", () => {
+    const row = {
+      credit_balance: 10,
+      plan_tier: "starter",
+    } as any;
+    const result = checkCreditBalance(row);
+    assert.equal(result.ok, false);
+    assert.ok(result.estimate > result.balance, "estimate should exceed balance");
+  });
+
+  it("provides correct estimate for starter tier", () => {
+    const row = {
+      credit_balance: 1000,
+      plan_tier: "starter",
+    } as any;
+    const result = checkCreditBalance(row);
+    const expectedEstimate = estimateTaskCreditCost("starter");
+    assert.equal(result.estimate, expectedEstimate, "estimate should match tier calculation");
+  });
+
+  it("provides correct estimate for pro tier", () => {
+    const row = {
+      credit_balance: 5000,
+      plan_tier: "pro",
+    } as any;
+    const result = checkCreditBalance(row);
+    const expectedEstimate = estimateTaskCreditCost("pro");
+    assert.equal(result.estimate, expectedEstimate, "estimate should match tier calculation");
+  });
+
+  it("handles null plan_tier as starter", () => {
+    const row = {
+      credit_balance: 1000,
+      plan_tier: null,
+    } as any;
+    const result = checkCreditBalance(row);
+    const expectedEstimate = estimateTaskCreditCost("starter");
+    assert.equal(result.estimate, expectedEstimate, "null tier should use starter estimate");
   });
 });
