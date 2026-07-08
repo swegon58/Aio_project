@@ -182,3 +182,43 @@ test("deleteSchedule best-effort cancels queued jobs before removing the schedul
   assert.deepEqual(result.data, { deleted: true });
   assert.deepEqual(order, ["cancel", "delete"]);
 });
+
+// Characterization tests for exported helper functions
+test("serializeScheduleForUi extracts UI-relevant fields", async () => {
+  const { serializeScheduleForUi } = await import("./schedule-repository");
+  const schedule = makeSchedule({
+    name: "Test Schedule",
+    schedule_display: "every 15m",
+    prompt: "Run this test",
+    enabled: true,
+    next_run_at: "2026-06-29T10:00:00.000Z",
+    last_run_at: "2026-06-29T09:00:00.000Z",
+    notify_discord: true,
+  });
+
+  const serialized = serializeScheduleForUi(schedule);
+
+  assert.equal(serialized.id, "schedule-1");
+  assert.equal(serialized.name, "Test Schedule");
+  assert.equal(serialized.schedule, "every 15m");
+  assert.equal(serialized.prompt, "Run this test");
+  assert.equal(serialized.enabled, true);
+  assert.equal(serialized.next_run, "2026-06-29T10:00:00.000Z");
+  assert.equal(serialized.last_run, "2026-06-29T09:00:00.000Z");
+  assert.equal(serialized.notifyDiscord, true);
+});
+
+test("serializeScheduleForUi handles null values gracefully", async () => {
+  const { serializeScheduleForUi } = await import("./schedule-repository");
+  const schedule = makeSchedule({
+    next_run_at: null,
+    last_run_at: null,
+    notify_discord: false,
+  });
+
+  const serialized = serializeScheduleForUi(schedule);
+
+  assert.equal(serialized.next_run, null);
+  assert.equal(serialized.last_run, null);
+  assert.equal(serialized.notifyDiscord, false);
+});

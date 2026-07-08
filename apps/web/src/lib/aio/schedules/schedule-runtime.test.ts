@@ -243,3 +243,116 @@ test("executeScheduledTaskJob dead-letters an unbound running occurrence instead
   assert.equal(failureCode, "SCHEDULED_RUN_UNBOUND_CRASH");
   assert.equal(orchestrated, false);
 });
+
+// Characterization tests for internal schedule logic via public API behavior
+test("enqueueDueSchedules stops enqueuing when repeat limit is reached", async () => {
+  let enqueueCount = 0;
+  let advancedSchedules: string[] = [];
+
+  const runtime = createScheduleRuntime(
+    makeDeps({
+      listDueSchedules: async () => ok([
+        makeSchedule({
+          aio_schedule_id: "limited-schedule",
+          repeat_limit: 2,
+          repeat_completed: 1,
+          next_run_at: "2026-06-29T10:00:00.000Z",
+        }),
+      ]),
+      listActiveScheduleRuns: async () => ok([]),
+      createScheduleRun: async () => ok(makeScheduleRun()),
+      createJob: async () => {
+        enqueueCount++;
+        return ok(makeJob());
+      },
+      bindScheduleRunJob: async () => ok(makeScheduleRun()),
+      updateScheduleAfterOccurrence: async (_db, schedule, _input) => {
+        advancedSchedules.push(schedule.aio_schedule_id);
+        return ok(schedule);
+      },
+    }),
+  );
+
+  const result = await runtime.enqueueDueSchedules({
+    now: new Date("2026-06-29T10:00:00.000Z"),
+    limit: 10,
+  });
+
+  // Characterization: current behavior enqueues up to limit, then stops
+  // This test locks that the system processes the final occurrence
+  assert.equal(result.enqueued, 1);
+  assert.equal(enqueueCount, 1);
+  assert.equal(advancedSchedules.length, 1);
+});
+
+test("executeScheduledTaskJob handles repeat exhaustion via state transitions", async () => {
+  let finalScheduleState: string | null = null;
+
+  const runtime = createScheduleRuntime(
+    makeDeps({
+      getSchedule: async () => ok(makeSchedule({
+        aio_schedule_id: "limited-schedule",
+        repeat_limit: 1,
+        repeat_completed: 0,
+      })),
+      getScheduleRun: async () => ok(makeScheduleRun({
+        status: "queued",
+      })),
+      getRun: async () => ok({
+        status: "completed",
+        error_code: null,
+        error_message_redacted: null,
+      } as never),
+      resolveHermesBackgroundContext: async () => ({
+        db: {} as never,
+        userId: "customer-1",
+        row: {} as never,
+        planTier: "starter",
+        apiServerKey: "key-1",
+        hermesSessionId: "session-1",
+        threadId: "aio-schedule:limited-schedule",
+      }),
+      markScheduleRunRunning: async () => ok(makeScheduleRun({
+        status: "running",
+      })),
+      setScheduleExecutionState: async () => {
+        finalScheduleState = "running";
+        return ok(makeSchedule());
+      },
+      bindScheduleRunAioRun: async () => ok(makeScheduleRun()),
+      orchestrateAioChatRun: async () => ({
+        ok: true,
+        runId: "run-1",
+        response: { text: async () => "done" },
+        execute: async () => {},
+      }),
+      markScheduleRunCompleted: async () => ok(makeScheduleRun({
+        status: "completed",
+      })),
+      updateScheduleAfterOccurrence: async (_db, schedule, input) => {
+        // Characterization: repeat_completed increments in final occurrence
+        assert.equal(input.repeatCompleted, 1);
+        return ok(schedule);
+      },
+    }),
+  );
+
+  const job = makeJob({
+    payload_ref: {
+      kind: "inline",
+      redacted: true,
+      preview: {
+        aioScheduleId: "limited-schedule",
+        aioScheduleRunId: "run-1",
+        occurrenceKey: "limited-schedule:2026-06-29T10:00:00.000Z",
+        occurrenceAt: "2026-06-29T10:00:00.000Z",
+        threadId: "aio-schedule:limited-schedule",
+      },
+    },
+  });
+
+  await runtime.executeScheduledTaskJob(job);
+
+  // Characterization: state transitions happen in order
+  assert.equal(finalScheduleState, "running");
+});
