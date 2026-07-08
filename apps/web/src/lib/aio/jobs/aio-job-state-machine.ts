@@ -1,4 +1,10 @@
 import type { AioJobStatus } from "./aio-job-contract";
+import {
+  STATE_ERROR_CODE,
+  type StateErrorCode,
+  type TransitionResult as BaseTransitionResult,
+  createTransitionValidator,
+} from "@/lib/aio/shared/state-machine";
 
 const ALLOWED_TRANSITIONS: Record<AioJobStatus, readonly AioJobStatus[]> = {
   queued: ["claimed", "cancelled", "dead_lettered", "failed"],
@@ -18,13 +24,8 @@ export const TERMINAL_JOB_STATES: ReadonlySet<AioJobStatus> = new Set([
   "failed",
 ]);
 
-export const AIO_JOB_STATE_ERROR = {
-  INVALID_TRANSITION: "INVALID_TRANSITION",
-  ALREADY_TERMINAL: "ALREADY_TERMINAL",
-} as const;
-
-export type AioJobStateErrorCode =
-  (typeof AIO_JOB_STATE_ERROR)[keyof typeof AIO_JOB_STATE_ERROR];
+export const AIO_JOB_STATE_ERROR = STATE_ERROR_CODE;
+export type AioJobStateErrorCode = StateErrorCode;
 
 export type JobTransitionResult =
   | { ok: true; from: AioJobStatus; to: AioJobStatus; changed: boolean }
@@ -47,6 +48,9 @@ export function canTransitionJob(
   return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
+// Domain-specific transition validator with job-specific error messages
+const validateTransition = createTransitionValidator(TERMINAL_JOB_STATES, ALLOWED_TRANSITIONS);
+
 export function transitionJob(
   from: AioJobStatus,
   to: AioJobStatus,
@@ -54,23 +58,19 @@ export function transitionJob(
   if (from === to) {
     return { ok: true, from, to, changed: false };
   }
-  if (isTerminalJobStatus(from)) {
+  const result = validateTransition(from, to);
+  // Override with domain-specific error message
+  if (!result.ok && result.code === STATE_ERROR_CODE.ALREADY_TERMINAL) {
     return {
-      ok: false,
-      from,
-      to,
-      code: AIO_JOB_STATE_ERROR.ALREADY_TERMINAL,
+      ...result,
       message: `Job is already terminal (${from})`,
     };
   }
-  if (!canTransitionJob(from, to)) {
+  if (!result.ok && result.code === STATE_ERROR_CODE.INVALID_TRANSITION) {
     return {
-      ok: false,
-      from,
-      to,
-      code: AIO_JOB_STATE_ERROR.INVALID_TRANSITION,
+      ...result,
       message: `Invalid job transition: ${from} -> ${to}`,
     };
   }
-  return { ok: true, from, to, changed: true };
+  return { ok: true, from: from, to: to, changed: true };
 }

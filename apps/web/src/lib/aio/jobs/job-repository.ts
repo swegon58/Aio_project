@@ -11,6 +11,7 @@ import {
   AIO_JOB_STATE_ERROR,
   transitionJob,
 } from "./aio-job-state-machine";
+import { type RepoError, type RepoOk, type RepoResult } from "@/lib/aio/shared/repository-types";
 
 export const JOB_REPO_ERROR_CODE = {
   JOB_NOT_FOUND: "JOB_NOT_FOUND",
@@ -23,14 +24,9 @@ export const JOB_REPO_ERROR_CODE = {
 export type JobRepoErrorCode =
   (typeof JOB_REPO_ERROR_CODE)[keyof typeof JOB_REPO_ERROR_CODE];
 
-export type JobRepoError = {
-  ok: false;
-  code: JobRepoErrorCode;
-  message: string;
-};
-
-export type JobRepoOk<T> = { ok: true; data: T };
-export type JobRepoResult<T> = JobRepoOk<T> | JobRepoError;
+export type JobRepoError = RepoError;
+export type JobRepoOk<T> = RepoOk<T>;
+export type JobRepoResult<T> = RepoResult<T>;
 
 export interface AioJobRow {
   id: string;

@@ -11,6 +11,7 @@ import {
   type AioScheduleTriggerKind,
 } from "./aio-schedule-contract";
 import { cancelQueuedJobsForSchedule } from "../jobs/job-repository";
+import { type RepoError, type RepoOk, type RepoResult } from "@/lib/aio/shared/repository-types";
 
 export const SCHEDULE_REPO_ERROR_CODE = {
   SCHEDULE_NOT_FOUND: "SCHEDULE_NOT_FOUND",
@@ -22,14 +23,9 @@ export const SCHEDULE_REPO_ERROR_CODE = {
 export type ScheduleRepoErrorCode =
   (typeof SCHEDULE_REPO_ERROR_CODE)[keyof typeof SCHEDULE_REPO_ERROR_CODE];
 
-export type ScheduleRepoError = {
-  ok: false;
-  code: ScheduleRepoErrorCode;
-  message: string;
-};
-
-export type ScheduleRepoOk<T> = { ok: true; data: T };
-export type ScheduleRepoResult<T> = ScheduleRepoOk<T> | ScheduleRepoError;
+export type ScheduleRepoError = RepoError;
+export type ScheduleRepoOk<T> = RepoOk<T>;
+export type ScheduleRepoResult<T> = RepoResult<T>;
 
 interface ScheduleMutationDeps {
   getSchedule: typeof getSchedule;

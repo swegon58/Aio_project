@@ -1,3 +1,9 @@
+import {
+  STATE_ERROR_CODE,
+  type StateErrorCode,
+  createTransitionValidator,
+} from "@/lib/aio/shared/state-machine";
+
 export type AioToolCallStatus =
   | "proposed"
   | "waiting_approval"
@@ -10,13 +16,8 @@ export type AioToolCallStatus =
   | "failed"
   | "timed_out";
 
-export const TOOL_CALL_STATE_ERROR = {
-  INVALID_TRANSITION: "INVALID_TRANSITION",
-  ALREADY_TERMINAL: "ALREADY_TERMINAL",
-} as const;
-
-export type ToolCallStateErrorCode =
-  (typeof TOOL_CALL_STATE_ERROR)[keyof typeof TOOL_CALL_STATE_ERROR];
+export const TOOL_CALL_STATE_ERROR = STATE_ERROR_CODE;
+export type ToolCallStateErrorCode = StateErrorCode;
 
 export type ToolCallStateResult =
   | { ok: true; status: AioToolCallStatus; changed: boolean }
@@ -55,22 +56,27 @@ export function canTransitionToolCall(
   return EDGES[from].includes(to);
 }
 
+// Domain-specific transition validator with tool-call-specific error messages
+const validateTransition = createTransitionValidator(TERMINAL, EDGES);
+
 export function transitionToolCall(
   from: AioToolCallStatus,
   to: AioToolCallStatus,
 ): ToolCallStateResult {
   if (from === to) return { ok: true, status: from, changed: false };
-  if (isTerminalToolCallStatus(from)) {
+  const result = validateTransition(from, to);
+  // Override with domain-specific error messages
+  if (!result.ok && result.code === STATE_ERROR_CODE.ALREADY_TERMINAL) {
     return {
       ok: false,
-      code: TOOL_CALL_STATE_ERROR.ALREADY_TERMINAL,
+      code: result.code,
       message: `Tool call is already terminal (${from})`,
     };
   }
-  if (!canTransitionToolCall(from, to)) {
+  if (!result.ok && result.code === STATE_ERROR_CODE.INVALID_TRANSITION) {
     return {
       ok: false,
-      code: TOOL_CALL_STATE_ERROR.INVALID_TRANSITION,
+      code: result.code,
       message: `Invalid tool-call transition: ${from} -> ${to}`,
     };
   }

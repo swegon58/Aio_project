@@ -14,6 +14,12 @@
 // administrative repair path lives in the repository and is not modeled here.
 
 import type { AioRunStatus } from "./aio-run-events";
+import {
+  STATE_ERROR_CODE,
+  type StateErrorCode,
+  type TransitionResult as BaseTransitionResult,
+  createTransitionValidator,
+} from "@/lib/aio/shared/state-machine";
 
 /** States that can be reached from `from`. The only legal edges (ADR-001 §3). */
 const ALLOWED_TRANSITIONS: Record<AioRunStatus, readonly AioRunStatus[]> = {
@@ -44,14 +50,8 @@ export const STOPPABLE_STATES: ReadonlySet<AioRunStatus> = new Set([
  * Stable internal codes for run-state errors. These are the contract the
  * repositories and APIs surface; messages are informational only.
  */
-export const RUN_STATE_ERROR_CODE = {
-  /** The `from -> to` edge is not in the allowed set. */
-  INVALID_TRANSITION: "INVALID_TRANSITION",
-  /** The run is already terminal; no normal transition is allowed. */
-  ALREADY_TERMINAL: "ALREADY_TERMINAL",
-} as const;
-export type RunStateErrorCode =
-  (typeof RUN_STATE_ERROR_CODE)[keyof typeof RUN_STATE_ERROR_CODE];
+export const RUN_STATE_ERROR_CODE = STATE_ERROR_CODE;
+export type RunStateErrorCode = StateErrorCode;
 
 export function isTerminal(status: AioRunStatus): boolean {
   return TERMINAL_STATES.has(status);
@@ -69,15 +69,10 @@ export function canTransition(
   return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
-export type TransitionResult =
-  | { ok: true; from: AioRunStatus; to: AioRunStatus }
-  | {
-      ok: false;
-      from: AioRunStatus;
-      to: AioRunStatus;
-      code: RunStateErrorCode;
-      message: string;
-    };
+export type TransitionResult = BaseTransitionResult<AioRunStatus>;
+
+// Domain-specific transition validator with run-specific error messages
+const validateTransition = createTransitionValidator(TERMINAL_STATES, ALLOWED_TRANSITIONS);
 
 /**
  * Validate a normal `from -> to` lifecycle transition. Never allows leaving a
@@ -88,25 +83,15 @@ export function transition(
   from: AioRunStatus,
   to: AioRunStatus,
 ): TransitionResult {
-  if (isTerminal(from)) {
+  const result = validateTransition(from, to);
+  // Override with domain-specific error message for terminal states
+  if (!result.ok && result.code === STATE_ERROR_CODE.ALREADY_TERMINAL) {
     return {
-      ok: false,
-      from,
-      to,
-      code: RUN_STATE_ERROR_CODE.ALREADY_TERMINAL,
+      ...result,
       message: `Run is in terminal state "${from}"; no transition allowed except administrative repair with an audit record.`,
     };
   }
-  if (canTransition(from, to)) {
-    return { ok: true, from, to };
-  }
-  return {
-    ok: false,
-    from,
-    to,
-    code: RUN_STATE_ERROR_CODE.INVALID_TRANSITION,
-    message: `Transition "${from}" -> "${to}" is not allowed.`,
-  };
+  return result;
 }
 
 export type CancelResult =
