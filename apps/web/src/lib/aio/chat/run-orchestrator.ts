@@ -19,6 +19,7 @@
 // logged so a repository hiccup does not mask the original task outcome.
 //
 import { createHash } from "node:crypto";
+import os from "node:os";
 import type { UIMessage, UIMessageStreamWriter } from "ai";
 import { checkCreditBalance, refundTask, reserveCredits } from "@/lib/aio/billing/credit-guard";
 import { checkSpendCap } from "@/lib/aio/billing/spend-cap";
@@ -36,7 +37,12 @@ import { buildRuntimeMessages } from "@/lib/aio/chat/chat-route-handler";
 import { ensureConversationRow, persistConversation } from "@/lib/aio/chat/conversation-persistence";
 import { buildPlanInstructions, GUARDRAIL_SYSTEM_PROMPT } from "@/lib/aio/chat/plan-mode";
 import { applyPromptVariables } from "@/lib/aio/chat/prompt-variables";
-import { buildResearchInstructions, isWebResearchTool } from "@/lib/aio/chat/research-mode";
+import {
+  buildResearchInstructions,
+  isWebResearchTool,
+  MIN_RESEARCH_SOURCES,
+  RESEARCH_PLAN_INSTRUCTIONS,
+} from "@/lib/aio/chat/research-mode";
 import {
   buildResearchStageEvent,
   recordResearchSource,
@@ -59,19 +65,27 @@ import {
 import {
   attachHermesIdentity,
   createRun,
+  getRun,
+  heartbeatRunLease,
   markTerminal,
+  startRunLease,
   transitionRun,
 } from "@/lib/aio/runs/run-repository";
 import { appendEvent } from "@/lib/aio/runs/run-event-repository";
 import { recordToolCallEvent } from "@/lib/aio/tools/tool-call-writer";
 import { recordApprovalEvent } from "@/lib/aio/tools/approval-writer";
-import type { AioRunEvent, ResearchStage, ResearchStep } from "@/lib/aio/runs/aio-run-events";
+import type { AioRunEvent, AioRunStatus, ResearchStage, ResearchStep } from "@/lib/aio/runs/aio-run-events";
 import type { AioRunEventEnvelopeSource } from "@/lib/aio/runs/aio-run-event-schema";
 import { type AioTelemetry, NO_OP_TELEMETRY } from "@/lib/aio/telemetry/telemetry";
 import { SPANS, METRICS, runAttrs } from "@/lib/aio/telemetry/span-builder";
 import type { HermesRequestContext } from "@/lib/hermes/request-context";
 
 const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === "true";
+
+// R13: this process's identity for the aio_runs lease it holds while
+// actively driving a run (see startRunLease/heartbeatRunLease).
+const RUN_LEASE_WORKER_ID = `${os.hostname()}:${process.pid}:aio-run-orchestrator`;
+const RUN_LEASE_SECONDS = 90;
 
 export interface OrchestratorInput {
   /** Request abort signal; firing it aborts the Hermes run (client disconnect). */
@@ -165,6 +179,36 @@ export function extractResultUrls(resultPreview: string | undefined): string[] {
     if (urls.length >= 5) break;
   }
   return urls;
+}
+
+export type RunClosureAction =
+  | { type: "cancelled" }
+  | { type: "completed" }
+  | { type: "failed"; errorCode: "budget_exceeded" | "client_aborted" | "stream_error" };
+
+/**
+ * Decide how to close a run once the Hermes stream ends. Stop-button race fix
+ * (R13): `/api/runs/[runId]/stop` can move the row to `cancelling` (running ->
+ * cancelling is legal) concurrently with this stream loop finishing. The
+ * state machine only allows cancelling -> cancelled — writing
+ * completed/failed at that point is rejected and previously left the row
+ * stuck in `cancelling` forever, since nothing ever retried with the
+ * corrected target. Re-checking the live status right before the terminal
+ * write and preferring `cancelled` whenever the row is already `cancelling`
+ * closes that gap.
+ */
+export function resolveRunClosureAction(
+  liveStatus: AioRunStatus | null,
+  succeeded: boolean,
+  budgetExceeded: boolean,
+  clientAborted: boolean,
+): RunClosureAction {
+  if (liveStatus === "cancelling") return { type: "cancelled" };
+  if (succeeded && !budgetExceeded) return { type: "completed" };
+  return {
+    type: "failed",
+    errorCode: budgetExceeded ? "budget_exceeded" : clientAborted ? "client_aborted" : "stream_error",
+  };
 }
 
 /** Bare hostname for a source URL, for compact research-checklist labels. */
@@ -282,7 +326,7 @@ export async function orchestrateAioChatRun(
   // ---- runtime message shape + instructions ----
   const { lastMessage, conversationHistory } = await buildRuntimeMessages(messages);
   const planInstructions = buildPlanInstructions(planMode, conversationHistory, lastMessage);
-  const researchInstructions = buildResearchInstructions(mode);
+  const researchInstructions = buildResearchInstructions(mode, conversationHistory, lastMessage);
 
   // ---- wall-clock timeout + client-disconnect abort ----
   const caps = tierConfig(planTier).caps;
@@ -367,7 +411,10 @@ export async function orchestrateAioChatRun(
       input: lastMessage?.content ?? "",
       conversationHistory,
       sessionId: hermesSessionId,
-      disableTools: Boolean(planMode),
+      // Same infra-level tool gate planMode already gets — the plan phase of
+      // research mode must not be able to execute tools either, matching the
+      // "wait for confirmation" contract, not just the prompt-level ask.
+      disableTools: Boolean(planMode) || researchInstructions === RESEARCH_PLAN_INSTRUCTIONS,
       instructions: applyPromptVariables(
         [
           GUARDRAIL_SYSTEM_PROMPT,
@@ -414,9 +461,19 @@ export async function orchestrateAioChatRun(
   // Attach the Hermes identity (adapter metadata, never the product id) and move
   // the run to `running` before opening the event stream.
   const attached = await attachHermesIdentity(db, aioRunId, userId, hermesRunId, hermesSessionId);
+  // R13 lease: held while this process is actively driving the run so a crash
+  // can be swept instead of leaving the row `running` forever (see
+  // sweepExpiredRunLeases). Renewed by the heartbeat set up below.
+  let runLeaseToken: string | null = null;
   if (attached.ok) {
     const running = await transitionRun(db, aioRunId, userId, "running");
-    if (!running.ok) console.error(`transitionRun(running) for ${aioRunId}:`, running.message);
+    if (!running.ok) {
+      console.error(`transitionRun(running) for ${aioRunId}:`, running.message);
+    } else {
+      const leased = await startRunLease(db, aioRunId, userId, RUN_LEASE_WORKER_ID, RUN_LEASE_SECONDS);
+      if (leased.ok) runLeaseToken = leased.data.lease_token;
+      else console.error(`startRunLease for ${aioRunId}:`, leased.message);
+    }
   } else {
     console.error(`attachHermesIdentity for ${aioRunId}:`, attached.message);
   }
@@ -573,6 +630,17 @@ export async function orchestrateAioChatRun(
     let lastBudgetCheck = Date.now();
     const BUDGET_CHECK_INTERVAL_MS = 15_000;
 
+    // R13 lease heartbeat: independent of event traffic (a long tool call can
+    // leave the SSE stream quiet for a while), so this ticks on its own timer
+    // for as long as this loop is alive, mirroring the job worker's heartbeat.
+    const runHeartbeat = runLeaseToken
+      ? setInterval(async () => {
+          if (!runLeaseToken) return;
+          const beat = await heartbeatRunLease(db, runIdForDurable, userId, runLeaseToken, RUN_LEASE_SECONDS);
+          if (!beat.ok) console.error(`heartbeatRunLease for ${runIdForDurable}:`, beat.message);
+        }, Math.max(5000, Math.floor((RUN_LEASE_SECONDS * 1000) / 3)))
+      : null;
+
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -644,6 +712,20 @@ export async function orchestrateAioChatRun(
                 writer.write({ type: "text-start", id: textPartId });
                 textStarted = true;
                 if (mode === "research") {
+                  // R13.3 item 4 — the actual minimum-sources floor is a
+                  // non-negotiable prompt instruction (RESEARCH_INSTRUCTIONS);
+                  // there is no clean interception point here to reject an
+                  // in-flight model response (no explicit "finish research"
+                  // tool call to gate, and truncating a legitimate answer
+                  // mid-stream would be a worse UX than a rare miss). This is
+                  // observability only, using the already-tracked source
+                  // count, so a premature-synthesis case is visible in logs
+                  // for the not-yet-done quality eval.
+                  if (researchSourceIds.size < MIN_RESEARCH_SOURCES) {
+                    console.warn(
+                      `research run ${runIdForDurable} started synthesis with only ${researchSourceIds.size} source(s), below the ${MIN_RESEARCH_SOURCES}-source floor`,
+                    );
+                  }
                   pushResearchStep("Writing the report");
                   await advanceResearchStage("verify");
                 }
@@ -697,6 +779,7 @@ export async function orchestrateAioChatRun(
       }
     } finally {
       teardown();
+      if (runHeartbeat) clearInterval(runHeartbeat);
       if (textStarted) {
         writer.write({ type: "text-end", id: textPartId });
       }
@@ -740,19 +823,28 @@ export async function orchestrateAioChatRun(
 
       // Close the durable run with a stable terminal outcome. Best-effort: a
       // closure failure is logged but must not mask settlement/persistence.
+      // R13 Stop-button race fix: re-read the live status right before
+      // writing — a concurrent /stop request can have moved the row to
+      // `cancelling`, and the state machine only allows cancelling ->
+      // cancelled (see resolveRunClosureAction).
       try {
-        if (succeeded && !budgetExceeded) {
+        const live = await getRun(db, runIdForDurable, userId);
+        const action = resolveRunClosureAction(
+          live.ok ? live.data.status : null,
+          succeeded,
+          budgetExceeded,
+          abortController.signal.aborted,
+        );
+        if (action.type === "cancelled") {
+          const closed = await transitionRun(db, runIdForDurable, userId, "cancelled");
+          if (!closed.ok) console.error(`transitionRun(cancelled) for ${runIdForDurable}:`, closed.message);
+        } else if (action.type === "completed") {
           const closed = await markTerminal(db, runIdForDurable, userId, "completed", {
             actualCredits: settledActualCredits,
           });
           if (!closed.ok) console.error(`markTerminal(completed) for ${runIdForDurable}:`, closed.message);
         } else {
-          const errorCode = budgetExceeded
-            ? "budget_exceeded"
-            : abortController.signal.aborted
-              ? "client_aborted"
-              : "stream_error";
-          await failRun(errorCode);
+          await failRun(action.errorCode);
         }
       } catch (err) {
         console.error(`run closure threw for ${runIdForDurable}:`, err);

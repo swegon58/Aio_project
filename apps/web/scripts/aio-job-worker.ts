@@ -5,6 +5,7 @@ import {
   releaseDueRetryingJobs,
   requeueExpiredJobLeases,
 } from "../src/lib/aio/jobs/job-repository";
+import { sweepExpiredRunLeases } from "../src/lib/aio/runs/run-repository";
 import {
   createAioJobWorkerRuntime,
   DEFAULT_AIO_JOB_WORKER_RUNTIME_DEPS,
@@ -43,6 +44,7 @@ const runtime = createAioJobWorkerRuntime({
   requeueExpiredJobLeases,
   enqueueDueSchedules,
   executeScheduledTaskJob,
+  sweepExpiredRunLeases,
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

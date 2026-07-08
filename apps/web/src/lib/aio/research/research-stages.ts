@@ -6,7 +6,12 @@
 // each time Hermes emits a research.stage-type tool event.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ResearchStage, ResearchStageEvent, ResearchStep } from "@/lib/aio/runs/aio-run-events";
+import type {
+  ResearchPlanPayload,
+  ResearchStage,
+  ResearchStageEvent,
+  ResearchStep,
+} from "@/lib/aio/runs/aio-run-events";
 
 export const RESEARCH_STAGES: { stage: ResearchStage; index: number; label: string }[] = [
   { stage: "understand", index: 1, label: "Understanding the question" },
@@ -21,7 +26,7 @@ export const RESEARCH_STAGES: { stage: ResearchStage; index: number; label: stri
 export function buildResearchStageEvent(
   runId: string,
   stage: ResearchStage,
-  opts: { sourceCount?: number; claimCount?: number; steps?: ResearchStep[] } = {},
+  opts: { sourceCount?: number; claimCount?: number; steps?: ResearchStep[]; plan?: ResearchPlanPayload } = {},
 ): ResearchStageEvent {
   const def = RESEARCH_STAGES.find((s) => s.stage === stage);
   if (!def) throw new Error(`Unknown research stage: ${stage}`);
@@ -35,6 +40,7 @@ export function buildResearchStageEvent(
     claimCount: opts.claimCount,
     label: def.label,
     steps: opts.steps,
+    plan: opts.plan,
     createdAt: new Date().toISOString(),
   };
 }
@@ -140,7 +146,10 @@ export async function listResearchSources(
   }));
 }
 
-/** Update aio_runs.metadata with the latest research progress fields. Best-effort. */
+/** Update aio_runs.metadata with the latest research progress fields. Best-effort.
+ *  `researchPlan` is stored verbatim as jsonb under `metadata.research_plan` —
+ *  shape: `{ title: string, steps: string[] }` (see ResearchPlanPayload),
+ *  same shape carried on the `research.stage` SSE event's `plan` field. */
 export async function updateResearchProgress(
   db: SupabaseClient,
   runId: string,
@@ -150,7 +159,7 @@ export async function updateResearchProgress(
     searchCount?: number;
     claimCount?: number;
     verifiedCount?: number;
-    researchPlan?: string;
+    researchPlan?: ResearchPlanPayload;
   },
 ): Promise<void> {
   try {

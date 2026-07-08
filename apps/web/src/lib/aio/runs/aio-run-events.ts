@@ -221,6 +221,15 @@ export type ResearchStep = {
   status: ResearchStepStatus;
 };
 
+/** Upfront, question-specific plan (R13.3 item 3) — a title + ordered step
+ *  list generated once at research start and carried on every subsequent
+ *  `research.stage` event once available, so a client that only reads the
+ *  latest event still has it. */
+export type ResearchPlanPayload = {
+  title: string;
+  steps: string[];
+};
+
 export type ResearchStageEvent = {
   type: "research.stage";
   runId: string;
@@ -234,6 +243,8 @@ export type ResearchStageEvent = {
   label: string;
   /** Growing, query-specific checklist (actual searches/sources), newest last */
   steps?: ResearchStep[];
+  /** Upfront question-specific plan, present once generated (see ResearchPlanPayload) */
+  plan?: ResearchPlanPayload;
   createdAt: string;
   ts?: number;
 };

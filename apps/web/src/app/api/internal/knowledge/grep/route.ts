@@ -49,14 +49,14 @@ export async function POST(req: Request) {
   const db = serviceDb();
 
   // PostgREST `regex` operator → Postgres `~` (POSIX, case-sensitive).
-  // Tenant scope is enforced by `.eq("customer_id", ...)`; an invalid regex
+  // Tenant scope is enforced by `.eq("user_id", ...)`; an invalid regex
   // surfaces as a PostgREST error → 400.
   const { data, error } = await db
-    .from("hermes_knowledge_chunks")
-    .select("id, file_id, content")
-    .eq("customer_id", customerId)
+    .from("aio_knowledge_chunks")
+    .select("id, doc_id, content")
+    .eq("user_id", customerId)
     .filter("content", "regex", pattern)
-    .order("file_id", { ascending: true })
+    .order("doc_id", { ascending: true })
     .order("chunk_index", { ascending: true })
     .limit(matchCount);
 
@@ -67,9 +67,9 @@ export async function POST(req: Request) {
     return Response.json({ error: error.message }, { status });
   }
 
-  const chunks = (data as { id: string; file_id: string; content: string }[]).map((r) => ({
+  const chunks = (data as { id: string; doc_id: string; content: string }[]).map((r) => ({
     id: r.id,
-    file_id: r.file_id,
+    doc_id: r.doc_id,
     content: r.content,
   }));
   return Response.json({ chunks });

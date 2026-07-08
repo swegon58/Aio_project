@@ -10,6 +10,10 @@ interface UseConversationsParams {
   setActivity: Dispatch<SetStateAction<HermesActivityData[]>>;
   resetRunTimeline: () => void;
   setShowcases: Dispatch<SetStateAction<HermesShowcaseData[]>>;
+  setOpenShowcase: Dispatch<SetStateAction<HermesShowcaseData | null>>;
+  setMobileShowcaseOpen: Dispatch<SetStateAction<boolean>>;
+  setOpenReport: Dispatch<SetStateAction<{ query: string; reportText: string; runId: string | null } | null>>;
+  setMobileReportOpen: Dispatch<SetStateAction<boolean>>;
   setPendingApproval: Dispatch<SetStateAction<Extract<HermesApprovalData, { kind: "request" }> | null>>;
   setPlanAwaitingAction: Dispatch<SetStateAction<boolean>>;
   setChatMode: Dispatch<SetStateAction<AioChatMode>>;
@@ -32,6 +36,10 @@ export function useConversations({
   setActivity,
   resetRunTimeline,
   setShowcases,
+  setOpenShowcase,
+  setMobileShowcaseOpen,
+  setOpenReport,
+  setMobileReportOpen,
   setPendingApproval,
   setPlanAwaitingAction,
   setChatMode,
@@ -82,6 +90,10 @@ export function useConversations({
     setActivity([]);
     resetRunTimeline();
     setShowcases([]);
+    setOpenShowcase(null);
+    setMobileShowcaseOpen(false);
+    setOpenReport(null);
+    setMobileReportOpen(false);
     setPendingApproval(null);
     const last = data.messages?.[data.messages.length - 1];
     const lastMode = last?.metadata?.mode ?? (last?.metadata?.planMode ? "plan" : "auto");
@@ -136,6 +148,10 @@ export function useConversations({
       setActivity([]);
       resetRunTimeline();
       setShowcases([]);
+      setOpenShowcase(null);
+      setMobileShowcaseOpen(false);
+      setOpenReport(null);
+      setMobileReportOpen(false);
       setPendingApproval(null);
       setPlanAwaitingAction(false);
       setLastRunMode("auto");
@@ -190,6 +206,10 @@ export function useConversations({
         setActivity([]);
         resetRunTimeline();
         setShowcases([]);
+        setOpenShowcase(null);
+        setMobileShowcaseOpen(false);
+        setOpenReport(null);
+        setMobileReportOpen(false);
         setPendingApproval(null);
         setPlanAwaitingAction(false);
         setLastRunMode("auto");

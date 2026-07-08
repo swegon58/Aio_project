@@ -74,6 +74,10 @@ test("serializeRun and serializeRunEvent return the public API shape", () => {
     completed_at: null,
     cancel_requested_at: null,
     metadata: { mode: "deep_research" },
+    lease_owner: null,
+    lease_token: null,
+    lease_expires_at: null,
+    last_heartbeat_at: null,
   };
 
   assert.deepEqual(serializeRun(runRow), {

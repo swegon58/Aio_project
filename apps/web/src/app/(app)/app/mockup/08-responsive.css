@@ -252,4 +252,9 @@
 
   .message-content { max-width: 100%; }
   .message.user .message-content { max-width: 70%; }
+
+  /* 96px thumbs don't fit 2-per-row inside a 70%-width user bubble on
+     narrow viewports (measured ~195px available at 375px), collapsing a
+     2x4-image grid into a tall single column. Shrink so 2 always fit. */
+  .message-attachment-thumb img { width: 72px; height: 72px; }
 }

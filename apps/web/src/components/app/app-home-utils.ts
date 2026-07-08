@@ -19,7 +19,7 @@ import {
   type MascotImageState,
 } from "@/lib/hermes/chat-types";
 import { isRunTerminal } from "@/lib/aio/runs/run-client";
-import type { AioRunEvent, AioRunStatus } from "@/lib/aio/runs/aio-run-events";
+import type { AioRunEvent, AioRunStatus, ResearchStageEvent } from "@/lib/aio/runs/aio-run-events";
 import type { AccentKey } from "@/components/app/SettingsModal";
 import type {
   ImageAspectRatio,
@@ -99,6 +99,13 @@ export function deriveMascotState(
   if (runningTool && runningTool.kind === "tool") return mascotStateForTool(runningTool.tool);
   if (status === "submitted" || (status === "streaming" && !hasText)) return "thinking";
   return "idle";
+}
+
+// R13.3 item 1: the chat bubble's progress card needs the latest
+// query-specific research.stage event (dynamic steps) instead of the old
+// hardcoded 4-step list.
+export function latestResearchStageEvent(events: AioRunEvent[]): ResearchStageEvent | undefined {
+  return events.findLast((event): event is ResearchStageEvent => event.type === "research.stage");
 }
 
 export function runEventKey(event: AioRunEvent): string {
@@ -343,6 +350,21 @@ export function reportFileBaseName(query: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
   return slug || "research-report";
+}
+
+// R13.3 item 2: short plain-text excerpt for the chat-bubble result card —
+// the full report + sources + export buttons live in the Workspace preview
+// panel instead (opened via the card's "Open" button).
+export function reportSummary(reportText: string): string {
+  const plain = reportText
+    .replace(/^#{1,6}\s+.*$/gm, "") // drop every heading line entirely, not just its `#` marker
+    .replace(/[*_`>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (plain.length <= 180) return plain;
+  const cut = plain.slice(0, 180);
+  const wordBoundary = cut.lastIndexOf(" ");
+  return `${(wordBoundary > 0 ? cut.slice(0, wordBoundary) : cut).trimEnd()}…`;
 }
 
 export function buildReportHtmlDocument(query: string, reportText: string): string {

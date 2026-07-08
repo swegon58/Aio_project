@@ -111,6 +111,10 @@ test("R9.2/R9.3: research report export buttons and sources panel work after a c
 
   await expect(page.getByText("The sky is blue because of Rayleigh scattering.")).toBeVisible();
 
+  // R13.3 item 2: the full report + export/sources controls now live in the
+  // Workspace preview panel, opened via the chat bubble's "Open report" button.
+  await page.getByRole("button", { name: "Open report" }).click();
+
   const downloadBtn = page.getByRole("button", { name: "Download report as Markdown" });
   const pdfBtn = page.getByRole("button", { name: "Export report as PDF" });
   const sourcesBtn = page.getByRole("button", { name: "Show sources" });

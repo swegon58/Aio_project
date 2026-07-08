@@ -52,6 +52,7 @@
   --surface-tertiary-90: color-mix(in srgb, var(--bg-tertiary) 90%, transparent);
   --surface-card-90: color-mix(in srgb, var(--bg-card) 90%, transparent);
   --surface-hover-90: color-mix(in srgb, var(--bg-hover) 90%, transparent);
+  --surface-elevated: var(--bg-tertiary);
   --surface-primary-opaque: color-mix(in srgb, var(--bg-primary) 98%, transparent);
   --surface-secondary-opaque: color-mix(in srgb, var(--bg-secondary) 98%, transparent);
   --surface-tertiary-opaque: color-mix(in srgb, var(--bg-tertiary) 98%, transparent);

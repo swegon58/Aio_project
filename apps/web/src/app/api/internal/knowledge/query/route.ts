@@ -87,8 +87,8 @@ export async function POST(req: Request) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  const chunks = (data as { id: string; file_id: string; content: string; similarity: number }[])
-    .map((r) => ({ id: r.id, file_id: r.file_id, content: r.content, similarity: r.similarity }));
+  const chunks = (data as { id: string; doc_id: string; content: string; similarity: number }[])
+    .map((r) => ({ id: r.id, doc_id: r.doc_id, content: r.content, similarity: r.similarity }));
   return Response.json({ chunks });
 }
 

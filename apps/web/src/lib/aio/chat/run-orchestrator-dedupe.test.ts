@@ -3,7 +3,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { extractResultUrls } from "./run-orchestrator.js";
+import { extractResultUrls, resolveRunClosureAction } from "./run-orchestrator.js";
 
 describe("extractResultUrls", () => {
   it("returns empty array for undefined input", () => {
@@ -104,5 +104,41 @@ describe("in-run URL dedup Map guard", () => {
 
     assert.equal(recorded.size, 3);
     assert.deepEqual([...recorded], ["https://a.com", "https://b.com", "https://c.com"]);
+  });
+});
+
+// R13 — Stop-button race fix: a concurrent /stop request can move the row to
+// `cancelling` while this stream loop is still finishing up. The state
+// machine only allows cancelling -> cancelled, so the closing write must
+// prefer `cancelled` over completed/failed whenever that race happened.
+describe("resolveRunClosureAction", () => {
+  it("closes to cancelled when the live row is already cancelling, regardless of stream outcome", () => {
+    assert.deepEqual(resolveRunClosureAction("cancelling", true, false, false), {
+      type: "cancelled",
+    });
+    assert.deepEqual(resolveRunClosureAction("cancelling", false, false, true), {
+      type: "cancelled",
+    });
+  });
+
+  it("closes to completed on a normal successful stream end", () => {
+    assert.deepEqual(resolveRunClosureAction("running", true, false, false), {
+      type: "completed",
+    });
+  });
+
+  it("closes to failed with the right error code otherwise", () => {
+    assert.deepEqual(resolveRunClosureAction("running", true, true, false), {
+      type: "failed",
+      errorCode: "budget_exceeded",
+    });
+    assert.deepEqual(resolveRunClosureAction("running", false, false, true), {
+      type: "failed",
+      errorCode: "client_aborted",
+    });
+    assert.deepEqual(resolveRunClosureAction("running", false, false, false), {
+      type: "failed",
+      errorCode: "stream_error",
+    });
   });
 });

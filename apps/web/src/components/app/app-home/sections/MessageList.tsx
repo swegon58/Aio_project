@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import {
   Check,
   CheckCircle2,
@@ -9,26 +9,32 @@ import {
   Copy,
   Download,
   FileCode,
+  FileText,
   HelpCircle,
-  Link2,
   Loader2,
-  Printer,
+  PencilLine,
+  Search,
 } from "lucide-react";
 import { Mascot, MascotStatusBadge } from "@/components/app/Mascot";
 import { MarkdownMessage } from "@/components/app/MarkdownMessage";
 import TextType from "@/components/app/TextType";
 import { TASK_TEMPLATES } from "@/components/app/TemplateGallery";
-import { ResearchProgressCard } from "@/components/app/ResearchProgressCard";
+import { ResearchProgressCard } from "@/components/app/run-timeline/ResearchProgressCard";
+import { ResearchPlanCard } from "@/components/app/run-timeline/ResearchPlanCard";
 import { GeneratedImageCard, ImageGenerationProgress } from "@/components/app/GeneratedImageCard";
 import { OnboardingOverlay } from "@/components/app/OnboardingOverlay";
 import { ShowcaseErrorDetail } from "@/components/app/FilePreview";
 import { CurrentRunCard } from "@/components/app/app-home/sections/CurrentRunCard";
 import { TodayCard } from "@/components/app/app-home/sections/TodayCard";
-import { parsePlanQuestion, splitMessageSegments } from "@/components/app/app-home-utils";
+import {
+  latestResearchStageEvent,
+  parsePlanQuestion,
+  reportSummary,
+  splitMessageSegments,
+} from "@/components/app/app-home-utils";
 import type { TodayAction, TodayCard as TodayCardData } from "@/components/app/app-home-types";
 import type { AgentDisplayState } from "@/components/app/run-timeline";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
-import type { AioPublicResearchSource } from "@/lib/aio/runs/run-client";
 import type { AioRunEvent, AioRunStatus } from "@/lib/aio/runs/aio-run-events";
 import type {
   HermesActivityData,
@@ -37,6 +43,42 @@ import type {
   MascotImageState,
 } from "@/lib/hermes/chat-types";
 import { useChatRuntime, useWorkspace, useAccountData } from "@/components/app/app-home/context";
+
+// R13.3 item 1/2: shared "Deep research" card shell (kicker + question title
+// + optional Stop & edit) — reused for the live per-search progress card and
+// the finished-report result card, so both keep the same question-specific
+// header instead of duplicating it per call site.
+function ResearchCardShell({
+  query,
+  onStopAndEdit,
+  children,
+}: {
+  query: string;
+  onStopAndEdit?: () => void;
+  children?: ReactNode;
+}) {
+  const displayQuery = query.trim() || "Deep research";
+  return (
+    <section className="research-progress-card" aria-label="Deep research">
+      <div className="research-progress-head">
+        <div className="research-progress-heading">
+          <span className="research-progress-kicker">
+            <Search className="w-3.5 h-3.5" />
+            Deep research
+          </span>
+          <h3 title={displayQuery}>{displayQuery}</h3>
+        </div>
+        {onStopAndEdit && (
+          <button type="button" className="research-edit-btn" onClick={onStopAndEdit}>
+            <PencilLine className="w-3.5 h-3.5" />
+            Stop &amp; edit
+          </button>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 interface MessageListProps {
   chatAreaRef: RefObject<HTMLDivElement | null>;
@@ -73,13 +115,7 @@ interface MessageListProps {
   openShowcasePanel: (showcase: HermesShowcaseData) => void;
   copiedMessageId: string | null;
   handleCopyMessage: (id: string, text: string) => void;
-  handleDownloadReportMarkdown: (query: string, reportText: string) => void;
-  handleExportReportPdf: (query: string, reportText: string) => void;
-  handleToggleSources: (runId: string) => void;
-  openSourcesRunId: string | null;
-  sourcesByRunId: Record<string, AioPublicResearchSource[]>;
-  sourcesLoadingRunId: string | null;
-  sourcesErrorRunId: string | null;
+  openReportPanel: (query: string, reportText: string, runId: string | null) => void;
   showScrollToBottom: boolean;
   messagesEndRef: RefObject<HTMLDivElement | null>;
 }
@@ -119,13 +155,7 @@ export function MessageList({
   openShowcasePanel,
   copiedMessageId,
   handleCopyMessage,
-  handleDownloadReportMarkdown,
-  handleExportReportPdf,
-  handleToggleSources,
-  openSourcesRunId,
-  sourcesByRunId,
-  sourcesLoadingRunId,
-  sourcesErrorRunId,
+  openReportPanel,
   showScrollToBottom,
   messagesEndRef,
 }: MessageListProps) {
@@ -136,6 +166,7 @@ export function MessageList({
     handleGeneratedImageEdit,
     handleGeneratedImageVariation,
     cancelImageGeneration,
+    setLightboxImage,
   } = useWorkspace();
   const { onboardedAt, setOnboardedAt } = useAccountData();
 
@@ -221,6 +252,12 @@ export function MessageList({
             const textParts = message.parts.filter(
               (part) => part.type === "text" && part.text.length > 0,
             );
+            const fileParts = message.role === "user"
+              ? message.parts.filter(
+                  (part): part is Extract<HermesUIMessage["parts"][number], { type: "file" }> =>
+                    part.type === "file" && part.mediaType.startsWith("image/"),
+                )
+              : [];
             if (message.role === "assistant" && textParts.length === 0) return null;
             const isLatestAssistant =
               message.role === "assistant" && message.id === lastAssistantMessage?.id;
@@ -275,19 +312,26 @@ export function MessageList({
                       messageImages.length ? " generated-image-message" : ""
                     }`}
                   >
-                    {isResearchMessage && (
-                      <ResearchProgressCard
+                    {isResearchMessage && (isActiveAssistant || fullText.length === 0) && (
+                      <ResearchCardShell
                         query={researchQuery}
-                        events={isLatestAssistant ? timelineEvents : []}
-                        summary={message.metadata?.research}
-                        isRunning={isActiveAssistant}
-                        hasReportText={fullText.length > 0}
                         onStopAndEdit={
                           isActiveAssistant
                             ? () => handleResearchStopAndEdit(researchQuery)
                             : undefined
                         }
-                      />
+                      >
+                        {(() => {
+                          const stageEvent = latestResearchStageEvent(isLatestAssistant ? timelineEvents : []);
+                          if (!stageEvent) return null;
+                          return (
+                            <>
+                              {stageEvent.plan && <ResearchPlanCard plan={stageEvent.plan} bare />}
+                              <ResearchProgressCard event={stageEvent} bare />
+                            </>
+                          );
+                        })()}
+                      </ResearchCardShell>
                     )}
                     {isActiveAssistant && !isResearchMessage && <MascotStatusBadge state={mascotState} />}
                     {message.role === "assistant" ? (
@@ -295,6 +339,18 @@ export function MessageList({
                         <p className="plan-question-recap">
                           <HelpCircle className="w-3.5 h-3.5" /> {messageQuestion.question}
                         </p>
+                      ) : isResearchMessage && fullText.length > 0 && !isActiveAssistant ? (
+                        <ResearchCardShell query={researchQuery}>
+                          <MarkdownMessage text={reportSummary(fullText)} />
+                          <button
+                            type="button"
+                            className="code-chip"
+                            onClick={() => openReportPanel(researchQuery, fullText, researchRunId)}
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            Open report
+                          </button>
+                        </ResearchCardShell>
                       ) : (
                         splitMessageSegments(fullText).map((seg, i) =>
                           seg.type === "code" ? (
@@ -318,6 +374,31 @@ export function MessageList({
                           {part.type === "text" ? part.text : null}
                         </span>
                       ))
+                    )}
+                    {fileParts.length > 0 && (
+                      <div className="message-attachments">
+                        {fileParts.map((part, i) => (
+                          <button
+                            type="button"
+                            key={`${message.id}-attachment-${i}`}
+                            className="message-attachment-thumb"
+                            onClick={() =>
+                              setLightboxImage({
+                                id: `${message.id}-attachment-${i}`,
+                                sessionId: null,
+                                caption: part.filename ?? null,
+                                createdAt: "",
+                                url: part.url,
+                                bare: true,
+                              })
+                            }
+                            aria-label={`View ${part.filename ?? "attached image"}`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={part.url} alt="" />
+                          </button>
+                        ))}
+                      </div>
                     )}
                     {messageImages.map((image) => (
                       <GeneratedImageCard
@@ -391,61 +472,6 @@ export function MessageList({
                           <Copy className="w-3.5 h-3.5" />
                         )}
                       </button>
-                      {isResearchMessage && fullText.length > 0 && (
-                        <>
-                          <button
-                            type="button"
-                            className="copy-btn"
-                            onClick={() => handleDownloadReportMarkdown(researchQuery, fullText)}
-                            aria-label="Download report as Markdown"
-                            title="Download report as Markdown"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            className="copy-btn"
-                            onClick={() => handleExportReportPdf(researchQuery, fullText)}
-                            aria-label="Export report as PDF"
-                            title="Export report as PDF"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                          </button>
-                          {researchRunId && (
-                            <button
-                              type="button"
-                              className="copy-btn"
-                              onClick={() => handleToggleSources(researchRunId)}
-                              aria-label="Show sources"
-                              title="Show sources"
-                            >
-                              <Link2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                  {isResearchMessage && researchRunId && openSourcesRunId === researchRunId && (
-                    <div className="research-sources-panel">
-                      {sourcesLoadingRunId === researchRunId ? (
-                        <p className="research-sources-status">Loading sources…</p>
-                      ) : sourcesErrorRunId === researchRunId ? (
-                        <p className="research-sources-status">Couldn&apos;t load sources.</p>
-                      ) : (sourcesByRunId[researchRunId]?.length ?? 0) === 0 ? (
-                        <p className="research-sources-status">No sources recorded for this run.</p>
-                      ) : (
-                        <ul className="research-sources-list">
-                          {sourcesByRunId[researchRunId]!.map((source) => (
-                            <li key={source.id} className="research-source-item">
-                              <a href={source.url} target="_blank" rel="noopener noreferrer">
-                                {source.title || source.url}
-                              </a>
-                              <span className="research-source-type">{source.sourceType}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
                     </div>
                   )}
                 </div>
@@ -471,13 +497,21 @@ export function MessageList({
               <div className="message-content">
                 <div className={`message-bubble${lastRunMode === "research" ? " research-message-bubble" : ""}`}>
                   {lastRunMode === "research" ? (
-                    <ResearchProgressCard
+                    <ResearchCardShell
                       query={activeResearchQuery}
-                      events={timelineEvents}
-                      isRunning
-                      hasReportText={false}
                       onStopAndEdit={() => handleResearchStopAndEdit(activeResearchQuery)}
-                    />
+                    >
+                      {(() => {
+                        const stageEvent = latestResearchStageEvent(timelineEvents);
+                        if (!stageEvent) return null;
+                        return (
+                          <>
+                            {stageEvent.plan && <ResearchPlanCard plan={stageEvent.plan} bare />}
+                            <ResearchProgressCard event={stageEvent} bare />
+                          </>
+                        );
+                      })()}
+                    </ResearchCardShell>
                   ) : (
                     <MascotStatusBadge state={mascotState} />
                   )}

@@ -57,6 +57,39 @@ ff-merged into local `main` (2026-07-07). Two tracks shipped independently:
       Commit: `d464723`. Vietnamese explainers R8–R12 + `OWNER_PENDING_OPENWEBUI.md`
       in `c2408a4`.
 
+## R12.4 — Vision: render attachments back in transcript [x]
+
+- [x] Gap: user-uploaded images sent fine (composer attach/drag/paste, R11
+      vision) but vanished from the chat transcript after send — `MessageList`
+      only rendered `text` parts, dropping `file` parts.
+      Fix: `MessageList.tsx` renders `file` parts as clickable thumbnails
+      (`.message-attachment-thumb`, new CSS in `04-input-area.css`), reusing
+      the existing gallery lightbox (`setLightboxImage`, `bare: true`) instead
+      of building a new modal. No local reference repo found for open-webui
+      (Docker image only, no source clone) — implemented from existing Aio
+      patterns.
+      Evidence: `tsc --noEmit` clean; extended
+      `e2e/r11-settings-and-vision.spec.ts` test #6 (attach → send → thumbnail
+      renders → click opens lightbox), live Playwright run 9/9 relevant tests
+      pass (3 pre-existing unrelated mobile Settings-tab failures, not
+      touched by this change).
+      **agent-pipeline critique round (2026-07-08):** kimo + qa-reviewer ran
+      in parallel, scoped to the diff. qa-reviewer: no regressions; 2 cheap
+      one-liners applied (`fileParts` gated to `message.role === "user"` +
+      `mediaType.startsWith("image/")` guard in `MessageList.tsx`). kimo: 1
+      Critical — 96px thumbnails didn't fit 2-per-row in a 70%-width mobile
+      user bubble (measured ~195px available at 375px), collapsing a 4-image
+      grid into a tall single column; fixed in `08-responsive.css` (72px
+      thumbs under the existing 768px breakpoint), Playwright-verified 2x2
+      grid restored. 4 Minor findings logged, not fixed (out of this fix's
+      scope): no hover/focus affordance on sent thumbnails, filename shown in
+      composer chip but dropped after send, no `onError` fallback for broken
+      image URLs (pre-existing pattern across `MessageList`/
+      `GeneratedImageCard`), lightbox `bare` mode has no close button/Escape
+      handler (pre-existing shared component). Re-verified after fixes:
+      `tsc --noEmit` clean, live Playwright re-run 9/9 pass (same 3
+      pre-existing unrelated mobile Settings-tab failures).
+
 ## Deferred / blocked [ ]
 
 - [ ] **T1.3 knowledge-as-tool** — surface the internal knowledge endpoints as

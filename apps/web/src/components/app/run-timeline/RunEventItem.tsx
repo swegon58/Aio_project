@@ -4,6 +4,7 @@ import { ApprovalCard, type ApprovalResolveHandler } from "./ApprovalCard";
 import { ArtifactCard } from "./ArtifactCard";
 import { ToolCallCard } from "./ToolCallCard";
 import { ResearchProgressCard } from "./ResearchProgressCard";
+import { ResearchPlanCard } from "./ResearchPlanCard";
 
 type Props = {
   event: AioRunEvent;
@@ -21,7 +22,12 @@ export function RunEventItem({ event, onResolve }: Props) {
     return <ArtifactCard event={event} />;
   }
   if (event.type === "research.stage") {
-    return <ResearchProgressCard event={event} />;
+    return (
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--surface-elevated)] px-3 py-3">
+        {event.plan && <ResearchPlanCard plan={event.plan} bare />}
+        <ResearchProgressCard event={event} bare />
+      </div>
+    );
   }
 
   const { icon, label, summary } = genericEventMeta(event);

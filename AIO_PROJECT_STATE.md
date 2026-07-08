@@ -39,6 +39,34 @@ deliberately deferred.
 - **UI polish** (`d464723`): sidebar/composer CSS, mobile LAN config fix.
 - **Deferred:** T1.3 knowledge-as-tool wiring + Tier-3 UX (blocked/rate-limited).
 
+**R13 (invite-alpha hardening) — in progress:** 6-agent audit (2026-07-08)
+scored 6.1/10 against invite-only-alpha bar; plan in
+`docs/roadmap/R13_EXECUTION_CHECKLIST.md`. Same day: knowledge-route schema
+fix done, real approval path now calls `resolveApproval()`, run
+watchdog/lease/sweep + Stop-race fix coded (migration `0033_aio_runs_lease.sql`
+written, **not applied** — owner-gated), all `tsc --noEmit` clean. **Gate A
+closed:** per-customer Hermes provisioning already built/live
+(`provision.ts`, `hermes_registry`) — old "shared memory profile" finding was
+the local-dev auth-bypass path, not prod. Real remaining gaps: unset
+`OPENROUTER_PROVISIONING_KEY` (shared-key spend-cap bypass), unconfigured
+per-profile Honcho, shared Daytona key, prod catalog coupled to dev profile —
+itemized in R13.0. Open: apply `0033` + live-verify watchdog, Gate B
+(Connected Apps fate). Same day, owner flagged Deep Research UX as
+sub-standard (vs. ChatGPT/Gemini plan-card + live-progress + result-surface
+pattern) — audited (fork), 4 gaps confirmed real, remediation plan written
+as R13.3 in the checklist; 2 of 4 are cheap (existing correct data is just
+unwired to the wrong UI component), 2 are real feature work (question-specific
+plan generation, depth guardrail). **Now built** (2026-07-08, all 4 items):
+items 1-2 (progress-card swap, report→Workspace panel) shipped and
+reality-checked READY/HIGH; items 3-4 (plan-card + depth guardrail)
+backend+frontend done, `tsc`/unit/Playwright green, kimo's 3 plan-card UI
+findings fixed same day. Open, owner-side: confirm `OPENROUTER_API_KEY`
+resolves in the live `aio` profile (401 blocked live smoke test — plan card
+silently never appears if the key is actually dead), depth-guardrail is
+`console.warn`-only (no real quality eval done), confirm-gate vs. auto-start
+UX left as auto-start default (revisit if a closer Gemini-match wanted).
+Detail: `docs/roadmap/R13_EXECUTION_CHECKLIST.md` R13.3.
+
 ## Open Decision Gates (owner)
 
 1. **Internal knowledge endpoints → Hermes wiring** — code complete; owner
@@ -46,6 +74,9 @@ deliberately deferred.
 2. **Push local `main` → `origin/main`** — owner controls deploy/CI timing.
 3. 🚨 **Stuck run `66a29fab-ce6f-40e1-8914-c2fc73528361`** — `running` since
    2026-07-03; live state, needs owner go-ahead before anyone touches it.
+4. ~~R13 Gate A~~ — ✅ closed 2026-07-08 (see above).
+5. **R13 Gate B — Connected Apps / Model Providers fate** — hide from
+   non-owner accounts now vs. invest in a real OAuth-style redesign.
 
 > ✅ Closed 2026-07-07: migrations `0031`/`0032` applied to cloud (was gate 1).
 

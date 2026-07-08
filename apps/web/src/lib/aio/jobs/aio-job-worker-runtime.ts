@@ -15,6 +15,7 @@ import {
   enqueueDueSchedules,
   executeScheduledTaskJob,
 } from "@/lib/aio/schedules/schedule-runtime";
+import { sweepExpiredRunLeases } from "@/lib/aio/runs/run-repository";
 
 type WorkerDb = Parameters<typeof claimNextJob>[0];
 
@@ -46,6 +47,7 @@ export interface AioJobWorkerRuntimeDeps {
   retryJob: typeof retryJob;
   enqueueDueSchedules: typeof enqueueDueSchedules;
   executeScheduledTaskJob: typeof executeScheduledTaskJob;
+  sweepExpiredRunLeases: typeof sweepExpiredRunLeases;
 }
 
 function errorSummary(error: unknown): string {
@@ -196,6 +198,22 @@ export function createAioJobWorkerRuntime(
         `[aio-job-worker] requeued ${requeued.data} stale leased job(s)`,
       );
     }
+
+    // R13: reuse this same loop to sweep stuck aio_runs (no separate cron —
+    // see docs/roadmap/R13_EXECUTION_CHECKLIST.md).
+    const sweptRuns = await deps.sweepExpiredRunLeases(deps.db);
+    if (!sweptRuns.ok) {
+      if (isQueueBackendUnavailable(sweptRuns.message)) {
+        throw new Error(sweptRuns.message);
+      }
+      deps.logger.error(
+        `[aio-job-worker] sweepExpiredRunLeases failed: ${sweptRuns.message}`,
+      );
+    } else if (sweptRuns.data > 0) {
+      deps.logger.warn(
+        `[aio-job-worker] closed ${sweptRuns.data} stale-leased run(s)`,
+      );
+    }
   }
 
   async function loop(shouldStop: () => boolean) {
@@ -271,6 +289,7 @@ export const DEFAULT_AIO_JOB_WORKER_RUNTIME_DEPS = {
   retryJob,
   enqueueDueSchedules,
   executeScheduledTaskJob,
+  sweepExpiredRunLeases,
   sleep: defaultSleep,
   setIntervalFn: setInterval,
   clearIntervalFn: clearInterval,

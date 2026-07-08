@@ -603,6 +603,29 @@
   border-color: var(--accent-primary);
 }
 
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.message-attachment-thumb {
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: zoom-in;
+  line-height: 0;
+}
+
+.message-attachment-thumb img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  display: block;
+}
+
 .showcase-chip {
   display: inline-flex;
   align-items: center;
@@ -860,17 +883,6 @@
     width: 32px;
     padding: 0;
     font-size: 0;
-  }
-
-  .research-progress-footer > div {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .research-search-count {
-    padding-left: 0;
-    border-left: none;
   }
 }
 

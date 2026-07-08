@@ -14,7 +14,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AioRunStatus } from "./aio-run-events";
-import { requestCancel, transition } from "./run-state-machine";
+import { isTerminal, requestCancel, transition } from "./run-state-machine";
 
 /** Canonical run types stored in aio_runs.mode (chat / deep_research / image). */
 export type AioRunMode = string;
@@ -39,6 +39,10 @@ export interface AioRunRow {
   completed_at: string | null;
   cancel_requested_at: string | null;
   metadata: Record<string, unknown>;
+  lease_owner: string | null;
+  lease_token: string | null;
+  lease_expires_at: string | null;
+  last_heartbeat_at: string | null;
 }
 
 // ---- shared repository error/result contract (re-used by run-event-repository) ----
@@ -54,6 +58,8 @@ export const REPO_ERROR_CODE = {
   SEQUENCE_RACE: "SEQUENCE_RACE",
   /** The pagination cursor could not be decoded. */
   BAD_CURSOR: "BAD_CURSOR",
+  /** Lease token mismatch, or the run left the leased status before the write. */
+  LEASE_CONFLICT: "LEASE_CONFLICT",
   /** An unexpected Supabase/Postgres error. */
   DB_ERROR: "DB_ERROR",
 } as const;
@@ -292,7 +298,16 @@ export async function transitionRun(
     updated_at: now,
   };
   if (to === "running") update.started_at = now;
-  if (to === "completed" || to === "failed") update.completed_at = now;
+  if (isTerminal(to)) {
+    update.completed_at = now;
+    // Lease/heartbeat mechanism (R13): a run only holds a lease while
+    // `running`/`cancelling` (see startRunLease/heartbeatRunLease below).
+    // Any terminal write is the definitive end of that lease.
+    update.lease_owner = null;
+    update.lease_token = null;
+    update.lease_expires_at = null;
+    update.last_heartbeat_at = null;
+  }
   if (patch?.actualCredits !== undefined)
     update.actual_credits = patch.actualCredits;
   if (patch?.errorCode !== undefined) update.error_code = patch.errorCode;
@@ -402,4 +417,100 @@ export async function requestRunCancellation(
     return { ok: true, data: { run: again.data, noop: retry.noop } };
   }
   return { ok: true, data: { run: data[0] as AioRunRow, noop: false } };
+}
+
+// ---- lease / heartbeat / sweep (R13) ----
+//
+// Mirrors the aio_jobs lease pattern (job-repository.ts + 0017_aio_jobs.sql):
+// the orchestrator holds a lease for as long as it is actively driving a run
+// (`running`, and `cancelling` while waiting on Hermes's stop confirmation)
+// and renews it on a heartbeat. If the process dies mid-run the lease goes
+// stale and `aio_sweep_expired_run_leases` (0033_aio_runs_lease.sql) closes
+// the row to the terminal state that status already allows — it is never
+// requeued/retried the way a job is, since a run is a single live process,
+// not a repeatable unit of work.
+
+/** Start (or restart) a run's lease when the orchestrator begins actively
+ * driving it. Returns the row including the new `lease_token`, which the
+ * caller must keep for heartbeatRunLease. */
+export async function startRunLease(
+  db: SupabaseClient,
+  runId: string,
+  customerId: string,
+  workerId: string,
+  leaseSeconds = 90,
+): Promise<RepoResult<AioRunRow>> {
+  const now = new Date().toISOString();
+  const expiresAt = new Date(
+    Date.now() + Math.max(15, Math.trunc(leaseSeconds)) * 1000,
+  ).toISOString();
+  const { data, error } = await db
+    .from("aio_runs")
+    .update({
+      lease_owner: workerId,
+      lease_token: crypto.randomUUID(),
+      lease_expires_at: expiresAt,
+      last_heartbeat_at: now,
+      updated_at: now,
+    })
+    .eq("id", runId)
+    .eq("customer_id", customerId)
+    .select("*")
+    .maybeSingle();
+  if (error) return dbError("Failed to start run lease", error.message);
+  if (!data) {
+    return {
+      ok: false,
+      code: REPO_ERROR_CODE.RUN_NOT_FOUND,
+      message: `Run ${runId} not found for this tenant.`,
+    };
+  }
+  return { ok: true, data: data as AioRunRow };
+}
+
+/** Renew a run's lease. Fails with LEASE_CONFLICT if the token no longer
+ * matches or the run already left the leased statuses (e.g. it closed). */
+export async function heartbeatRunLease(
+  db: SupabaseClient,
+  runId: string,
+  customerId: string,
+  leaseToken: string,
+  leaseSeconds = 90,
+): Promise<RepoResult<AioRunRow>> {
+  const now = new Date().toISOString();
+  const expiresAt = new Date(
+    Date.now() + Math.max(15, Math.trunc(leaseSeconds)) * 1000,
+  ).toISOString();
+  const { data, error } = await db
+    .from("aio_runs")
+    .update({
+      lease_expires_at: expiresAt,
+      last_heartbeat_at: now,
+      updated_at: now,
+    })
+    .eq("id", runId)
+    .eq("customer_id", customerId)
+    .eq("lease_token", leaseToken)
+    .in("status", ["running", "cancelling"])
+    .select("*")
+    .maybeSingle();
+  if (error) return dbError("Failed to heartbeat run lease", error.message);
+  if (!data) {
+    return {
+      ok: false,
+      code: REPO_ERROR_CODE.LEASE_CONFLICT,
+      message: `Lease heartbeat lost for run ${runId}.`,
+    };
+  }
+  return { ok: true, data: data as AioRunRow };
+}
+
+/** Close every run whose lease has expired to its allowed terminal state
+ * (running -> failed, cancelling -> cancelled). Returns the count closed. */
+export async function sweepExpiredRunLeases(
+  db: SupabaseClient,
+): Promise<RepoResult<number>> {
+  const { data, error } = await db.rpc("aio_sweep_expired_run_leases");
+  if (error) return dbError("Failed to sweep expired run leases", error.message);
+  return { ok: true, data: Number(data ?? 0) };
 }

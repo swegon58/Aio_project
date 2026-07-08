@@ -84,6 +84,14 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   // chip works without re-searching the live `showcases` array.
   const [openShowcase, setOpenShowcase] = useState<HermesShowcaseData | null>(null);
   const [mobileShowcaseOpen, setMobileShowcaseOpen] = useState(false);
+  // R13.3 item 2: finished research report routed to the Workspace preview
+  // tab instead of rendering inline in the chat bubble.
+  const [openReport, setOpenReport] = useState<{
+    query: string;
+    reportText: string;
+    runId: string | null;
+  } | null>(null);
+  const [mobileReportOpen, setMobileReportOpen] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<
     Extract<HermesApprovalData, { kind: "request" }> | null
   >(null);
@@ -157,6 +165,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     metaLog,
     logMeta,
     terminalOpen,
+    setTerminalOpen,
     terminalScale,
     setTerminalScale,
     terminalTab,
@@ -498,6 +507,10 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     setActivity,
     resetRunTimeline: () => resetRunTimelineRef.current(),
     setShowcases,
+    setOpenShowcase,
+    setMobileShowcaseOpen,
+    setOpenReport,
+    setMobileReportOpen,
     setPendingApproval,
     setPlanAwaitingAction,
     setChatMode,
@@ -846,6 +859,20 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     else setRightPanelCollapsed(false);
   };
 
+  // R13.3 item 2: mirrors openShowcasePanel, but opens the Workspace
+  // terminal's "preview" tab (instead of the default panel view) since the
+  // report reuses that tab's container.
+  const openReportPanel = (query: string, reportText: string, runId: string | null) => {
+    setOpenReport({ query, reportText, runId });
+    if (isMobileViewport) {
+      setMobileReportOpen(true);
+      return;
+    }
+    setTerminalOpen(true);
+    setTerminalTab("preview");
+    setRightPanelCollapsed(false);
+  };
+
   const mobileWorkspaceEntry = isMobileViewport
     ? workspaceEntries.find((entry) => entry.id === expandedWorkspaceId) ?? null
     : null;
@@ -1192,13 +1219,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
             openShowcasePanel={openShowcasePanel}
             copiedMessageId={copiedMessageId}
             handleCopyMessage={handleCopyMessage}
-            handleDownloadReportMarkdown={handleDownloadReportMarkdown}
-            handleExportReportPdf={handleExportReportPdf}
-            handleToggleSources={handleToggleSources}
-            openSourcesRunId={openSourcesRunId}
-            sourcesByRunId={sourcesByRunId}
-            sourcesLoadingRunId={sourcesLoadingRunId}
-            sourcesErrorRunId={sourcesErrorRunId}
+            openReportPanel={openReportPanel}
             showScrollToBottom={showScrollToBottom}
             messagesEndRef={messagesEndRef}
           />
@@ -1275,6 +1296,16 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
           workspaceModalRef={workspaceModalRef}
           mobileShowcaseOpen={mobileShowcaseOpen}
           setMobileShowcaseOpen={setMobileShowcaseOpen}
+          openReport={openReport}
+          handleDownloadReportMarkdown={handleDownloadReportMarkdown}
+          handleExportReportPdf={handleExportReportPdf}
+          handleToggleSources={handleToggleSources}
+          openSourcesRunId={openSourcesRunId}
+          sourcesByRunId={sourcesByRunId}
+          sourcesLoadingRunId={sourcesLoadingRunId}
+          sourcesErrorRunId={sourcesErrorRunId}
+          mobileReportOpen={mobileReportOpen}
+          setMobileReportOpen={setMobileReportOpen}
         />
       </div>
 

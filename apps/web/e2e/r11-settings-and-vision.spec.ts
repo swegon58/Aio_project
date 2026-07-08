@@ -180,6 +180,12 @@ test("#6 Vision: attaching an image via the composer file input shows a thumbnai
   }).toBe(true);
 
   await expect(page.locator(".composer-attachments-row")).toHaveCount(0);
+
+  // The sent image renders back in the transcript as a clickable thumbnail,
+  // and clicking it opens the lightbox (previously the image just vanished).
+  await expect(page.locator(".message.user .message-attachment-thumb")).toHaveCount(1);
+  await page.locator(".message.user .message-attachment-thumb").click();
+  await expect(page.locator(".lightbox-bare-img")).toBeVisible();
 });
 
 test("#6 Vision: composer enforces the 8MB per-file guardrail", async ({ page }) => {

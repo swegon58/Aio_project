@@ -11,20 +11,24 @@ import {
   FileCode,
   Folder,
   ImageIcon,
+  Link2,
   ListTree,
   Maximize2,
   Minimize2,
+  Printer,
   TerminalSquare,
   X,
 } from "lucide-react";
 import { brand } from "@/lib/brand.config";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { PreviewPane, ShowcaseErrorDetail, type ActiveFile } from "@/components/app/FilePreview";
+import { MarkdownMessage } from "@/components/app/MarkdownMessage";
 import { RunTimeline, type AgentDisplayState } from "@/components/app/run-timeline";
 import { codeBlockFileName, codeBlockSize, highlightCode } from "@/components/app/app-home-utils";
 import type { FilesSubTab, TodayAction, TodayCard as TodayCardData, WorkspaceEntry } from "@/components/app/app-home-types";
 import type { HermesShowcaseData, HermesUIMessage } from "@/lib/hermes/chat-types";
 import type { AioRunEvent, AioRunStatus } from "@/lib/aio/runs/aio-run-events";
+import type { AioPublicResearchSource } from "@/lib/aio/runs/run-client";
 import { useWorkspace } from "@/components/app/app-home/context";
 import { CurrentRunCard } from "@/components/app/app-home/sections/CurrentRunCard";
 import { TodayCard } from "@/components/app/app-home/sections/TodayCard";
@@ -72,6 +76,18 @@ interface RightPanelProps {
   workspaceModalRef: RefObject<HTMLDivElement | null>;
   mobileShowcaseOpen: boolean;
   setMobileShowcaseOpen: Dispatch<SetStateAction<boolean>>;
+  // R13.3 item 2: finished research report, routed to this panel's preview
+  // tab (desktop) / a dedicated mobile modal instead of the chat bubble.
+  openReport: { query: string; reportText: string; runId: string | null } | null;
+  handleDownloadReportMarkdown: (query: string, reportText: string) => void;
+  handleExportReportPdf: (query: string, reportText: string) => void;
+  handleToggleSources: (runId: string) => void;
+  openSourcesRunId: string | null;
+  sourcesByRunId: Record<string, AioPublicResearchSource[]>;
+  sourcesLoadingRunId: string | null;
+  sourcesErrorRunId: string | null;
+  mobileReportOpen: boolean;
+  setMobileReportOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 export function RightPanel({
@@ -117,6 +133,16 @@ export function RightPanel({
   workspaceModalRef,
   mobileShowcaseOpen,
   setMobileShowcaseOpen,
+  openReport,
+  handleDownloadReportMarkdown,
+  handleExportReportPdf,
+  handleToggleSources,
+  openSourcesRunId,
+  sourcesByRunId,
+  sourcesLoadingRunId,
+  sourcesErrorRunId,
+  mobileReportOpen,
+  setMobileReportOpen,
 }: RightPanelProps) {
   const {
     filesSubTab,
@@ -140,6 +166,69 @@ export function RightPanel({
     loadFileTree,
     handleGalleryFileSelected,
   } = useWorkspace();
+
+  // R13.3 item 2: title + export/sources controls + full markdown report,
+  // reused verbatim in the desktop preview tab and the mobile report modal.
+  const renderReportBody = (report: { query: string; reportText: string; runId: string | null }) => (
+    <>
+      <div className="panel-section-heading">Deep research</div>
+      <div className="panel-section-title">{report.query.trim() || "Deep research"}</div>
+      <div className="message-meta" style={{ marginBottom: 12 }}>
+        <button
+          type="button"
+          className="copy-btn"
+          onClick={() => handleDownloadReportMarkdown(report.query, report.reportText)}
+          aria-label="Download report as Markdown"
+          title="Download report as Markdown"
+        >
+          <Download className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          className="copy-btn"
+          onClick={() => handleExportReportPdf(report.query, report.reportText)}
+          aria-label="Export report as PDF"
+          title="Export report as PDF"
+        >
+          <Printer className="w-3.5 h-3.5" />
+        </button>
+        {report.runId && (
+          <button
+            type="button"
+            className="copy-btn"
+            onClick={() => handleToggleSources(report.runId!)}
+            aria-label="Show sources"
+            title="Show sources"
+          >
+            <Link2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      <MarkdownMessage text={report.reportText} />
+      {report.runId && openSourcesRunId === report.runId && (
+        <div className="research-sources-panel">
+          {sourcesLoadingRunId === report.runId ? (
+            <p className="research-sources-status">Loading sources…</p>
+          ) : sourcesErrorRunId === report.runId ? (
+            <p className="research-sources-status">Couldn&apos;t load sources.</p>
+          ) : (sourcesByRunId[report.runId]?.length ?? 0) === 0 ? (
+            <p className="research-sources-status">No sources recorded for this run.</p>
+          ) : (
+            <ul className="research-sources-list">
+              {sourcesByRunId[report.runId]!.map((source) => (
+                <li key={source.id} className="research-source-item">
+                  <a href={source.url} target="_blank" rel="noopener noreferrer">
+                    {source.title || source.url}
+                  </a>
+                  <span className="research-source-type">{source.sourceType}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </>
+  );
 
   return (
     <>
@@ -562,7 +651,9 @@ export function RightPanel({
               </div>
             ) : (
               <div className="aio-terminal-body">
-                {activeFile ? (
+                {openReport ? (
+                  renderReportBody(openReport)
+                ) : activeFile ? (
                   <PreviewPane file={activeFile} />
                 ) : latestCodeBlock && ["html", "htm"].includes(latestCodeBlock.lang.toLowerCase()) ? (
                   <iframe
@@ -685,6 +776,34 @@ export function RightPanel({
                 </a>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {mobileReportOpen && openReport && (
+        <div
+          className="workspace-mobile-modal-overlay"
+          onClick={() => setMobileReportOpen(false)}
+        >
+          <div
+            className="workspace-mobile-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Deep research report"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="workspace-mobile-modal-header">
+              <span>Deep research report</span>
+              <button
+                type="button"
+                className="workspace-mobile-modal-close"
+                onClick={() => setMobileReportOpen(false)}
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="workspace-entry-body">{renderReportBody(openReport)}</div>
           </div>
         </div>
       )}

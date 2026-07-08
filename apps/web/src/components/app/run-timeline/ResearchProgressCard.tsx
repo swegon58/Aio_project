@@ -17,13 +17,28 @@ const STAGE_LABELS: Record<ResearchStage, string> = {
   report: "Writing report",
 };
 
-export function ResearchProgressCard({ event }: { event: ResearchStageEvent }) {
+export function ResearchProgressCard({
+  event,
+  bare,
+}: {
+  event: ResearchStageEvent;
+  // R13.3 kimo fix: when nested inside ResearchCardShell (its own bordered
+  // card), skip this component's own border/bg/padding so the two don't
+  // double up. Standalone callers (e.g. RunEventItem in the run timeline)
+  // keep the default bordered look.
+  bare?: boolean;
+}) {
   const { stage, stageIndex, totalStages, sourceCount, claimCount, label, steps } = event;
   const isComplete = stage === "report" && (!steps?.length || steps[steps.length - 1].status === "done");
   const progressPct = Math.round((stageIndex / totalStages) * 100);
 
   return (
-    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--surface-elevated)] px-3 py-3">
+    <div
+      className={cn(
+        "rounded-lg",
+        bare ? "mt-3" : "border border-[var(--border-color)] bg-[var(--surface-elevated)] px-3 py-3",
+      )}
+    >
       {/* Header row */}
       <div className="flex items-center gap-2 mb-2">
         <div className={cn(

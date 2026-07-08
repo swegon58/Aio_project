@@ -109,6 +109,7 @@ function createRuntime(overrides: Record<string, unknown> = {}) {
       missedWindow: 0,
     }),
     executeScheduledTaskJob: async () => {},
+    sweepExpiredRunLeases: async () => ok(0),
     ...overrides,
   } as never);
 }
@@ -164,5 +165,23 @@ test("sweepQueues requeues stale leased jobs with the configured recovery delay"
   assert.match(
     state.warns.join("\n"),
     /requeued 2 stale leased job\(s\)/i,
+  );
+});
+
+test("sweepQueues closes stale leased aio_runs via sweepExpiredRunLeases", async () => {
+  let called = false;
+  const runtime = createRuntime({
+    sweepExpiredRunLeases: async () => {
+      called = true;
+      return ok(3);
+    },
+  });
+
+  await runtime.sweepQueues();
+
+  assert.equal(called, true);
+  assert.match(
+    state.warns.join("\n"),
+    /closed 3 stale-leased run\(s\)/i,
   );
 });

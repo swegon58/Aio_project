@@ -73,6 +73,8 @@ under an unrelated global Hermes profile.
 ## Working Rules
 
 - Use LeanCTX for verbose reads, searches, builds, and tests when available.
+- Apply ponytail (lazy/minimal-diff) discipline to every code change: smallest
+  working fix first, no speculative abstraction.
 - Do not edit generated runtime state under `apps/harness/aio-home`.
 - Never expose or commit secrets.
 - Preserve unrelated user changes.
