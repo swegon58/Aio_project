@@ -1,0 +1,224 @@
+/* ===== LEFT SIDEBAR ===== */
+.sidebar {
+  width: 272px;
+  min-width: 272px;
+  /* ponytail: two-layer design — no solid background, let dot-grid show through */
+  background: transparent;
+  border-right: none;
+  display: flex;
+  flex-direction: column;
+  transition: var(--transition-slow);
+  z-index: 100;
+  position: relative;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-right: none;
+}
+
+/* ===== ICON RAIL =====
+   ponytail: snug floating card, not a full-height column — the rail is
+   absolutely positioned (vertically centered) inside a slot that only
+   reserves horizontal space, so hover-expand doesn't reflow layout and
+   the rail's own height stays content-sized (no full-bleed background). */
+.icon-rail-slot {
+  /* R11.5b: 76px rail + 12px left margin so it isn't edge-flush against the
+     viewport, matching the floating controls' 16px offset. */
+  width: 88px;
+  flex: 0 0 auto;
+  position: relative;
+  background: transparent;
+}
+
+.icon-rail {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  width: 76px;
+  background: var(--bg-primary);
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  /* flex-start (not center): keeps the collapsed 76px window anchored to
+     the icon-rail-main/footer's left edge (where the icons sit) instead of
+     centering the full 216px-wide expanded content and clipping the icons
+     out of view. */
+  align-items: flex-start;
+  padding: 18px 0;
+  overflow: hidden;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  z-index: 110;
+}
+
+.icon-rail-main {
+  width: 216px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* ponytail: Inter font from Google Fonts for cleaner, more legible labels */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.icon-rail-footer {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  width: 216px;
+  min-height: 48px;
+  padding: 0 0 0 22px;
+  flex-shrink: 0;
+}
+
+.icon-rail-footer-avatar {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: var(--accent-on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.icon-rail:hover {
+  width: 348px;
+  background: var(--bg-primary);
+  border-color: color-mix(in srgb, var(--border-color) 72%, transparent);
+  box-shadow: 18px 0 32px rgba(0, 0, 0, 0.22);
+}
+
+.icon-rail-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+  padding: 0 18px 0 25px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  width: 216px;
+  height: 50px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  flex-shrink: 0;
+  position: relative;
+  transition: var(--transition-fast);
+}
+
+.icon-rail-item svg { flex-shrink: 0; }
+
+.icon-rail-badge {
+  position: absolute;
+  top: 6px;
+  left: 34px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent-primary, #6c5ce7);
+  color: var(--accent-on-accent, #fff);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.icon-rail-item { font-size: 14px; font-weight: 500; }
+
+/* ponytail: hover highlight only on text content, not full row */
+.icon-rail-item:hover { background: none; color: var(--text-primary); }
+.icon-rail-item:hover .icon-rail-label-inner { background: color-mix(in srgb, var(--accent-primary) 8%, transparent); padding: 2px 6px; border-radius: var(--radius-sm); }
+.icon-rail-item.active { color: var(--accent-secondary); }
+.icon-rail-item:disabled { opacity: 0.4; cursor: not-allowed; }
+.icon-rail-item:disabled:hover { background: none; color: var(--text-muted); }
+
+/* Desktop icon rail polish */
+@media (min-width: 641px) {
+  .icon-rail-main { gap: 12px; }
+
+  .icon-rail-item.active {
+    border-left: 3px solid var(--accent-primary);
+    background: color-mix(in srgb, var(--accent-primary) 7%, transparent);
+    box-shadow: inset -4px 0 8px rgba(124, 108, 240, 0.06);
+  }
+
+  .icon-rail-item.active svg {
+    filter: brightness(0.9) saturate(0.95);
+  }
+
+  .icon-rail-label {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-6px);
+    transition: opacity 0.14s ease, transform 0.14s ease;
+  }
+
+  /* ponytail: hover-expand labels only on desktop rail */
+  .icon-rail:hover .icon-rail-label,
+  .icon-rail:focus-within .icon-rail-label {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.icon-rail-mobile-toggle { display: none; }
+
+.icon-rail-mobile-sheet { display: none; }
+
+/* Mobile nav polish (max-width: 640px — sidebar is full-height) */
+@media (max-width: 640px) {
+  .icon-rail-main { gap: 4px; }
+
+  .icon-rail-item {
+    padding: 8px 12px;
+    margin: 0;
+    border-radius: var(--radius-sm);
+    width: auto;
+    min-width: auto;
+  }
+
+  .icon-rail-item.active {
+    background: var(--accent-primary);
+    color: white;
+    box-shadow: none;
+    border-left: none;
+  }
+
+  .icon-rail-label {
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+
+  /* Footer becomes compact */
+  .icon-rail-footer {
+    flex-wrap: wrap;
+    gap: 14px 28px;
+    padding: 10px 0 0;
+  }
+
+  .icon-rail-footer-avatar {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    font-size: 11.5px;
+  }
+
+  .icon-rail-footer-info .icon-rail-footer-name { font-size: 13.5px; }
+  .icon-rail-footer-plan { font-size: 11.5px; }
+}
+

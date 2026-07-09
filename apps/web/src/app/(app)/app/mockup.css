@@ -2,10 +2,12 @@
    editing one UI area doesn't require reading the whole stylesheet.
    Order matters — it reproduces the original cascade exactly. */
 @import "./mockup/01-base.css";
-@import "./mockup/02-sidebar-icon-rail.css";
+@import "./mockup/02-sidebar-icon-rail/01-base.css";
+@import "./mockup/02-sidebar-icon-rail/02-compact-variant.css";
 @import "./mockup/03-main-chat.css";
 @import "./mockup/04-input-area.css";
-@import "./mockup/05-right-panel.css";
+@import "./mockup/05-right-panel/01-panel.css";
+@import "./mockup/05-right-panel/02-aio-output.css";
 @import "./mockup/06-gallery-cards.css";
 @import "./mockup/07-templates-modal.css";
 @import "./mockup/08-responsive.css";
