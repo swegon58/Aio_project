@@ -67,20 +67,18 @@ silently never appears if the key is actually dead), depth-guardrail is
 UX left as auto-start default (revisit if a closer Gemini-match wanted).
 Detail: `docs/roadmap/R13_EXECUTION_CHECKLIST.md` R13.3.
 
-**R14 (codebase cleanup) — in progress on `refactor/r14-codebase-cleanup`:**
-behavior-preserving refactor so every file is light to read/edit; backend first.
-Plan in `docs/roadmap/R14_CODEBASE_CLEANUP.md`. Shipped: Phase 1 test-net
-(`313`) · Phase 2 dedup (`94622d5` state-machine + repo-types) · Phase 3
-tool-manifest data/logic split (`94622d5`, real win; schedule/run-orch bulk
-assessed irreducible DB/runtime glue, test-nets added) · Phase 4.1 IconRail
-extraction (`50fe3ff`, kills duplicate `ICON_RAIL_ITEMS` render — the root
-cause of the selector pain) · Phase 5.1 `.next-e2e` isolation (`ff32a9d`,
-retires the "stop aio-app.service before Playwright" rule) · Phase 5.2
-`test:watch` + compose-rename (`cd5ed33`). tsc + 317/317 unit green.
-Remaining is low-value/judgment-dependent: Phase 4 CSS/hook cosmetic,
-Phase 5 bootstrap.sh + dev-orchestration (fork: you run web via systemd —
-want a scripts/dev.sh without it?), .env required/optional split (already
-grouped). Pure refactor — does NOT change product behavior or block R13.
+**R14 (codebase cleanup) — ✅ COMPLETE on `refactor/r14-codebase-cleanup`, self-closing, pending owner merge to `main`.**
+Pure behavior-preserving refactor (10 commits). Shipped: Phase 1 test-net
+(`eef1b70`) · Phase 2 dedup (`94622d5`) · Phase 3 tool-manifest split
+(`9af53ab`, real win; schedule/run-orch bulk assessed irreducible, test-nets
+added `0290081`) · Phase 4 IconRail extract (`50fe3ff`, kills duplicate
+`ICON_RAIL_ITEMS` render — the selector-pain root cause) + mockup CSS split
+at natural seams (`caa08be`) · Phase 5 `.next-e2e` Playwright isolation
+(`ff32a9d`, retires the "stop aio-app.service before e2e" rule) + `test:watch`
++ compose-rename (`cd5ed33`) + `dev.sh`/`bootstrap.sh`/env header (`e8734c1`).
+tsc + 317/317 unit + Playwright verified (4 mobile fails pre-existing).
+Checklist archived to `docs/archive/roadmap/R14_CODEBASE_CLEANUP.md`; index
+line in `docs/archive/CLOSED_PHASES.md`. Merge to `main` = owner gate.
 
 ## Open Decision Gates (owner)
 

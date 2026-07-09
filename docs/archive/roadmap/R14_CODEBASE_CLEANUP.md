@@ -1,7 +1,7 @@
 # R14 — Codebase Cleanup (Light & Clean)
 
-**Status:** in progress 2026-07-08 · **Branch:** `refactor/r14-codebase-cleanup` (off clean `main` post-R13 commit) · **Multi-session**
-**Progress:** Gate 0 ✅ · Phase 1 ✅ (`313` tests) · Phase 2 ✅ (`94622d5`) · Phase 3 ✅ achievable (`94622d5`+`0290081` — tool-manifest split = real win; schedule/run-orch bulk assessed irreducible DB/runtime glue, test-nets added) · Phase 4.1 ✅ (`50fe3ff` — IconRail extracted, fixes original selector pain) · **Phase 5 in progress** (dev-env = explicit owner ask "chuẩn dev env"; pivoted here over Phase 4 remainder which is audit-found cosmetic, lower value)
+**Status:** ✅ COMPLETE 2026-07-09 · **Branch:** `refactor/r14-codebase-cleanup` (10 commits, verified, self-closing — pending owner merge to `main`) · Multi-session
+**Progress:** Gate 0 ✅ · Phase 1 ✅ (`eef1b70`) · Phase 2 ✅ (`94622d5`) · Phase 3 ✅ (`9af53ab`+`0290081`) · Phase 4 ✅ (`50fe3ff` IconRail + `caa08be` CSS splits) · Phase 5 ✅ (`ff32a9d` .next-e2e + `cd5ed33` test:watch/compose + `e8734c1` dev/bootstrap/env) · Phase 6 ✅ verify+close
 
 ## Context
 

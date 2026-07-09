@@ -1,8 +1,9 @@
-# Closed Phases (R0–R9) — compressed index
+# Closed Phases (R0–R9, R14) — compressed index
 
 One-liner per closed phase. This is the **Tầng-3 forensics** entry point — read
-this first; open the archived original only if you need detail. Active phases
-(R10/R11/R12) live in `docs/roadmap/`, not here.
+this first; open the archived original only if you need detail. Active/pending
+phases (R10–R13) live in `docs/roadmap/`, not here; R14 (pure refactor) is
+archived below pending owner merge to `main`.
 
 | Phase | Outcome | Detail |
 |-------|---------|--------|
@@ -16,6 +17,7 @@ this first; open the archived original only if you need detail. Active phases
 | **R7** | Saved Agents (migration 0023). | `roadmap/R7_EXECUTION_CHECKLIST.md` |
 | **R8** | Beta-readiness hardening: error pages, ScheduledTasksModal, Discord bot isolation, backend consolidation (0024/0025), observability stack (Langfuse/OTel), EmbeddingProvider. | `roadmap/R8_EXECUTION_CHECKLIST.md` |
 | **R9** | Deep Research polish: research pipeline, MD/PDF export, sources panel (Playwright-verified). | `roadmap/R9_EXECUTION_CHECKLIST.md` |
+| **R14** | Codebase cleanup (pure refactor): IconRail extract — killed duplicate `ICON_RAIL_ITEMS` render (selector-pain root cause); tool-manifest data/logic split; `.next-e2e` Playwright isolation (retires the "stop service before e2e" rule); `test:watch` + `dev.sh`/`bootstrap.sh` + env required/optional header; mockup CSS split at natural seams. 10 commits on `refactor/r14-codebase-cleanup`, tsc + 317/317 unit + Playwright verified (4 mobile fails pre-existing). Pending owner merge to `main`. | `roadmap/R14_CODEBASE_CLEANUP.md` |
 
 **All merged to `main`** (R10/R11 via `feat/r11-settings` merge `193bb77`; R0–R9
 earlier). Full R0–R7 code-level contract: `AIO_MASTER_EXECUTION_PLAN.md` (root,
