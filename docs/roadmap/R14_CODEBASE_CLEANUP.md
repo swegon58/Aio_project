@@ -1,7 +1,7 @@
 # R14 — Codebase Cleanup (Light & Clean)
 
 **Status:** in progress 2026-07-08 · **Branch:** `refactor/r14-codebase-cleanup` (off clean `main` post-R13 commit) · **Multi-session**
-**Progress:** Gate 0 ✅ · Phase 2 ✅ done (`94622d5` — shared state-machine + repo-types, 281/281 tests, qa-confirmed behavior preserved) · Phase 1 in progress (run-orchestrator test net)
+**Progress:** Gate 0 ✅ · Phase 1 ✅ (`313` tests) · Phase 2 ✅ (`94622d5`) · Phase 3 ✅ achievable (`94622d5`+`0290081` — tool-manifest split = real win; schedule/run-orch bulk assessed irreducible DB/runtime glue, test-nets added) · Phase 4.1 ✅ (`50fe3ff` — IconRail extracted, fixes original selector pain) · **Phase 5 in progress** (dev-env = explicit owner ask "chuẩn dev env"; pivoted here over Phase 4 remainder which is audit-found cosmetic, lower value)
 
 ## Context
 

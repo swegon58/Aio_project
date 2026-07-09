@@ -81,9 +81,10 @@ under an unrelated global Hermes profile.
 - Keep changes inside the approved phase.
 - Run task-specific checks before marking work complete.
 - Any change touching `apps/web` UI must be verified with a live Playwright
-  run (`apps/web/e2e/`), not just typecheck/lint — stop `aio-app.service`
-  first (shares the `.next` build lock with Playwright's own dev server),
-  run the relevant specs, then restart the service.
+  run (`apps/web/e2e/`), not just typecheck/lint. Playwright compiles into an
+  isolated `.next-e2e` dir (`AIO_E2E` env, see `next.config.ts`), so it no
+  longer collides with the always-on `aio-app.service` `next dev` in `.next` —
+  run the relevant specs directly, the service need not be stopped/restarted.
 - Do not force-push, rewrite history, rotate credentials, or choose paid
   infrastructure without explicit approval.
 - `/clear` (or start a new session) when switching between unrelated tasks

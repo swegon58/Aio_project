@@ -37,6 +37,9 @@ export default defineConfig({
     env: {
       ...process.env,
       AIO_DEPLOYMENT_ENV: "development",
+      // Route the e2e dev server into .next-e2e (see next.config.ts) so it never
+      // collides with the always-on aio-app.service `next dev` in .next.
+      AIO_E2E: "true",
       NEXT_PUBLIC_DEV_AUTH_BYPASS: "true",
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:9",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key",
