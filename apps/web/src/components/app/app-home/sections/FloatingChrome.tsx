@@ -3,6 +3,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Columns, Menu } from "lucide-react";
 import { ICON_RAIL_ITEMS } from "@/components/app/app-home-utils";
+import { IconRail } from "../IconRail";
 
 interface FloatingChromeProps {
   creditBalance: number | null;
@@ -70,22 +71,7 @@ export function FloatingChrome({
           onClick={() => setIconRailMobileOpen(false)}
         />
         <nav className="icon-rail" style={{ width: "80vw", maxWidth: 320 }}>
-          {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active, disabled }) => (
-            <button
-              key={key}
-              type="button"
-              className={`icon-rail-item${active ? " active" : ""}`}
-              disabled={disabled}
-              title={disabled ? "Coming soon" : undefined}
-              onClick={() => {
-                setIconRailMobileOpen(false);
-                handleRailItemClick(key);
-              }}
-            >
-              <Icon className="w-5.5 h-5.5" />
-              <span className="icon-rail-label icon-rail-label-inner">{label}{disabled ? " (coming soon)" : ""}</span>
-            </button>
-          ))}
+          <IconRail variant="mobile" onItemClick={(key) => { setIconRailMobileOpen(false); handleRailItemClick(key); }} />
           <div className="icon-rail-footer">
             <div className="icon-rail-footer-avatar">
               {userAvatarUrl ? (

@@ -267,6 +267,9 @@ export const ICON_RAIL_ITEMS = [
   { key: "settings", label: "Settings", icon: Cog, active: false, disabled: false },
 ] as const;
 
+// Export the key type for reuse in IconRail and other components
+export type IconRailKey = (typeof ICON_RAIL_ITEMS)[number]["key"];
+
 export const ACCENT_HEX: Record<AccentKey, string> = {
   purple: "#6c5ce7",
   green: "#00d2a0",

@@ -39,6 +39,7 @@ import { FloatingChrome } from "@/components/app/app-home/sections/FloatingChrom
 import { RightPanel } from "@/components/app/app-home/sections/RightPanel";
 import { Composer } from "@/components/app/app-home/sections/Composer";
 import { MessageList } from "@/components/app/app-home/sections/MessageList";
+import { IconRail } from "@/components/app/app-home/IconRail";
 import type {
   ChatRuntimeContextValue,
   WorkspaceContextValue,
@@ -1139,25 +1140,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
         <div className="icon-rail-slot">
           <nav className="icon-rail icon-rail--compact" ref={iconRailRef}>
             <div className="icon-rail-main">
-              {ICON_RAIL_ITEMS.map(({ key, label, icon: Icon, active, disabled }) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={`icon-rail-item icon-rail-item--compact${active ? " active" : ""}`}
-                  disabled={disabled}
-                  onClick={() => handleRailItemClick(key)}
-                  aria-label={disabled ? `${label} (coming soon)` : label}
-                  title={disabled ? "Coming soon" : undefined}
-                >
-                  <Icon className="w-6 h-6" />
-                  {key === "notifications" && notificationsUnread > 0 && (
-                    <span className="icon-rail-badge">
-                      {notificationsUnread > 9 ? "9+" : notificationsUnread}
-                    </span>
-                  )}
-                  <span className="icon-rail-label icon-rail-label-inner">{label}{disabled ? " (coming soon)" : ""}</span>
-                </button>
-              ))}
+              <IconRail variant="compact" onItemClick={handleRailItemClick} notificationsUnread={notificationsUnread} />
             </div>
             <div className="icon-rail-footer">
               <div className="icon-rail-footer-avatar" title={username}>
