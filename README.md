@@ -102,6 +102,9 @@ personal agent instructions are intentionally excluded from source control.
 
 ### 1. Configure the web app
 
+On a fresh clone, `bash scripts/bootstrap.sh` runs install + env scaffold in
+one step and flags the REQUIRED keys. The manual steps are the same thing:
+
 ```bash
 cd apps/web
 npm install
@@ -192,13 +195,13 @@ npm run screenshot -- /app app-review
 ```
 
 Any change touching UI must also pass a live Playwright run, not just
-typecheck/lint. `aio-app.service` and Playwright's own dev server share the
-`.next` build lock, so stop the service first:
+typecheck/lint. Playwright compiles into an isolated `.next-e2e` dir (`AIO_E2E`
+env, see `next.config.ts`), so it no longer collides with the always-on
+`aio-app.service` `next dev` in `.next` — run specs directly, the service need
+not be stopped/restarted:
 
 ```bash
-systemctl --user stop aio-app.service
 npx playwright test
-systemctl --user start aio-app.service
 ```
 
 Aio Team OS local operations:

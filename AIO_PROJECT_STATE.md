@@ -1,19 +1,18 @@
 # Aio Project State
 
 **Repo:** `/home/swegon/AI_Agent/Aio_project` · **Canonical branch:** `main`
-**Updated:** 2026-07-07 — R12 (AppHome decomposition + open-webui RAG/Valves)
-committed on `feat/r12-fixes` and ff-merged into local `main`; **not pushed to
-`origin`**. Migrations `0031`/`0032` **applied to cloud Supabase** this session
-(cloud now at `0001`–`0032`); `0031` fixed first — it referenced the dropped
-`hermes_knowledge_chunks` table and was corrected to `aio_knowledge_chunks`.
+**Updated:** 2026-07-09 — R14 (codebase cleanup) merged to local `main`
+(FF, tip `e33b878`); **local `main` is ahead of `origin` ~40 commits — not
+pushed** (owner gate). R12/R13 shipped earlier; R13 has owner-pending items
+(migration `0033`, `OPENROUTER_API_KEY` liveness, Gate B) — see R13 checklist.
 
 First file an agent reads. Status index only — detail lives in phase checklists.
 
 ## Current Status
 
-**Branches:** `feat/r12-fixes` holds all of R10+R11+R12; ff-merged into local
-`main` (2026-07-07). `origin/main` lags (not pushed). R10/R11 sub-branches were
-merged in earlier (`main` tip was `193bb77 Merge feat/r11-settings`).
+**Branches:** local `main` holds R0–R14 (R14 merged 2026-07-09 via FF, tip
+`e33b878`). `origin/main` lags — **not pushed** (owner gate). Refactor branch
+`refactor/r14-codebase-cleanup` merged and can be deleted.
 
 **Closed phases (R0–R9):** all merged to `main`. One-liner each in
 `docs/archive/CLOSED_PHASES.md`; full detail in `docs/archive/roadmap/`.
@@ -67,8 +66,8 @@ silently never appears if the key is actually dead), depth-guardrail is
 UX left as auto-start default (revisit if a closer Gemini-match wanted).
 Detail: `docs/roadmap/R13_EXECUTION_CHECKLIST.md` R13.3.
 
-**R14 (codebase cleanup) — ✅ COMPLETE on `refactor/r14-codebase-cleanup`, self-closing, pending owner merge to `main`.**
-Pure behavior-preserving refactor (10 commits). Shipped: Phase 1 test-net
+**R14 (codebase cleanup) — ✅ COMPLETE, merged to `main` (FF `e33b878`, 2026-07-09).**
+Pure behavior-preserving refactor (11 commits). Shipped: Phase 1 test-net
 (`eef1b70`) · Phase 2 dedup (`94622d5`) · Phase 3 tool-manifest split
 (`9af53ab`, real win; schedule/run-orch bulk assessed irreducible, test-nets
 added `0290081`) · Phase 4 IconRail extract (`50fe3ff`, kills duplicate
@@ -78,7 +77,7 @@ at natural seams (`caa08be`) · Phase 5 `.next-e2e` Playwright isolation
 + compose-rename (`cd5ed33`) + `dev.sh`/`bootstrap.sh`/env header (`e8734c1`).
 tsc + 317/317 unit + Playwright verified (4 mobile fails pre-existing).
 Checklist archived to `docs/archive/roadmap/R14_CODEBASE_CLEANUP.md`; index
-line in `docs/archive/CLOSED_PHASES.md`. Merge to `main` = owner gate.
+line in `docs/archive/CLOSED_PHASES.md`.
 
 ## Open Decision Gates (owner)
 
@@ -109,8 +108,8 @@ snapshot. Aio Team OS: `scripts/aio-team-os.sh progress|status|doctor`.
 ## Required Reading Order
 
 1. `AIO_PROJECT_STATE.md` (this file)
-2. Active checklist: `docs/roadmap/R12_EXECUTION_CHECKLIST.md` (R10/R11 stay
-   readable while owner OAuth is pending)
+2. Active checklist: `docs/roadmap/R13_EXECUTION_CHECKLIST.md` (R10–R12
+   shipped/closed; R14 merged & archived to `docs/archive/roadmap/`)
 3. `MEMORY.md` (auto-loaded index)
 
 On demand: `README.md` (setup), `docs/operations/*` (runbooks),

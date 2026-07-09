@@ -5,8 +5,8 @@
 Before any code change, read (**Tầng 1** — every session):
 
 1. `AIO_PROJECT_STATE.md` — status index, current branch, open gates.
-2. Active checklist `docs/roadmap/R12_EXECUTION_CHECKLIST.md`
-   (`R10`/`R11` checklists stay readable while owner Google OAuth is pending).
+2. Active checklist `docs/roadmap/R13_EXECUTION_CHECKLIST.md`
+   (R10–R12 shipped/closed; R14 merged & archived).
 3. `README.md` — setup.
 
 **Read on demand** (**Tầng 2** — only when the task is actually in that lane):
