@@ -69,12 +69,18 @@ Detail: `docs/roadmap/R13_EXECUTION_CHECKLIST.md` R13.3.
 
 **R14 (codebase cleanup) — in progress on `refactor/r14-codebase-cleanup`:**
 behavior-preserving refactor so every file is light to read/edit; backend first.
-Plan in `docs/roadmap/R14_CODEBASE_CLEANUP.md`. Phase 2 done (`94622d5`): shared
-state-machine factory + repository-types extracted across 4 state machines + 2
-repos; 281/281 tests green, qa-reviewer confirmed identical transition
-semantics. Next: Phase 1 characterization test-net on `run-orchestrator.ts` →
-Phase 3 god-object carve. Pure refactor — does NOT change product behavior or
-block R13 owner gates.
+Plan in `docs/roadmap/R14_CODEBASE_CLEANUP.md`. Shipped: Phase 1 test-net
+(`313`) · Phase 2 dedup (`94622d5` state-machine + repo-types) · Phase 3
+tool-manifest data/logic split (`94622d5`, real win; schedule/run-orch bulk
+assessed irreducible DB/runtime glue, test-nets added) · Phase 4.1 IconRail
+extraction (`50fe3ff`, kills duplicate `ICON_RAIL_ITEMS` render — the root
+cause of the selector pain) · Phase 5.1 `.next-e2e` isolation (`ff32a9d`,
+retires the "stop aio-app.service before Playwright" rule) · Phase 5.2
+`test:watch` + compose-rename (`cd5ed33`). tsc + 317/317 unit green.
+Remaining is low-value/judgment-dependent: Phase 4 CSS/hook cosmetic,
+Phase 5 bootstrap.sh + dev-orchestration (fork: you run web via systemd —
+want a scripts/dev.sh without it?), .env required/optional split (already
+grouped). Pure refactor — does NOT change product behavior or block R13.
 
 ## Open Decision Gates (owner)
 
