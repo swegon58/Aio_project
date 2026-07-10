@@ -79,6 +79,18 @@ tsc + 317/317 unit + Playwright verified (4 mobile fails pre-existing).
 Checklist archived to `docs/archive/roadmap/R14_CODEBASE_CLEANUP.md`; index
 line in `docs/archive/CLOSED_PHASES.md`.
 
+**R15 (plan/research rebuild + streaming + panel cleanup) — in progress
+(2026-07-10):** branch `r15-plan-research-rebuild` from `main` (`5961baa`).
+Four workstreams, one branch, verified incrementally:
+**A** fix chat-stream jitter (`MessageList.tsx` re-renders whole list per token +
+autoscroll layout thrash — extract memoized `MessageItem`, throttle autoscroll);
+**B** remove "Current Run" + "Today" panel cards (NOT tabs; backend `/api/runs/*`
+shared infra stays); **C** rebuild plan + research into a unified grill → summary →
+HITL-approve → run flow (batch `aio-questions`, Next/Back wizard, reuse
+`aio_approvals`); **D** docs/state sync. Locked decisions: batch question gen,
+reuse HITL approval, research shares the grill+approve flow. Detail + per-task
+status: `docs/roadmap/R15_EXECUTION_CHECKLIST.md`. Zero deer-flow contamination.
+
 ## Open Decision Gates (owner)
 
 1. **Internal knowledge endpoints → Hermes wiring** — code complete; owner
@@ -108,8 +120,8 @@ snapshot. Aio Team OS: `scripts/aio-team-os.sh progress|status|doctor`.
 ## Required Reading Order
 
 1. `AIO_PROJECT_STATE.md` (this file)
-2. Active checklist: `docs/roadmap/R13_EXECUTION_CHECKLIST.md` (R10–R12
-   shipped/closed; R14 merged & archived to `docs/archive/roadmap/`)
+2. Active checklist: `docs/roadmap/R15_EXECUTION_CHECKLIST.md`
+   (R10–R14 shipped/closed/archived; R15 in progress)
 3. `MEMORY.md` (auto-loaded index)
 
 On demand: `README.md` (setup), `docs/operations/*` (runbooks),
