@@ -26,7 +26,6 @@ import type {
   ImageResolution,
   MessageSegment,
   PlanQuestion,
-  TodayCard,
 } from "./app-home-types";
 
 // Mirrors route.ts PLAN_MODE_INSTRUCTIONS' aio-question protocol: a
@@ -212,45 +211,6 @@ export function labelForRunStatus(status: AioRunStatus | null): string {
       return "Ready";
   }
 }
-
-export const TODAY_CARDS: TodayCard[] = [
-  {
-    id: "continue-current-thread",
-    kind: "continue",
-    label: "Continue",
-    title: "Pick up the current thread",
-    reason: "Turn the latest context into a concrete next step.",
-    source: "Recent chat",
-    prompt: "Review our current conversation and suggest the most useful next step. Then help me execute it.",
-  },
-  {
-    id: "review-context",
-    kind: "review",
-    label: "Review",
-    title: "Find what needs attention",
-    reason: "Scan memory, files, and open context for anything worth acting on.",
-    source: "Workspace",
-    prompt: "Review my current Aio context and tell me what deserves attention next, with a short prioritized list.",
-  },
-  {
-    id: "create-artifact",
-    kind: "create",
-    label: "Create",
-    title: "Make a useful artifact",
-    reason: "Convert loose context into a plan, doc, table, or draft.",
-    source: "Aio",
-    prompt: "Based on my current context, propose one useful artifact to create and draft the first version.",
-  },
-  {
-    id: "schedule-followup",
-    kind: "schedule",
-    label: "Schedule",
-    title: "Set up a recurring follow-up",
-    reason: "Convert repeated work into a scheduled check.",
-    source: "Tasks",
-    prompt: "Help me turn one recurring task from my current context into a scheduled Aio follow-up.",
-  },
-];
 
 export const ICON_RAIL_ITEMS = [
   // Pinned first (R11.5b sidebar redesign, Kimo Option 1): always-visible

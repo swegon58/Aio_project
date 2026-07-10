@@ -25,13 +25,11 @@ import { PreviewPane, ShowcaseErrorDetail, type ActiveFile } from "@/components/
 import { MarkdownMessage } from "@/components/app/MarkdownMessage";
 import { RunTimeline, type AgentDisplayState } from "@/components/app/run-timeline";
 import { codeBlockFileName, codeBlockSize, highlightCode } from "@/components/app/app-home-utils";
-import type { FilesSubTab, TodayAction, TodayCard as TodayCardData, WorkspaceEntry } from "@/components/app/app-home-types";
+import type { FilesSubTab, WorkspaceEntry } from "@/components/app/app-home-types";
 import type { HermesShowcaseData, HermesUIMessage } from "@/lib/hermes/chat-types";
 import type { AioRunEvent, AioRunStatus } from "@/lib/aio/runs/aio-run-events";
 import type { AioPublicResearchSource } from "@/lib/aio/runs/run-client";
 import { useWorkspace } from "@/components/app/app-home/context";
-import { CurrentRunCard } from "@/components/app/app-home/sections/CurrentRunCard";
-import { TodayCard } from "@/components/app/app-home/sections/TodayCard";
 
 interface RightPanelProps {
   rightPanelCollapsed: boolean;
@@ -40,26 +38,12 @@ interface RightPanelProps {
   handleRightPanelResizeStart: (e: React.PointerEvent) => void;
   liveStatusIsProcessing: boolean;
   liveStatusText: string;
-  durableRunVisible: boolean;
-  currentRunBadgeState: AgentDisplayState;
-  currentRunStatusLabel: string;
-  currentRunNote: string;
-  currentRunCanStop: boolean;
-  runStopPending: boolean;
-  handleDurableRunStop: () => Promise<void>;
-  currentRunTone: "warning" | "working" | "approval" | "default";
-  timelineHydrating: boolean;
-  runStopError: string | null;
-  timelineSyncError: string | null;
-  persistedRunStatus: AioRunStatus | null;
   timelineEvents: AioRunEvent[];
   handleTimelineApprovalResolve: (approvalId: string, runId: string, choice: "approve" | "reject") => Promise<void>;
   usedPercentLabel: string | null;
   usageLevel: "critical" | "warning" | "normal";
   usagePercentValue: number;
   resetDateLabel: string | null;
-  activeTodayCards: TodayCardData[];
-  handleTodayAction: (card: TodayCardData, action: TodayAction) => void;
   openShowcase: HermesShowcaseData | null;
   workspaceEntries: WorkspaceEntry[];
   isStreaming: boolean;
@@ -97,26 +81,12 @@ export function RightPanel({
   handleRightPanelResizeStart,
   liveStatusIsProcessing,
   liveStatusText,
-  durableRunVisible,
-  currentRunBadgeState,
-  currentRunStatusLabel,
-  currentRunNote,
-  currentRunCanStop,
-  runStopPending,
-  handleDurableRunStop,
-  currentRunTone,
-  timelineHydrating,
-  runStopError,
-  timelineSyncError,
-  persistedRunStatus,
   timelineEvents,
   handleTimelineApprovalResolve,
   usedPercentLabel,
   usageLevel,
   usagePercentValue,
   resetDateLabel,
-  activeTodayCards,
-  handleTodayAction,
   openShowcase,
   workspaceEntries,
   isStreaming,
@@ -290,23 +260,6 @@ export function RightPanel({
                   <p className={liveStatusIsProcessing ? "status-line-shimmer" : undefined}>{liveStatusText}</p>
                 </div>
               </div>
-              {durableRunVisible && (
-                <CurrentRunCard
-                  currentRunBadgeState={currentRunBadgeState}
-                  currentRunStatusLabel={currentRunStatusLabel}
-                  currentRunNote={currentRunNote}
-                  currentRunCanStop={currentRunCanStop}
-                  runStopPending={runStopPending}
-                  handleDurableRunStop={handleDurableRunStop}
-                  currentRunTone={currentRunTone}
-                  timelineHydrating={timelineHydrating}
-                  runStopError={runStopError}
-                  timelineSyncError={timelineSyncError}
-                  persistedRunStatus={persistedRunStatus}
-                  timelineEvents={timelineEvents}
-                  handleTimelineApprovalResolve={handleTimelineApprovalResolve}
-                />
-              )}
               {usedPercentLabel && (
                 <div className={`usage-meter${usageLevel !== "normal" ? ` usage-meter--${usageLevel}` : ""}`}>
                   <div className="usage-meter-bar">
@@ -324,18 +277,6 @@ export function RightPanel({
                   )}
                 </div>
               )}
-            </div>
-
-            <div className="panel-section panel-section--today">
-              <div className="panel-section-heading panel-section-heading--inline">Today</div>
-              <div className="today-card-grid">
-                {activeTodayCards.map((card) => (
-                  <TodayCard key={card.id} card={card} onAction={handleTodayAction} />
-                ))}
-                {activeTodayCards.length === 0 && (
-                  <PanelEmpty icon={<CheckCircle2 className="w-5 h-5" />}>Today is clear.</PanelEmpty>
-                )}
-              </div>
             </div>
 
           </div>

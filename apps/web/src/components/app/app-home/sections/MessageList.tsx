@@ -24,15 +24,12 @@ import { ResearchPlanCard } from "@/components/app/run-timeline/ResearchPlanCard
 import { GeneratedImageCard, ImageGenerationProgress } from "@/components/app/GeneratedImageCard";
 import { OnboardingOverlay } from "@/components/app/OnboardingOverlay";
 import { ShowcaseErrorDetail } from "@/components/app/FilePreview";
-import { CurrentRunCard } from "@/components/app/app-home/sections/CurrentRunCard";
-import { TodayCard } from "@/components/app/app-home/sections/TodayCard";
 import {
   latestResearchStageEvent,
   parsePlanQuestion,
   reportSummary,
   splitMessageSegments,
 } from "@/components/app/app-home-utils";
-import type { TodayAction, TodayCard as TodayCardData } from "@/components/app/app-home-types";
 import type { AgentDisplayState } from "@/components/app/run-timeline";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import type { AioRunEvent, AioRunStatus } from "@/lib/aio/runs/aio-run-events";
@@ -87,20 +84,6 @@ interface MessageListProps {
   mascotState: MascotImageState;
   greetingLines: string[];
   isMobileViewport: boolean;
-  activeTodayCards: TodayCardData[];
-  handleTodayAction: (card: TodayCardData, action: TodayAction) => void;
-  durableRunVisible: boolean;
-  currentRunBadgeState: AgentDisplayState;
-  currentRunStatusLabel: string;
-  currentRunNote: string;
-  currentRunCanStop: boolean;
-  runStopPending: boolean;
-  handleDurableRunStop: () => Promise<void> | void;
-  currentRunTone: "warning" | "working" | "approval" | "default";
-  timelineHydrating: boolean;
-  runStopError: string | null;
-  timelineSyncError: string | null;
-  persistedRunStatus: AioRunStatus | null;
   timelineEvents: AioRunEvent[];
   handleTimelineApprovalResolve: (approvalId: string, runId: string, choice: "approve" | "reject") => Promise<void>;
   setInput: Dispatch<SetStateAction<string>>;
@@ -127,20 +110,6 @@ export function MessageList({
   mascotState,
   greetingLines,
   isMobileViewport,
-  activeTodayCards,
-  handleTodayAction,
-  durableRunVisible,
-  currentRunBadgeState,
-  currentRunStatusLabel,
-  currentRunNote,
-  currentRunCanStop,
-  runStopPending,
-  handleDurableRunStop,
-  currentRunTone,
-  timelineHydrating,
-  runStopError,
-  timelineSyncError,
-  persistedRunStatus,
   timelineEvents,
   handleTimelineApprovalResolve,
   setInput,
@@ -191,36 +160,6 @@ export function MessageList({
             showCursor
             cursorCharacter="|"
           />
-          {isMobileViewport && (activeTodayCards.length > 0 || durableRunVisible) && (
-            <section className="mobile-today-panel" aria-label="Today">
-              <div className="mobile-today-heading">Today</div>
-              {durableRunVisible && (
-                <CurrentRunCard
-                  className="current-run-card--mobile"
-                  currentRunBadgeState={currentRunBadgeState}
-                  currentRunStatusLabel={currentRunStatusLabel}
-                  currentRunNote={currentRunNote}
-                  currentRunCanStop={currentRunCanStop}
-                  runStopPending={runStopPending}
-                  handleDurableRunStop={handleDurableRunStop}
-                  currentRunTone={currentRunTone}
-                  timelineHydrating={timelineHydrating}
-                  runStopError={runStopError}
-                  timelineSyncError={timelineSyncError}
-                  persistedRunStatus={persistedRunStatus}
-                  timelineEvents={timelineEvents}
-                  handleTimelineApprovalResolve={handleTimelineApprovalResolve}
-                />
-              )}
-              {activeTodayCards.length > 0 && (
-                <div className="mobile-today-strip">
-                  {activeTodayCards.map((card) => (
-                    <TodayCard key={card.id} card={card} onAction={handleTodayAction} />
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
           <div className="quick-actions">
             {TASK_TEMPLATES.slice(0, 4).map((template) => {
               const Icon = template.icon;

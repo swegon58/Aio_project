@@ -48,17 +48,12 @@ import type {
 import "@/app/(app)/app/mockup.css";
 
 import type {
-  TodayAction,
-  TodayCard as TodayCardData,
   WorkspaceEntry,
 } from "@/components/app/app-home-types";
 import {
   parsePlanQuestion,
   splitMessageSegments,
   deriveMascotState,
-  badgeStateForRunStatus,
-  labelForRunStatus,
-  TODAY_CARDS,
   ICON_RAIL_ITEMS,
   ACCENT_HEX,
   BG_HEX,
@@ -218,7 +213,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     handleCronDelete,
     handleCronCreate,
   } = useCronJobs({ confirmDeleteId, setConfirmDeleteId, confirmDeleteTimeoutRef });
-  const [ignoredTodayCards, setIgnoredTodayCards] = useState<Set<string>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "plan" | "data" | "connections">("general");
   const [scheduledTasksOpen, setScheduledTasksOpen] = useState(false);
@@ -428,46 +422,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
       .finally(() => {
         setSourcesLoadingRunId((current) => (current === runId ? null : current));
       });
-  };
-
-  const handleTodayAction = (card: TodayCardData, action: TodayAction) => {
-    if (action === "ignore") {
-      setIgnoredTodayCards((prev) => {
-        const next = new Set(prev);
-        next.add(card.id);
-        return next;
-      });
-      return;
-    }
-
-    if (action === "plan") {
-      setChatMode("plan");
-      setInput(card.prompt);
-      focusComposer();
-      return;
-    }
-
-    if (action === "schedule") {
-      setChatMode("plan");
-      setInput(`Set up a scheduled Aio follow-up for this: ${card.prompt}`);
-      focusComposer();
-      return;
-    }
-
-    if (status !== "ready") {
-      setInput(card.prompt);
-      focusComposer();
-      return;
-    }
-
-    setActivity([]);
-    primeOptimisticRunRef.current();
-    setShowcases([]);
-    setPendingApproval(null);
-    setPlanAwaitingAction(false);
-    setLastRunMode("auto");
-    sendMessage({ text: card.prompt }, { body: { mode: "auto" } });
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
 
   const handleRailItemClick = (key: (typeof ICON_RAIL_ITEMS)[number]["key"]) => {
@@ -717,55 +671,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
           }),
     [activity, activeConversationId, activeRunId, pendingApproval, runEvents, showcases],
   );
-  const durableRunVisible =
-    timelineHydrating
-    || Boolean(activeRunId)
-    || Boolean(persistedRunStatus)
-    || timelineEvents.length > 0;
-  const currentRunStatusLabel = labelForRunStatus(persistedRunStatus);
-  const currentRunBadgeState = badgeStateForRunStatus(persistedRunStatus, {
-    hydrating: timelineHydrating,
-    syncError: Boolean(timelineSyncError),
-  });
-  const currentRunNote = timelineHydrating
-    ? "Restoring the latest saved run after reload."
-    : runStopPending
-      ? "Sending a durable stop request to the current run."
-      : runStopError
-        ? runStopError
-        : timelineSyncError
-          ? timelineSyncError
-          : persistedRunStatus === "cancelling"
-            ? "Stop requested. Waiting for the worker to confirm cancellation."
-            : persistedRunStatus === "waiting_approval"
-              ? "This run is paused until you respond to the approval request."
-              : persistedRunStatus && !isRunTerminal(persistedRunStatus)
-                ? "This view stays in sync with the persisted run history."
-                : timelineEvents.length > 0
-                  ? "Latest saved activity is ready to review."
-                  : "Start a task to create a durable run.";
-  const currentRunTone = runStopError || timelineSyncError
-    ? "warning"
-    : timelineHydrating || runStopPending
-      ? "working"
-      : persistedRunStatus === "waiting_approval"
-        ? "approval"
-        : "default";
-  const currentRunCanStop =
-    Boolean(activeRunId)
-    && Boolean(persistedRunStatus)
-    && persistedRunStatus !== null
-    && isRunStoppable(persistedRunStatus)
-    && !runStopPending;
-  // Each card is a suggested action, not a status report — only surface it
-  // when there's real context behind it, per card kind. No fabricated
-  // defaults when the workspace is actually empty.
-  const hasActiveThread = messages.length > 0;
-  const activeTodayCards = TODAY_CARDS.filter((card) => {
-    if (ignoredTodayCards.has(card.id)) return false;
-    if (card.kind === "continue" || card.kind === "schedule") return hasActiveThread;
-    return hasReviewableContext;
-  });
   const username = userName?.trim() || email.split("@")[0];
   const userInitial = username.charAt(0).toUpperCase();
   const greetingLines = useMemo(
@@ -1174,20 +1079,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
             mascotState={mascotState}
             greetingLines={greetingLines}
             isMobileViewport={isMobileViewport}
-            activeTodayCards={activeTodayCards}
-            handleTodayAction={handleTodayAction}
-            durableRunVisible={durableRunVisible}
-            currentRunBadgeState={currentRunBadgeState}
-            currentRunStatusLabel={currentRunStatusLabel}
-            currentRunNote={currentRunNote}
-            currentRunCanStop={currentRunCanStop}
-            runStopPending={runStopPending}
-            handleDurableRunStop={handleDurableRunStop}
-            currentRunTone={currentRunTone}
-            timelineHydrating={timelineHydrating}
-            runStopError={runStopError}
-            timelineSyncError={timelineSyncError}
-            persistedRunStatus={persistedRunStatus}
             timelineEvents={timelineEvents}
             handleTimelineApprovalResolve={handleTimelineApprovalResolve}
             setInput={setInput}
@@ -1243,26 +1134,12 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
           handleRightPanelResizeStart={handleRightPanelResizeStart}
           liveStatusIsProcessing={liveStatusIsProcessing}
           liveStatusText={liveStatusText}
-          durableRunVisible={durableRunVisible}
-          currentRunBadgeState={currentRunBadgeState}
-          currentRunStatusLabel={currentRunStatusLabel}
-          currentRunNote={currentRunNote}
-          currentRunCanStop={currentRunCanStop}
-          runStopPending={runStopPending}
-          handleDurableRunStop={handleDurableRunStop}
-          currentRunTone={currentRunTone}
-          timelineHydrating={timelineHydrating}
-          runStopError={runStopError}
-          timelineSyncError={timelineSyncError}
-          persistedRunStatus={persistedRunStatus}
           timelineEvents={timelineEvents}
           handleTimelineApprovalResolve={handleTimelineApprovalResolve}
           usedPercentLabel={usedPercentLabel}
           usageLevel={usageLevel}
           usagePercentValue={usagePercentValue}
           resetDateLabel={resetDateLabel}
-          activeTodayCards={activeTodayCards}
-          handleTodayAction={handleTodayAction}
           openShowcase={openShowcase}
           workspaceEntries={workspaceEntries}
           isStreaming={isStreaming}

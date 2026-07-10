@@ -11,17 +11,6 @@ export type MessageSegment =
   | { type: "code"; lang: string; code: string };
 
 export type FilesSubTab = "gallery" | "files";
-export type TodayAction = "plan" | "run" | "schedule" | "ignore";
-
-export interface TodayCard {
-  id: string;
-  kind: "continue" | "review" | "create" | "schedule";
-  label: string;
-  title: string;
-  reason: string;
-  source: string;
-  prompt: string;
-}
 
 export interface MetaLogEntry {
   id: string;

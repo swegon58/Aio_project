@@ -301,10 +301,8 @@ test("restores the durable run timeline after a refresh", async ({ page }) => {
   }, conversationId);
 
   await page.goto("/app");
-  const currentRun = page.locator('[aria-label="Current run"]:visible').first();
-  await expect(currentRun).toBeVisible();
-  await expect(currentRun.getByText("Completed").first()).toBeVisible();
-  await expect(currentRun.locator(".current-run-banner span")).toHaveText("Latest saved activity is ready to review.");
+  // Current Run card removed (R15). The durable run timeline (RunTimeline in
+  // the terminal/activity tab) still hydrates — assert the fetches fire.
   await expect.poll(
     () => requests.filter((entry) => entry.path === `/api/conversations/${conversationId}`).length,
   ).toBe(1);
@@ -337,130 +335,5 @@ test("restores the durable run timeline after a refresh", async ({ page }) => {
   ).toBe(2);
   expect(unexpectedPaths).toEqual([]);
 });
+  // (R15) "Current Run" surface + stop-card test removed — feature deleted.
 
-test("shows the durable current run surface and issues a stop request", async ({ page }) => {
-  const conversationId = "33333333-3333-4333-8333-333333333333";
-  const runId = "44444444-4444-4444-8444-444444444444";
-  const runningRun = {
-    id: runId,
-    customerId: "00000000-0000-0000-0000-000000000001",
-    conversationId,
-    threadId: conversationId,
-    status: "running",
-    mode: "auto",
-    inputSummary: "Stop the current run",
-    hermesRunId: "hermes-run-44",
-    hermesSessionId: null,
-    reservedCredits: 1,
-    actualCredits: null,
-    errorCode: null,
-    errorMessageRedacted: null,
-    createdAt: "2026-06-29T09:00:00.000Z",
-    startedAt: "2026-06-29T09:00:01.000Z",
-    updatedAt: "2026-06-29T09:00:03.000Z",
-    completedAt: null,
-    cancelRequestedAt: null,
-    metadata: { mode: "auto" },
-  };
-  const cancellingRun = {
-    ...runningRun,
-    status: "cancelling",
-    updatedAt: "2026-06-29T09:00:05.000Z",
-    cancelRequestedAt: "2026-06-29T09:00:05.000Z",
-  };
-  let latestRun: typeof runningRun | typeof cancellingRun = runningRun;
-  const events = [
-    {
-      id: "evt-running-1",
-      schemaVersion: 1,
-      runId,
-      customerId: runningRun.customerId,
-      sequence: 0,
-      type: "run.created",
-      occurredAt: "2026-06-29T09:00:00.000Z",
-      receivedAt: "2026-06-29T09:00:00.300Z",
-      source: "aio",
-      payload: {
-        type: "run.created",
-        runId,
-        threadId: conversationId,
-        status: "running",
-        createdAt: "2026-06-29T09:00:00.000Z",
-        ts: Date.parse("2026-06-29T09:00:00.000Z"),
-      },
-      hermes: null,
-    },
-    {
-      id: "evt-running-2",
-      schemaVersion: 1,
-      runId,
-      customerId: runningRun.customerId,
-      sequence: 1,
-      type: "tool.started",
-      occurredAt: "2026-06-29T09:00:02.000Z",
-      receivedAt: "2026-06-29T09:00:02.200Z",
-      source: "hermes",
-      payload: {
-        type: "tool.started",
-        runId,
-        toolCallId: "tool-run-44",
-        toolName: "web_search",
-        label: "Checking current task",
-        createdAt: "2026-06-29T09:00:02.000Z",
-        ts: Date.parse("2026-06-29T09:00:02.000Z"),
-      },
-      hermes: { runId: "hermes-run-44", eventId: "evt-running-2-source" },
-    },
-  ];
-
-  const { requests, unexpectedPaths } = await installApiMocks(page, {
-    handler: async ({ route, path, method, url }) => {
-      if (path === `/api/conversations/${conversationId}` && method === "GET") {
-        await route.fulfill({ json: { id: conversationId, title: "Running run", messages: [] } });
-        return true;
-      }
-      if (path === "/api/runs" && method === "GET" && url.searchParams.get("conversationId") === conversationId) {
-        await route.fulfill({ json: { runs: [latestRun], nextCursor: null } });
-        return true;
-      }
-      if (path === `/api/runs/${runId}` && method === "GET") {
-        await route.fulfill({ json: { run: latestRun } });
-        return true;
-      }
-      if (path === `/api/runs/${runId}/events` && method === "GET") {
-        await route.fulfill({ json: { events } });
-        return true;
-      }
-      if (path === `/api/runs/${runId}/stop` && method === "POST") {
-        latestRun = cancellingRun;
-        await route.fulfill({
-          json: {
-            ok: true,
-            noop: false,
-            run: cancellingRun,
-            hermesForwarded: true,
-            hermesStatus: "stopping",
-          },
-        });
-        return true;
-      }
-      return false;
-    },
-  });
-
-  await page.addInitScript((id) => {
-    window.localStorage.setItem("aio-active-conversation", id);
-  }, conversationId);
-
-  await page.goto("/app");
-  const currentRun = page.locator('[aria-label="Current run"]:visible').first();
-  await expect(currentRun).toBeVisible();
-  await expect(currentRun.getByRole("button", { name: "Stop run" })).toBeVisible();
-  await currentRun.getByRole("button", { name: "Stop run" }).click();
-  await expect.poll(
-    () => requests.filter((entry) => entry.path === `/api/runs/${runId}/stop` && entry.method === "POST").length,
-  ).toBe(1);
-  await expect(currentRun.getByText("Stopping").first()).toBeVisible();
-  await expect(currentRun.locator(".current-run-banner span")).toHaveText("Stop requested. Waiting for the worker to confirm cancellation.");
-  expect(unexpectedPaths).toEqual([]);
-});
