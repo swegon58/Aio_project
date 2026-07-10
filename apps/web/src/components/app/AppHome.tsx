@@ -316,7 +316,13 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = chatAreaRef.current;
+    // Sticky-bottom: only follow the stream when the user is already near the
+    // bottom, so reading history mid-stream isn't yanked. Instant, not smooth —
+    // a smooth scrollIntoView on every token fights content growth and is the
+    // main source of stream jitter (R15-A).
+    if (el && el.scrollHeight - el.scrollTop - el.clientHeight > 120) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, [messages, status]);
 
   const lastAssistantMessage = messages.findLast((m) => m.role === "assistant");

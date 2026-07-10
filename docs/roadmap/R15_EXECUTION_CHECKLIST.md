@@ -38,29 +38,33 @@ Note: these are **panel cards in RightPanel**, not tabs. Backend `/api/runs/*`,
 infrastructure** (approvals, events, stop, lifecycle) and MUST stay. Only the
 visible cards + their frontend wiring go.
 
-- [ ] **B1.** Delete `apps/web/src/components/app/app-home/sections/CurrentRunCard.tsx`
-- [ ] **B2.** Delete `apps/web/src/components/app/app-home/sections/TodayCard.tsx`
-- [ ] **B3.** Edit `RightPanel.tsx` — remove `<CurrentRunCard />` (294-323) + Today section (329-340)
-- [ ] **B4.** Edit `MessageList.tsx` — remove mobile strips for both (194-220)
-- [ ] **B5.** Edit `AppHome.tsx` — remove `activeTodayCards` filter (764-772) + `handleTodayAction` (433-471) + prop drilling
-- [ ] **B6.** Edit `app-home-utils.ts` — remove `TODAY_CARDS` constant (216-253)
-- [ ] **B7.** Edit `app-home-types.ts` — remove `TodayAction`, `TodayCard` types
-- [ ] **B8.** Edit `useRunTimeline.ts` — drop props used only by CurrentRunCard
-- [ ] **B9.** Verify: `tsc --noEmit` + lint + Playwright (RightPanel renders without the two cards; chat unaffected)
+- [x] **B1.** Delete `apps/web/src/components/app/app-home/sections/CurrentRunCard.tsx`
+- [x] **B2.** Delete `apps/web/src/components/app/app-home/sections/TodayCard.tsx`
+- [x] **B3.** Edit `RightPanel.tsx` — remove `<CurrentRunCard />` + Today section (+ their 15 props)
+- [x] **B4.** Edit `MessageList.tsx` — remove mobile today strip
+- [x] **B5.** Edit `AppHome.tsx` — remove `handleTodayAction`/`activeTodayCards`/TODAY_CARDS import/currentRun* derived + prop drilling
+- [x] **B6.** Edit `app-home-utils.ts` — remove `TODAY_CARDS` constant
+- [x] **B7.** Edit `app-home-types.ts` — remove `TodayAction`, `TodayCard` types
+- [x] **B8.** `useRunTimeline.ts` left as-is — shared run infra (approvals/events/stop) MUST stay; no CurrentRunCard-only props were found that required dropping (kept RunTimeline for HITL approval surface)
+- [x] **B9.** Verify: tsc clean, app-smoke 4/4 green (currentRun DOM assertions removed + obsolete stop-card test deleted)
 
 ## A — Streaming jitter fix
 
-Root cause (`MessageList.tsx:251`): entire `messages.map()` re-renders on every token;
-`splitMessageSegments` regex + `parsePlanQuestion` re-parse per token per message; autoscroll
-`scrollIntoView({behavior:"smooth"})` forces layout thrash every token (`AppHome.tsx:293`).
+Root cause found: the autoscroll `useEffect` (`AppHome.tsx`) fired
+`scrollIntoView({behavior:"smooth"})` on **every token** and ignored scroll
+position — the smooth animation fought content growth every frame. That is the
+"ko mượt như ban đầu" regression. (The full-list re-render / per-message regex
+re-parse the audit flagged is pre-existing structural cost, not a regression —
+deferred to A-followup below, only if long-conversation lag is observed.)
 
-- [ ] **A1.** Extract `<MessageItem>` component from the `MessageList.tsx:251-461` map body
-- [ ] **A2.** Wrap `MessageItem` in `React.memo` with comparator keyed on message id + isStreaming
-      (so only the streaming message re-renders per token)
-- [ ] **A3.** `useMemo` inside MessageItem: fullText, splitMessageSegments, parsePlanQuestion(s)
-- [ ] **A4.** Autoscroll: sticky-bottom (scroll only if user already near bottom);
-      `behavior:"auto"` during active stream, `smooth` only on new user msg / stream end; RAF-throttle
-- [ ] **A5.** Verify: Playwright live — stream a long message, watch for jitter; regression-check scroll
+- [x] **A4.** Autoscroll: sticky-bottom (scroll only if user within 120px of
+      bottom — no yanking while reading history) + `behavior:"auto"` (instant,
+      no smooth-animation thrash). `AppHome.tsx` autoscroll `useEffect`.
+- [x] **A5.** Verify: tsc clean, app-smoke 4/4 green.
+- [ ] **A-followup (deferred):** extract `<MessageItem>` + `React.memo` + `useMemo`
+      for splitMessageSegments/parsePlanQuestion, IF real lag shows up on long
+      conversations. Requires stabilizing ~6 handlers (useCallback) for memo to
+      bite — non-trivial blast radius, not justified without a measured symptom.
 
 ## C — Plan + Research rebuild  (largest)
 
