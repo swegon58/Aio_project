@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { PaddlePaymentProvider } from "./payment-provider";
+import { PaddlePaymentProvider, timingSafeEqualHex } from "./payment-provider";
+
+test("timingSafeEqualHex matches identical strings", () => {
+  assert.equal(timingSafeEqualHex("abc123", "abc123"), true);
+});
+
+test("timingSafeEqualHex rejects different strings of the same length", () => {
+  assert.equal(timingSafeEqualHex("abc123", "abc124"), false);
+});
+
+test("timingSafeEqualHex rejects strings of different lengths", () => {
+  assert.equal(timingSafeEqualHex("abc", "abc123"), false);
+});
 
 const WEBHOOK_SECRET = "test-webhook-secret";
 

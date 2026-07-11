@@ -37,17 +37,10 @@ export async function checkSpendCap(db: SupabaseClient, customerId: string): Pro
   const capCredits = configuredSpendCapCredits();
   if (capCredits === null) return { ok: true, capCredits: null, spentCredits: 0 };
 
-  const { data, error } = await db
-    .from("aio_runs")
-    .select("actual_credits")
-    .eq("customer_id", customerId)
-    .eq("status", "completed");
+  const { data, error } = await db.rpc("hermes_sum_completed_credits", { p_customer_id: customerId });
   if (error) throw new Error(`Spend cap lookup failed: ${error.message}`);
 
-  const spentCredits = (data ?? []).reduce(
-    (sum: number, r: { actual_credits: number | null }) => sum + (r.actual_credits ?? 0),
-    0,
-  );
+  const spentCredits = (data as number) ?? 0;
   return { ok: spentCredits < capCredits, capCredits, spentCredits };
 }
 
@@ -95,40 +88,20 @@ export async function checkToolSubLimit(
 /**
  * Calculate total USD spent on a specific tool by a customer.
  *
- * Ponytail: Sum actual_credits from completed runs that contain tool calls
- * for the specified tool. This joins aio_runs -> aio_tool_calls on run_id
- * and filters by tool_name and status=completed.
+ * Server-side SUM() via hermes_sum_tool_credits (migration 0035) — previously
+ * pulled every matching aio_tool_calls + aio_runs row and summed in JS.
  */
 async function getToolSpendUsd(
   db: SupabaseClient,
   customerId: string,
   toolId: string,
 ): Promise<number> {
-  const { data: calls, error: callsError } = await db
-    .from("aio_tool_calls")
-    .select("run_id")
-    .eq("customer_id", customerId)
-    .eq("tool_name", toolId);
-  if (callsError) throw new Error(`Tool call lookup failed: ${callsError.message}`);
-
-  const runIds = Array.from(new Set((calls ?? []).map((c: { run_id: string }) => c.run_id)));
-  if (runIds.length === 0) return 0;
-
-  const { data, error } = await db
-    .from("aio_runs")
-    .select("actual_credits")
-    .eq("customer_id", customerId)
-    .eq("status", "completed")
-    .in("id", runIds);
-
+  const { data, error } = await db.rpc("hermes_sum_tool_credits", {
+    p_customer_id: customerId,
+    p_tool_id: toolId,
+  });
   if (error) throw new Error(`Tool spend lookup failed: ${error.message}`);
-
-  const spentCredits = (data ?? []).reduce(
-    (sum: number, r: { actual_credits: number | null }) => sum + (r.actual_credits ?? 0),
-    0,
-  );
-
-  return spentCredits * CREDITS_TO_USD;
+  return ((data as number) ?? 0) * CREDITS_TO_USD;
 }
 
 /**

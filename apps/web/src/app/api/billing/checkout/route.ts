@@ -25,8 +25,13 @@ export async function POST(req: Request) {
   if (kind === "plan" && !planTier) {
     return new Response("planTier required for kind=plan", { status: 400 });
   }
-  if (kind === "topup" && !topupCredits) {
-    return new Response("topupCredits required for kind=topup", { status: 400 });
+  if (kind === "topup") {
+    if (!topupCredits) {
+      return new Response("topupCredits required for kind=topup", { status: 400 });
+    }
+    if (!Number.isInteger(topupCredits) || topupCredits <= 0 || topupCredits > 100_000_000) {
+      return new Response("topupCredits must be a positive integer up to 100,000,000", { status: 400 });
+    }
   }
 
   try {

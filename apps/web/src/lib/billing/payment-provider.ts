@@ -180,8 +180,20 @@ export class PaddlePaymentProvider implements PaymentProvider {
     const expected = Array.from(new Uint8Array(signed))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
-    return expected === h1;
+    return timingSafeEqualHex(expected, h1);
   }
+}
+
+// Constant-time compare, so an attacker probing the webhook endpoint can't
+// use response-time differences to recover the expected signature byte by
+// byte. Plain `===` short-circuits on the first mismatched char.
+export function timingSafeEqualHex(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 export function getPaymentProvider(): PaymentProvider {

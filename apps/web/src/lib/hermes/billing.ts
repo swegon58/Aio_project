@@ -95,6 +95,32 @@ export async function settleTask(
   }
 }
 
+// Atomically dedupes a Paddle webhook event and applies its credit grant in
+// one DB round-trip (hermes_process_webhook_credit, migration 0034) — the
+// prior two-step insert-then-adjustCredits sequence could crash between
+// steps and either double-credit on retry or silently drop the grant.
+export async function processWebhookCredit(
+  db: SupabaseClient,
+  params: {
+    customerId: string;
+    eventId: string;
+    eventType: string;
+    delta: number;
+    planTier?: string;
+  },
+): Promise<{ credited: boolean; newBalance: number | null }> {
+  const { data, error } = await db.rpc("hermes_process_webhook_credit", {
+    p_customer_id: params.customerId,
+    p_event_id: params.eventId,
+    p_event_type: params.eventType,
+    p_delta: params.delta,
+    p_plan_tier: params.planTier ?? null,
+  });
+  if (error) throw new Error(`Webhook credit processing failed: ${error.message}`);
+  const row = Array.isArray(data) ? data[0] : data;
+  return { credited: row?.credited ?? false, newBalance: row?.new_balance ?? null };
+}
+
 // Free trial grant (Q22): on first provisioning, grant FREE_TRIAL_CREDITS
 // once. free_grant_used flag (tied into Sybil normalized-email dedup,
 // Q30/Step 3a) prevents re-grant on respawn / repeated ensureRegistryRow

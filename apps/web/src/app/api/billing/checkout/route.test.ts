@@ -71,3 +71,21 @@ test("POST /api/billing/checkout returns 502 when the provider throws", async ()
   const res = await POST(req({ kind: "plan", planTier: "pro" }));
   assert.equal(res.status, 502);
 });
+
+test("POST /api/billing/checkout rejects negative topupCredits", async () => {
+  currentUser = { id: "user-checkout-neg", email: "a@example.com" };
+  const res = await POST(req({ kind: "topup", topupCredits: -100 }));
+  assert.equal(res.status, 400);
+});
+
+test("POST /api/billing/checkout rejects fractional topupCredits", async () => {
+  currentUser = { id: "user-checkout-frac", email: "a@example.com" };
+  const res = await POST(req({ kind: "topup", topupCredits: 10.5 }));
+  assert.equal(res.status, 400);
+});
+
+test("POST /api/billing/checkout rejects topupCredits above the upper bound", async () => {
+  currentUser = { id: "user-checkout-huge", email: "a@example.com" };
+  const res = await POST(req({ kind: "topup", topupCredits: 100_000_001 }));
+  assert.equal(res.status, 400);
+});

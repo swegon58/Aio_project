@@ -9,32 +9,20 @@ interface WebhookEvent {
   creditsGranted?: number;
 }
 
-let webhookEvent: WebhookEvent | Error = { type: "checkout.completed" };
-let insertError: { code: string; message: string } | null = null;
-const log: string[] = [];
-const adjustCreditsCalls: Array<{ customerId: string; amount: number }> = [];
-
-function makeDb() {
-  return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    from(table: string): any {
-      return {
-        insert() {
-          log.push(`insert:${table}`);
-          return Promise.resolve({ error: insertError });
-        },
-        update(patch: unknown) {
-          return {
-            eq(col: string, val: string) {
-              log.push(`update:${table}:${col}=${val}:${JSON.stringify(patch)}`);
-              return Promise.resolve({ error: null });
-            },
-          };
-        },
-      };
-    },
-  };
+interface ProcessCall {
+  customerId: string;
+  eventId: string;
+  eventType: string;
+  delta: number;
+  planTier?: string;
 }
+
+let webhookEvent: WebhookEvent | Error = { type: "checkout.completed" };
+let processResult: { credited: boolean; newBalance: number | null } | Error = {
+  credited: true,
+  newBalance: 100,
+};
+const processCalls: ProcessCall[] = [];
 
 mock.module("@/lib/billing/payment-provider", {
   namedExports: {
@@ -51,9 +39,11 @@ mock.module("@/lib/billing/payment-provider", {
 });
 mock.module("@/lib/hermes/billing", {
   namedExports: {
-    serviceDb: () => makeDb(),
-    adjustCredits: async (_db: unknown, customerId: string, amount: number) => {
-      adjustCreditsCalls.push({ customerId, amount });
+    serviceDb: () => ({}),
+    processWebhookCredit: async (_db: unknown, params: ProcessCall) => {
+      processCalls.push(params);
+      if (processResult instanceof Error) throw processResult;
+      return processResult;
     },
   },
 });
@@ -83,19 +73,16 @@ test("POST /api/billing/webhook returns 400 when the provider rejects the signat
 });
 
 test("POST /api/billing/webhook is a no-op for event types other than checkout.completed", async () => {
-  log.length = 0;
-  adjustCreditsCalls.length = 0;
+  processCalls.length = 0;
   webhookEvent = { type: "subscription.cancelled" };
   const res = await POST(req());
   assert.equal(res.status, 200);
-  assert.equal(log.length, 0);
-  assert.equal(adjustCreditsCalls.length, 0);
+  assert.equal(processCalls.length, 0);
 });
 
 test("POST /api/billing/webhook grants the plan's monthly credits and updates plan_tier on a plan purchase", async () => {
-  log.length = 0;
-  adjustCreditsCalls.length = 0;
-  insertError = null;
+  processCalls.length = 0;
+  processResult = { credited: true, newBalance: 6000 };
   webhookEvent = {
     type: "checkout.completed",
     customerId: "cust-1",
@@ -104,15 +91,14 @@ test("POST /api/billing/webhook grants the plan's monthly credits and updates pl
   };
   const res = await POST(req());
   assert.equal(res.status, 200);
-  assert.ok(log.some((e) => e.startsWith("insert:aio_paddle_webhook_events")));
-  assert.ok(log.some((e) => e.includes("hermes_registry") && e.includes("customer_id=cust-1")));
-  assert.deepEqual(adjustCreditsCalls, [{ customerId: "cust-1", amount: 6000 }]);
+  assert.deepEqual(processCalls, [
+    { customerId: "cust-1", eventId: "evt-1", eventType: "checkout.completed", delta: 6000, planTier: "pro" },
+  ]);
 });
 
 test("POST /api/billing/webhook grants raw credits for a topup without touching plan_tier", async () => {
-  log.length = 0;
-  adjustCreditsCalls.length = 0;
-  insertError = null;
+  processCalls.length = 0;
+  processResult = { credited: true, newBalance: 500 };
   webhookEvent = {
     type: "checkout.completed",
     customerId: "cust-2",
@@ -121,14 +107,14 @@ test("POST /api/billing/webhook grants raw credits for a topup without touching 
   };
   const res = await POST(req());
   assert.equal(res.status, 200);
-  assert.ok(!log.some((e) => e.includes("hermes_registry")));
-  assert.deepEqual(adjustCreditsCalls, [{ customerId: "cust-2", amount: 500 }]);
+  assert.deepEqual(processCalls, [
+    { customerId: "cust-2", eventId: "evt-2", eventType: "checkout.completed", delta: 500, planTier: undefined },
+  ]);
 });
 
-test("POST /api/billing/webhook skips credit processing on a duplicate event id (redelivery)", async () => {
-  log.length = 0;
-  adjustCreditsCalls.length = 0;
-  insertError = { code: "23505", message: "duplicate key" };
+test("POST /api/billing/webhook skips crediting on a duplicate event id (redelivery) without erroring", async () => {
+  processCalls.length = 0;
+  processResult = { credited: false, newBalance: null };
   webhookEvent = {
     type: "checkout.completed",
     customerId: "cust-3",
@@ -137,13 +123,24 @@ test("POST /api/billing/webhook skips credit processing on a duplicate event id 
   };
   const res = await POST(req());
   assert.equal(res.status, 200);
-  assert.equal(adjustCreditsCalls.length, 0);
+  assert.equal(processCalls.length, 1);
 });
 
-test("POST /api/billing/webhook returns 500 when event-dedup tracking fails for a non-conflict reason", async () => {
-  log.length = 0;
-  adjustCreditsCalls.length = 0;
-  insertError = { code: "500", message: "db unavailable" };
+test("POST /api/billing/webhook rejects a checkout.completed event with no eventId instead of crediting uninsured", async () => {
+  processCalls.length = 0;
+  webhookEvent = {
+    type: "checkout.completed",
+    customerId: "cust-5",
+    creditsGranted: 500,
+  };
+  const res = await POST(req());
+  assert.equal(res.status, 400);
+  assert.equal(processCalls.length, 0);
+});
+
+test("POST /api/billing/webhook returns 500 when webhook credit processing fails for a non-conflict reason", async () => {
+  processCalls.length = 0;
+  processResult = new Error("db unavailable");
   webhookEvent = {
     type: "checkout.completed",
     customerId: "cust-4",
@@ -152,5 +149,4 @@ test("POST /api/billing/webhook returns 500 when event-dedup tracking fails for 
   };
   const res = await POST(req());
   assert.equal(res.status, 500);
-  assert.equal(adjustCreditsCalls.length, 0);
 });

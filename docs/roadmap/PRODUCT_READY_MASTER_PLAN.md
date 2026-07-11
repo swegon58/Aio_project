@@ -63,6 +63,87 @@ for the gaps this plan closes:
 | `sprint-prioritizer` | Re-sequencing this plan as it grows, dependency mapping |
 | `trend-researcher` | Parallel strategic/market research track |
 
+### Round 2 — Agency-Agents Expansion (owner grill, 2026-07-11, Discord)
+
+Owner request: survey `agency-agents` again for gaps against this plan +
+recruit before the next push to product-ready. `hermes-architect` fork
+scanned all remaining `engineering/`, `testing/`, `security/`, `specialized/`,
+`design/`, `product/`, `support/` files (~90) not already imported. 6 found
+additive (not redundant with the 27-agent current roster); owner picked
+staged import over importing all 6 at once (grill option B). Order-1 pair
+imported 2026-07-11 (`.claude/agents/payments-billing-engineer.md`,
+`.claude/agents/database-optimizer.md`, adapted for Paddle-MoR + Supabase
+context) — owner said "bắt đầu làm hết đi" (start working on everything),
+so staged import proceeded straight through instead of pausing after Round 2
+planning. Order-2/3 agents import when their phase starts.
+
+| Order | Agent | Owns | Target phase |
+|---|---|---|---|
+| 1 | `payments-billing-engineer` ✅ imported | PSP integration, idempotent payment flows, webhook processing, subscription/reconciliation correctness | New — Phase 1 extension (money correctness has no current owner) |
+| 1 | `database-optimizer` ✅ imported | Postgres/Supabase schema, indexing, query-plan tuning across 30+ migrations | New — Phase 1 extension (no current DB-performance owner) |
+| 2 | `devops-automator` | CI/CD, release reliability — current release is manual `git push` + hand-run systemd service | Phase 3 (Reliability & Performance) |
+| 2 | `test-automation-engineer` | Playwright/e2e flake elimination, resilient selectors, CI parallelization | Phase 3, alongside `qa-reviewer` |
+| 3 | `penetration-tester` | Active exploitation of the running app, distinct from `appsec-engineer`'s code-review-style audit | Pre-launch gate, after Phase 2 compliance work closes |
+| — | `prompt-engineer` | Systematic LLM prompt design/testing | Opportunistic — next time Hermes/plan-mode/research-mode system prompts are touched (see R15 C11 correctness fix, `docs/roadmap/R15_EXECUTION_CHECKLIST.md`) |
+
+Rejected as non-additive (redundant with existing roster): `code-reviewer`,
+`identity-access-engineer`, `compliance-auditor`, `product-manager`,
+`product-feedback-synthesizer`, `workflow-architect`,
+`search-relevance-engineer` (only relevant if product-facing RAG ingestion
+is revisited — currently deferred, decision 1a).
+
+**Order-1 audit findings + fix status (2026-07-11, TDD, all suites green —
+338→348 tests, `tsc --noEmit` clean):**
+
+- `payments-billing-engineer` audit of `apps/web/src/app/api/billing/{checkout,webhook}/route.ts`
+  found 4 must-fix + 5 nice-to-have. Fixed:
+  - [x] Checkout `topupCredits` validation (integer/positive/≤100M) —
+        `checkout/route.ts`.
+  - [x] Webhook dedupe fail-open when `eventId` missing — now refuses
+        (400) instead of crediting uninsured — `webhook/route.ts`.
+  - [x] **Atomic transaction-safety** (most severe): dedupe-insert +
+        credit-grant were two separate non-transactional round-trips (crash
+        between them = silent permanent credit loss or double-credit on
+        Paddle retry). Now one Postgres RPC call
+        (`hermes_process_webhook_credit`, migration `0034`, forward-only
+        pattern matching `0003`) — `billing.ts`'s new `processWebhookCredit`,
+        `webhook/route.ts` rewritten to call it,
+        `webhook/route.test.ts` mocking rewritten accordingly.
+  - [ ] Incomplete subscription-lifecycle state machine (cancel/refund/
+        chargeback not handled) — needs a product decision (what happens to
+        `plan_tier`/access on cancel, grace period?), not implemented
+        without owner input.
+  - [x] Constant-time HMAC compare — `verifySignature` used `===` on the
+        hex digest (timing side-channel); now `timingSafeEqualHex` in
+        `payment-provider.ts`.
+  - [ ] Remaining 4 nice-to-haves (webhook timestamp freshness — lower
+        value since eventId dedup already blocks replay; credit rounding
+        guard; cross-check `custom_data` against Paddle's charged total;
+        dev/add-credits NaN guard — dev-only route, 404s in production) —
+        not started, lower priority.
+- `database-optimizer` audit of 33 migrations + query patterns found 3
+  actionable + 2 low-priority. Fixed:
+  - [x] Both HIGH-severity unbounded full-history row-pulls in
+        `apps/web/src/lib/aio/billing/spend-cap.ts` (`checkSpendCap`,
+        `getToolSpendUsd`) replaced with server-side `SUM()` via new RPCs
+        `hermes_sum_completed_credits`/`hermes_sum_tool_credits` (migration
+        `0035`).
+  - [ ] MEDIUM: `aio_audit_log.tool_call_id` missing index — skipped for
+        now, no query in the codebase filters by `tool_call_id` yet
+        (checked via grep); adding an index for a query pattern that
+        doesn't exist is speculative, add when a caller needs it.
+  - [ ] 2 LOW findings (redundant index, `select("*")` trimming) — not
+        started, cosmetic.
+
+**Migrations `0034`/`0035` are written and tested (mocked RPC calls only —
+the functions don't exist on the remote DB yet) but NOT pushed.** Per this
+plan's own `database-optimizer` persona rule and the R10.1 precedent above,
+applying schema to the shared cloud dev project (`npx supabase db push`,
+documented in `docs/operations/migrations.md`) is left for the owner. No
+live risk in the meantime — Paddle isn't live yet (`PADDLE_API_KEY` unset,
+dev-mode fallback path only), so the webhook route's new RPC call is never
+actually exercised in practice.
+
 ## Status Key
 
 - `[ ]` not started
