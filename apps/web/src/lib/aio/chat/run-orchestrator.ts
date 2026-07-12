@@ -43,6 +43,7 @@ import {
   MIN_RESEARCH_SOURCES,
   RESEARCH_PLAN_INSTRUCTIONS,
   RESEARCH_QUESTIONS_INSTRUCTIONS,
+  stripUngroundedCitations,
 } from "@/lib/aio/chat/research-mode";
 import {
   buildResearchStageEvent,
@@ -604,6 +605,12 @@ export async function orchestrateAioChatRun(
     let buffer = "";
     let succeeded = false;
     let budgetExceeded = false;
+    // Hermes can emit a `run.failed` event mid-stream and then still close
+    // the SSE connection cleanly (reader `done`) — without this flag that
+    // clean close alone flipped `succeeded` to true below, so a genuinely
+    // failed run (e.g. the underlying model call errored) was persisted as
+    // "completed" with empty assistant text and no visible error.
+    let sawRunFailed = false;
     let assistantText = "";
     const assistantArtifacts: { filePath: string; fileName?: string }[] = [];
     const assistantShowcases: HermesShowcaseData[] = [];
@@ -765,15 +772,20 @@ export async function orchestrateAioChatRun(
                   await advanceResearchStage("verify");
                 }
               }
-              // Runtime sends multi-word bursts; re-chunk into small pieces
-              // with a short delay so the UI renders a smooth, slowed-down
-              // typewriter effect instead of text popping in in big jumps.
-              for (let i = 0; i < aioEvent.delta.length; i += 3) {
-                writer.write({ type: "text-delta", id: textPartId, delta: aioEvent.delta.slice(i, i + 3) });
-                await new Promise((resolve) => setTimeout(resolve, 20));
-              }
+              // Write the full delta immediately. A per-chunk artificial delay
+              // used to live here for a "typewriter" effect, but it blocked
+              // this same loop from draining the SSE reader — on a long
+              // report (5-10k chars) that stacked into 30-70s of pure added
+              // lag on top of real generation time. Sticky-bottom + instant
+              // autoscroll (R15-A) already smooths the visual render; pacing
+              // now tracks actual token arrival instead of a fixed clock.
+              writer.write({ type: "text-delta", id: textPartId, delta: aioEvent.delta });
               assistantText += aioEvent.delta;
               continue;
+            }
+
+            if (aioEvent.type === "run.failed") {
+              sawRunFailed = true;
             }
 
             if (aioEvent.type === "artifact.created") {
@@ -815,6 +827,7 @@ export async function orchestrateAioChatRun(
     } finally {
       teardown();
       if (runHeartbeat) clearInterval(runHeartbeat);
+      if (sawRunFailed) succeeded = false;
       if (textStarted) {
         writer.write({ type: "text-end", id: textPartId });
       }
@@ -822,6 +835,11 @@ export async function orchestrateAioChatRun(
         writer.write({
           type: "error",
           errorText: "Budget exceeded for this task. Reply to continue or start a new task.",
+        });
+      } else if (sawRunFailed) {
+        writer.write({
+          type: "error",
+          errorText: "The run failed partway through. Please try again.",
         });
       }
       if (mode === "research" && succeeded && !budgetExceeded) {
@@ -936,6 +954,14 @@ export async function orchestrateAioChatRun(
         }
       }
 
+      // R15 gap 3A — strip citation markers the model self-reported but that
+      // don't match a real, server-observed source before this becomes the
+      // durable record (see stripUngroundedCitations in research-mode.ts).
+      const persistedAssistantText =
+        mode === "research" && succeeded && !budgetExceeded
+          ? stripUngroundedCitations(assistantText, researchSourceIds.keys())
+          : assistantText;
+
       // New-chat/history persistence — independent of billing/DEV_BYPASS,
       // since chat history must work in dev mode too.
       await persistConversation(
@@ -943,7 +969,7 @@ export async function orchestrateAioChatRun(
         userId,
         threadId,
         messages,
-        assistantText,
+        persistedAssistantText,
         mode,
         assistantArtifacts,
         assistantShowcases,

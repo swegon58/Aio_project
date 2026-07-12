@@ -1,7 +1,7 @@
 model:
   provider: lmstudio
   base_url: http://192.168.1.5:1234/v1
-  default: google/gemma-4-12b-qat
+  default: google/gemma-4-26b-a4b-qat
 
 memory:
   provider: honcho
@@ -18,3 +18,4 @@ platform_toolsets:
   api_server:
     - hermes-api-server
     - clarify
+    - research_complete
