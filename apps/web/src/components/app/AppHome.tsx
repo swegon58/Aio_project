@@ -97,6 +97,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
 
   const { messages, sendMessage, status, setMessages, stop, error: chatError, regenerate, clearError } = useChat<HermesUIMessage>({
     onData: (dataPart) => ingestDataPart(dataPart),
+    experimental_throttle: 50,
   });
 
   // The right panel is hidden outright by CSS at <=1024px (mockup.css), so
@@ -162,8 +163,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     logMeta,
     terminalOpen,
     setTerminalOpen,
-    terminalScale,
-    setTerminalScale,
     terminalTab,
     setTerminalTab,
     cycleTerminal,
@@ -249,6 +248,8 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     setTheme,
     accent,
     setAccent,
+    font,
+    setFont,
     onboardedAt,
     setOnboardedAt,
     exportLoading,
@@ -290,6 +291,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   const [activeSavedAgentId, setActiveSavedAgentId] = useState<string | null>(null);
   const [lastRunMode, setLastRunMode] = useState<AioChatMode>("auto");
   const [activeResearchQuery, setActiveResearchQuery] = useState("");
+  const [planAwaitingAction, setPlanAwaitingAction] = useState(false);
 
   const composerMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -325,7 +327,13 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, [messages, status]);
 
-  const lastAssistantMessage = messages.findLast((m) => m.role === "assistant");
+  // Must be the actual tail of the thread, not just the latest assistant-role
+  // message ever seen — findLast(role==="assistant") kept pointing at the
+  // PREVIOUS turn's reply for the brief window between a new user submit and
+  // the new assistant message landing in `messages`, which made the "thinking"
+  // badge flash onto the old bubble before jumping down to the new one.
+  const tailMessage = messages[messages.length - 1];
+  const lastAssistantMessage = tailMessage?.role === "assistant" ? tailMessage : undefined;
   const hasText = Boolean(
     lastAssistantMessage?.parts.some((p) => p.type === "text" && p.text.length > 0),
   );
@@ -333,31 +341,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     .filter((p) => p.type === "text")
     .map((p) => (p.type === "text" ? p.text : ""))
     .join("") ?? "";
-
-  const {
-    planAwaitingAction,
-    setPlanAwaitingAction,
-    planOtherText,
-    setPlanOtherText,
-    planQuestion,
-    handlePlanRun,
-    handlePlanAdjust,
-    handlePlanCancel,
-    handlePlanAnswer,
-    handlePlanSkipToPlan,
-  } = usePlanFlow({
-    status,
-    sendMessage,
-    setActivity,
-    primeOptimisticRun: () => primeOptimisticRunRef.current(),
-    setShowcases,
-    setPendingApproval,
-    setChatMode,
-    setLastRunMode,
-    textareaRef,
-    hasText,
-    lastAssistantText,
-  });
 
   const handleChatScroll = () => {
     const el = chatAreaRef.current;
@@ -442,9 +425,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     if (key === "scheduled") {
       setScheduledTasksOpen(true);
     }
-    if (key === "notifications") {
-      setNotificationsOpen(true);
-    }
   };
 
   const {
@@ -518,6 +498,35 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
   useEffect(() => {
     primeOptimisticRunRef.current = primeOptimisticRun;
     resetRunTimelineRef.current = resetRunTimeline;
+  });
+
+  const {
+    planQuestions,
+    researchPlan,
+    planReady,
+    approvalPending,
+    approvalError,
+    handlePlanWizardSubmit,
+    handlePlanSkipToPlan,
+    handlePlanApprove,
+    handlePlanEdit,
+    handlePlanCancel,
+  } = usePlanFlow({
+    status,
+    sendMessage,
+    setActivity,
+    primeOptimisticRun,
+    setShowcases,
+    setPendingApproval,
+    setChatMode,
+    lastRunMode,
+    setLastRunMode,
+    textareaRef,
+    hasText,
+    lastAssistantText,
+    planAwaitingAction,
+    setPlanAwaitingAction,
+    activeRunId,
   });
 
   const {
@@ -884,14 +893,16 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     handleDurableRunStop,
     planAwaitingAction,
     setPlanAwaitingAction,
-    planOtherText,
-    setPlanOtherText,
-    planQuestion,
-    handlePlanRun,
-    handlePlanAdjust,
-    handlePlanCancel,
-    handlePlanAnswer,
+    planQuestions,
+    researchPlan,
+    planReady,
+    approvalPending,
+    approvalError,
+    handlePlanWizardSubmit,
     handlePlanSkipToPlan,
+    handlePlanApprove,
+    handlePlanEdit,
+    handlePlanCancel,
   };
 
   const workspaceValue: WorkspaceContextValue = {
@@ -900,8 +911,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     metaLog,
     logMeta,
     terminalOpen,
-    terminalScale,
-    setTerminalScale,
     terminalTab,
     setTerminalTab,
     cycleTerminal,
@@ -1008,6 +1017,8 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     setTheme,
     accent,
     setAccent,
+    font,
+    setFont,
     onboardedAt,
     setOnboardedAt,
     exportLoading,
@@ -1020,7 +1031,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
 
   return (
     <AppHomeProviders chatRuntime={chatRuntimeValue} workspace={workspaceValue} accountData={accountDataValue}>
-    <div className="aio-mockup" data-theme={theme} data-accent={accent} suppressHydrationWarning>
+    <div className="aio-mockup" data-theme={theme} data-accent={accent} data-font={font} suppressHydrationWarning>
       <div className="particles-bg" aria-hidden>
         <DotGrid
           key={theme}
@@ -1033,7 +1044,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
           shockStrength={0}
         />
       </div>
-      <div className="bottom-glow" aria-hidden />
 
       <FloatingChrome
         creditBalance={creditBalance}
@@ -1042,12 +1052,13 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
         iconRailMobileOpen={iconRailMobileOpen}
         setIconRailMobileOpen={setIconRailMobileOpen}
         handleRailItemClick={handleRailItemClick}
+        notificationsUnread={notificationsUnread}
         userAvatarUrl={userAvatarUrl}
         userInitial={userInitial}
         username={username}
       />
 
-      <div className={`app-container${terminalOpen && terminalScale === "focus" ? " output-focus" : ""}`}>
+      <div className={`app-container${terminalOpen ? " output-open" : ""}`}>
         <div className="icon-rail-slot">
           <nav className="icon-rail icon-rail--compact" ref={iconRailRef}>
             <div className="icon-rail-main">
@@ -1107,7 +1118,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
           <Composer
             pendingApproval={pendingApproval}
             handleApprovalRespond={handleApprovalRespond}
-            hasText={hasText}
             insufficientCreditsError={insufficientCreditsError}
             setSettingsInitialTab={setSettingsInitialTab}
             setSettingsOpen={setSettingsOpen}

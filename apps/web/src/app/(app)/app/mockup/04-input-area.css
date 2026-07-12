@@ -5,6 +5,14 @@
   backdrop-filter: none;
   position: relative;
   z-index: 5;
+  /* ponytail: chat-area has flex-basis:0 so it registers 0 shrink share and
+     keeps its full natural height under pressure, forcing ALL the deficit
+     onto input-area's box instead — with default overflow:visible that pushes
+     the composer's own content (textarea) past its box into the
+     .main-content overflow:hidden clip, e.g. once a tall PlanWizard card is
+     mounted on a short/mobile viewport. Composer must never shrink; let
+     chat-area (already overflow-y:auto) absorb the deficit and scroll instead. */
+  flex-shrink: 0;
 }
 
 .input-container { max-width: 780px; margin: 0 auto; position: relative; }
@@ -104,7 +112,9 @@
   padding: 10px 12px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  background: var(--surface-tertiary-opaque);
+  background: linear-gradient(var(--glass-bg), var(--glass-bg)), var(--surface-tertiary-opaque);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
@@ -606,22 +616,23 @@
 .message-attachments {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 8px;
+  margin-top: 6px;
+  max-width: min(100%, 420px);
 }
 
 .message-attachment-thumb {
   padding: 0;
   border: 1px solid var(--glass-border);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: zoom-in;
   line-height: 0;
 }
 
 .message-attachment-thumb img {
-  width: 96px;
-  height: 96px;
+  width: 200px;
+  height: 200px;
   object-fit: cover;
   display: block;
 }

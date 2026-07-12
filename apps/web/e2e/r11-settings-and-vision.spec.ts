@@ -103,15 +103,18 @@ async function installApiMocks(page: Page) {
   return { requests };
 }
 
-test("R11.1: Settings modal Notifications tab toggles the Discord master switch", async ({ page }) => {
+test("R11.1: Settings modal Account tab toggles the Discord master switch", async ({ page }) => {
   const { requests } = await installApiMocks(page);
   await page.goto("/app");
 
-  await page.getByRole("button", { name: "Settings" }).click();
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
+  await page.getByRole("button", { name: "Settings" }).first().click();
   const dialog = page.getByRole("dialog", { name: "Settings" });
   await expect(dialog).toBeVisible();
 
-  await dialog.getByRole("button", { name: "Notifications" }).click();
+  await dialog.getByRole("button", { name: "Account" }).click();
   const checkbox = dialog.locator('input[type="checkbox"]');
   await expect(checkbox).toBeChecked();
 
@@ -124,32 +127,14 @@ test("R11.1: Settings modal Notifications tab toggles the Discord master switch"
   await expect(checkbox).not.toBeChecked();
 });
 
-test("R11.1: Settings modal Memory tab creates and lists a fact", async ({ page }) => {
-  const { requests } = await installApiMocks(page);
-  await page.goto("/app");
-
-  await page.getByRole("button", { name: "Settings" }).click();
-  const dialog = page.getByRole("dialog", { name: "Settings" });
-  await dialog.getByRole("button", { name: "Memory" }).click();
-
-  await expect(dialog.getByText("No facts yet. Add one above.")).toBeVisible();
-
-  await dialog.getByPlaceholder("Label (e.g. Lives in)").fill("Lives in");
-  await dialog.getByPlaceholder("Value (e.g. Hanoi)").fill("Hanoi");
-  await dialog.getByRole("button", { name: "Add fact" }).click();
-
-  await expect.poll(() =>
-    requests.some((r) => r.path === "/api/user-memory" && r.method === "POST"),
-  ).toBe(true);
-  await expect(dialog.getByText("Lives in")).toBeVisible();
-  await expect(dialog.getByText("Hanoi")).toBeVisible();
-});
-
 test("R11.1: Settings modal Account tab shows signed-in identity, read-only", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/app");
 
-  await page.getByRole("button", { name: "Settings" }).click();
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
+  await page.getByRole("button", { name: "Settings" }).first().click();
   const dialog = page.getByRole("dialog", { name: "Settings" });
   await dialog.getByRole("button", { name: "Account" }).click();
   await expect(dialog.getByText("Profile")).toBeVisible();

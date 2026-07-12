@@ -25,9 +25,13 @@
   --accent-on-accent: #0a0a0a;
   --border-color: rgba(255, 255, 255, 0.06);
   --border-active: rgba(0, 129, 242, 0.45);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.6);
+  /* ponytail: shadows removed app-wide (owner critique 2026-07-11) — bubbles/
+     cards/panels lean on --border-color for separation instead. Single
+     token edit covers all 14 call sites (bubbles, cards, icon-rail, modal,
+     input area, right panel). */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
   --radius-sm: 12px;
   --radius-md: 16px;
   --radius-lg: 20px;
@@ -51,6 +55,7 @@
   --surface-secondary-90: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
   --surface-tertiary-90: color-mix(in srgb, var(--bg-tertiary) 90%, transparent);
   --surface-card-90: color-mix(in srgb, var(--bg-card) 90%, transparent);
+  --surface-card-80: color-mix(in srgb, var(--bg-card) 80%, transparent);
   --surface-hover-90: color-mix(in srgb, var(--bg-hover) 90%, transparent);
   --surface-elevated: var(--bg-tertiary);
   --surface-primary-opaque: color-mix(in srgb, var(--bg-primary) 98%, transparent);
@@ -67,6 +72,14 @@
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   position: relative;
+  /* ponytail: cancel the app-wide html{zoom:1.1} (globals.css) here — this
+     shell is pixel-tuned to 100vh; inheriting the 1.1x zoom makes it render
+     taller than the real viewport, so overflow:hidden above stops working
+     and the whole page scrolls. Chromium's zoom compounds multiplicatively
+     down the tree (child zoom:1 does NOT cancel an ancestor's zoom), so the
+     inverse factor is needed here to net out to 1x for this shell only —
+     everything outside .aio-mockup keeps the 1.1x scale-up. */
+  zoom: calc(1 / 1.1);
 }
 
 .aio-mockup *,
@@ -92,60 +105,6 @@
   box-shadow: var(--glass-shadow);
 }
 
-/* ===== BOTTOM GLOW ===== */
-.bottom-glow {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 180px;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
-}
-
-.bottom-glow::before {
-  content: "";
-  position: absolute;
-  bottom: -40%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  height: 100%;
-  background: radial-gradient(
-    ellipse at center bottom,
-    rgba(124, 108, 240, 0.08) 0%,
-    rgba(0, 217, 166, 0.04) 35%,
-    transparent 70%
-  );
-  animation: glowPulse 6s ease-in-out infinite;
-  filter: blur(30px);
-}
-
-.bottom-glow::after {
-  content: "";
-  position: absolute;
-  bottom: -30%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40%;
-  height: 80%;
-  background: radial-gradient(
-    ellipse at center bottom,
-    rgba(124, 108, 240, 0.05) 0%,
-    rgba(0, 217, 166, 0.03) 40%,
-    transparent 75%
-  );
-  animation: glowPulse 6s ease-in-out infinite reverse;
-  filter: blur(50px);
-  animation-delay: -3s;
-}
-
-@keyframes glowPulse {
-  0%, 100% { opacity: 0.6; transform: translateX(-50%) scaleX(1) scaleY(1); }
-  50% { opacity: 1; transform: translateX(-50%) scaleX(1.3) scaleY(1.15); }
-}
-
 /* ===== PARTICLES ===== */
 .particles-bg {
   position: fixed;
@@ -153,12 +112,6 @@
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
-}
-
-.particles-bg .dot-grid {
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle at 50% 50%, rgba(0, 129, 242, 0.08) 0%, transparent 50%);
 }
 
 .particle {
@@ -187,8 +140,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bottom-glow::before,
-  .bottom-glow::after,
   .particle {
     animation: none;
   }

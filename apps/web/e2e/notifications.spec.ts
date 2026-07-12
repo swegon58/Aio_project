@@ -92,65 +92,12 @@ async function installApiMocks(
   return { requests, unexpectedPaths };
 }
 
-test("R10.2: notifications panel shows unread items and supports mark-read / mark-all-read", async ({ page }) => {
-  const { requests } = await installApiMocks(page, {
-    unreadCount: 2,
-    notifications: [
-      {
-        id: "notif-1",
-        source: "scheduled_task",
-        title: "Weekly report finished",
-        read: false,
-        created_at: "2026-07-02T09:00:00.000Z",
-      },
-      {
-        id: "notif-2",
-        source: "research_run",
-        title: "Deep research on AI trends completed",
-        read: false,
-        created_at: "2026-07-01T09:00:00.000Z",
-      },
-    ],
-  });
-
-  await page.goto("/app");
-
-  const bellButton = page.getByRole("button", { name: "Notifications" }).first();
-  await expect(bellButton).toBeVisible();
-  await expect(bellButton.locator(".icon-rail-badge")).toHaveText("2");
-
-  await bellButton.click();
-  const dialog = page.getByRole("dialog", { name: "Notifications" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("Weekly report finished")).toBeVisible();
-  await expect(dialog.getByText("Deep research on AI trends completed")).toBeVisible();
-
-  await dialog.getByRole("button", { name: "Mark read" }).first().click();
-  await expect.poll(() =>
-    requests.some((entry) => entry.path === "/api/notifications/notif-1" && entry.method === "POST"),
-  ).toBe(true);
-
-  await dialog.getByRole("button", { name: "Mark all read" }).click();
-  await expect.poll(() =>
-    requests.some((entry) => entry.path === "/api/notifications" && entry.method === "POST" && entry.search.includes("mark-all-read")),
-  ).toBe(true);
-
-  await dialog.getByRole("button", { name: "Close" }).click();
-  await expect(dialog).toHaveCount(0);
-});
-
-test("R10.2: notifications panel shows empty state with no unread badge", async ({ page }) => {
-  await installApiMocks(page, { unreadCount: 0, notifications: [] });
-
-  await page.goto("/app");
-
-  const bellButton = page.getByRole("button", { name: "Notifications" }).first();
-  await expect(bellButton.locator(".icon-rail-badge")).toHaveCount(0);
-
-  await bellButton.click();
-  const dialog = page.getByRole("dialog", { name: "Notifications" });
-  await expect(dialog.getByText("No notifications yet.")).toBeVisible();
-});
+// R15 (owner critique 2026-07-11): the icon-rail "Notifications" bell was
+// removed from the rail entirely (no replacement entry point wired yet), so
+// the bell-click -> panel-open coverage that lived here no longer has a UI
+// path to exercise. NotificationsPanel/useNotifications/unread-count backend
+// wiring is untouched, just unreachable via UI for now — re-add this
+// coverage once a new entry point ships.
 
 test("R10.2: Discord notify toggle is hidden until Discord is connected, then submits with the task", async ({ page }) => {
   const { requests } = await installApiMocks(page, {
@@ -161,6 +108,9 @@ test("R10.2: Discord notify toggle is hidden until Discord is connected, then su
 
   await page.goto("/app");
 
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
   const scheduledButton = page.getByRole("button", { name: "Scheduled" }).first();
   await scheduledButton.click();
   const dialog = page.getByRole("dialog", { name: "Scheduled Tasks" });
@@ -178,6 +128,9 @@ test("R10.2: Discord notify checkbox appears when connected and is included in c
 
   await page.goto("/app");
 
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
   const scheduledButton = page.getByRole("button", { name: "Scheduled" }).first();
   await scheduledButton.click();
   const dialog = page.getByRole("dialog", { name: "Scheduled Tasks" });

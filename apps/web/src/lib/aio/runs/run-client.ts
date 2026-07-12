@@ -131,6 +131,51 @@ export async function fetchRunSources(runId: string): Promise<AioPublicResearchS
   return data.sources;
 }
 
+// R15 C7 — plan/research pre-execution approval gate (aio_approvals, one
+// durable row per thread). No SSE/run-event announces this row, so the
+// frontend must fetch it explicitly once a run exists.
+export interface AioPublicApproval {
+  id: string;
+  aioApprovalId: string;
+  runId: string;
+  status: "requested" | "approved" | "rejected" | "expired" | "cancelled" | string;
+  title: string | null;
+  toolLabel: string | null;
+  requestedInputRedacted: string | null;
+  expiresAt: string | null;
+}
+
+export async function fetchRunApprovals(runId: string): Promise<AioPublicApproval[]> {
+  const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/approvals`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to load run approvals ${runId} (${res.status})`);
+  }
+  const data = (await res.json()) as { approvals: AioPublicApproval[] };
+  return data.approvals;
+}
+
+export async function resolveRunApproval(
+  runId: string,
+  approvalId: string,
+  choice: "approve" | "reject",
+): Promise<AioPublicApproval> {
+  const res = await fetch(
+    `/api/runs/${encodeURIComponent(runId)}/approvals/${encodeURIComponent(approvalId)}/resolve`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ choice }),
+    },
+  );
+  const data = (await res.json()) as { approval?: AioPublicApproval; message?: string };
+  if (!res.ok || !data.approval) {
+    throw new Error(data.message ?? `Failed to resolve approval (${res.status})`);
+  }
+  return data.approval;
+}
+
 export function isRunTerminal(status: AioRunStatus): boolean {
   return status === "completed" || status === "failed" || status === "cancelled";
 }

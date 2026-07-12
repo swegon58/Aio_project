@@ -1,9 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  BarChart3,
-  Bell,
-  Brain,
   Clock,
   Cog,
   Home,
@@ -19,13 +16,14 @@ import {
   type MascotImageState,
 } from "@/lib/hermes/chat-types";
 import { isRunTerminal } from "@/lib/aio/runs/run-client";
-import type { AioRunEvent, AioRunStatus, ResearchStageEvent } from "@/lib/aio/runs/aio-run-events";
+import type { AioRunEvent, AioRunStatus, ResearchPlanPayload, ResearchStageEvent } from "@/lib/aio/runs/aio-run-events";
 import type { AccentKey } from "@/components/app/SettingsModal";
 import type {
   ImageAspectRatio,
   ImageResolution,
   MessageSegment,
   PlanQuestion,
+  PlanQuestionItem,
 } from "./app-home-types";
 
 // Mirrors route.ts PLAN_MODE_INSTRUCTIONS' aio-question protocol: a
@@ -49,6 +47,57 @@ export function parsePlanQuestion(text: string): PlanQuestion | null {
     }
   } catch {
     // Malformed block — treat as a normal message, not a question card.
+  }
+  return null;
+}
+
+// R15 C5 — batch protocol: ALL clarifying questions (2-5) come back in one
+// fenced aio-questions (plural) block: {questions:[{question,choices,recommended}]}.
+// `recommended` here is the exact choice text, not an index (see plan-mode.ts).
+// Mirrors parsePlanQuestion's fence-stripping/validation style above.
+export function parsePlanQuestions(text: string): PlanQuestionItem[] | null {
+  const fenced = text.match(/```(?:[a-zA-Z-]+)?\s*([\s\S]*?)```/);
+  const candidate = fenced ? fenced[1].trim() : text.trim();
+  if (!candidate.startsWith("{") || !candidate.endsWith("}")) return null;
+  try {
+    const parsed = JSON.parse(candidate);
+    if (
+      Array.isArray(parsed.questions) &&
+      parsed.questions.length >= 2 &&
+      parsed.questions.every(
+        (q: unknown): q is PlanQuestionItem =>
+          typeof q === "object" &&
+          q !== null &&
+          typeof (q as PlanQuestionItem).question === "string" &&
+          Array.isArray((q as PlanQuestionItem).choices) &&
+          (q as PlanQuestionItem).choices.every((c) => typeof c === "string"),
+      )
+    ) {
+      return parsed.questions as PlanQuestionItem[];
+    }
+  } catch {
+    // Malformed block — treat as a normal message, not a wizard.
+  }
+  return null;
+}
+
+// Same fence-stripping style, for research-mode's aio-research-plan block
+// (a title + ordered steps, no prior frontend parser existed for it).
+export function parseResearchPlan(text: string): ResearchPlanPayload | null {
+  const fenced = text.match(/```(?:[a-zA-Z-]+)?\s*([\s\S]*?)```/);
+  const candidate = fenced ? fenced[1].trim() : text.trim();
+  if (!candidate.startsWith("{") || !candidate.endsWith("}")) return null;
+  try {
+    const parsed = JSON.parse(candidate);
+    if (
+      typeof parsed.title === "string" &&
+      Array.isArray(parsed.steps) &&
+      parsed.steps.every((s: unknown) => typeof s === "string")
+    ) {
+      return parsed as ResearchPlanPayload;
+    }
+  } catch {
+    // Malformed block — treat as a normal message.
   }
   return null;
 }
@@ -219,11 +268,8 @@ export const ICON_RAIL_ITEMS = [
   { key: "newChat", label: "Chats", icon: Plus, active: false, disabled: false },
   { key: "home", label: "Home", icon: Home, active: true, disabled: false },
   { key: "scheduled", label: "Scheduled", icon: Clock, active: false, disabled: false },
-  { key: "notifications", label: "Notifications", icon: Bell, active: false, disabled: false },
   { key: "agents", label: "Agents", icon: Users, active: false, disabled: true },
   { key: "tasks", label: "Tasks", icon: ListChecks, active: false, disabled: true },
-  { key: "knowledge", label: "Knowledge", icon: Brain, active: false, disabled: true },
-  { key: "analytics", label: "Analytics", icon: BarChart3, active: false, disabled: true },
   { key: "settings", label: "Settings", icon: Cog, active: false, disabled: false },
 ] as const;
 

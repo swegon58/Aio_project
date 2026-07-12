@@ -7,7 +7,6 @@ import type {
   KanbanBoard,
   MemorySnapshot,
   MetaLogEntry,
-  TerminalScale,
   TerminalTab,
 } from "@/components/app/app-home-types";
 
@@ -35,17 +34,8 @@ export function useWorkspacePanel({
   const logMeta = (text: string) =>
     setMetaLog((prev) => [{ id: `${Date.now()}-${Math.random()}`, text, ts: Date.now() }, ...prev].slice(0, 20));
   const [terminalOpen, setTerminalOpen] = useState(false);
-  const [terminalScale, setTerminalScale] = useState<TerminalScale>("compact");
   const [terminalTab, setTerminalTab] = useState<TerminalTab>("activity");
-  const cycleTerminal = () => {
-    if (!terminalOpen) {
-      setTerminalOpen(true);
-      setTerminalScale("compact");
-    } else {
-      setTerminalOpen(false);
-      setTerminalScale("compact");
-    }
-  };
+  const cycleTerminal = () => setTerminalOpen((prev) => !prev);
   const [kanban, setKanban] = useState<KanbanBoard | null>(null);
   const [kanbanError, setKanbanError] = useState<string | null>(null);
   const [memorySnapshot, setMemorySnapshot] = useState<MemorySnapshot | null>(null);
@@ -214,8 +204,6 @@ export function useWorkspacePanel({
     logMeta,
     terminalOpen,
     setTerminalOpen,
-    terminalScale,
-    setTerminalScale,
     terminalTab,
     setTerminalTab,
     cycleTerminal,

@@ -34,14 +34,27 @@ export const RESEARCH_PLAN_INSTRUCTIONS = [
   "Then stop and wait for confirmation before any research begins.",
 ].join(" ");
 
+// R15 C2 — batch clarifying-questions phase, reusing plan-mode.ts's
+// aio-questions block shape for consistency (shared wizard on the frontend).
+// Runs before RESEARCH_PLAN_INSTRUCTIONS: ask once, then move on to the plan.
+export const RESEARCH_QUESTIONS_INSTRUCTIONS = [
+  "Research mode is ON for this turn. Do not call any tools, and do not start researching yet.",
+  'If the request is ambiguous and clarifying questions would meaningfully change the research, ask ALL of them in a single turn: respond with ONLY a single fenced code block tagged aio-questions containing strict JSON of this exact shape: {"questions": [{"question": "...", "choices": ["...", "...", "..."], "recommended": "..."}, ...]} — between 2 and 5 questions total, each with exactly 3 short, concrete choices, and "recommended" set to the exact text of the choice you\'d pick for that question. Output nothing else in that turn: no prose before or after the block.',
+  "Once you've asked your batch of clarifying questions, or the user's message says to skip ahead, produce the research plan (a single aio-research-plan block) on your next turn instead — do not ask another aio-questions block.",
+].join(" ");
+
 /** Sent by the frontend's "Start research" button (mirrors plan-mode.ts's SKIP_TO_PLAN_TEXT). */
 export const RESEARCH_CONFIRM_TEXT = "Proceed with the research plan above, step by step.";
 
+/** Skip straight to the research plan, mirroring plan-mode.ts's SKIP_TO_PLAN_TEXT. */
+const RESEARCH_SKIP_QUESTIONS_TEXT = "Skip the clarifying questions and write the research plan now";
+
 /**
  * Turn-aware research instructions (mirrors plan-mode.ts's buildPlanInstructions):
- * first research turn → plan-only instructions (no tools); once a plan has
- * already been produced in this conversation, or the user sent the confirm
- * trigger phrase, → the real execute-phase instructions (tools allowed).
+ * first research turn → batch clarifying questions; once asked (or skipped)
+ * → plan-only instructions (no tools); once a plan has already been produced
+ * in this conversation, or the user sent the confirm trigger phrase → the
+ * real execute-phase instructions (tools allowed).
  */
 export function buildResearchInstructions(
   mode: AioChatMode,
@@ -63,7 +76,17 @@ export function buildResearchInstructions(
     return RESEARCH_INSTRUCTIONS;
   }
 
-  return RESEARCH_PLAN_INSTRUCTIONS;
+  const questionsAlreadyAsked = conversationHistory.some(
+    (msg) => msg.role === "assistant" && typeof msg.content === "string" && msg.content.includes("```aio-questions"),
+  );
+  const userSkippedQuestions =
+    typeof lastMessage?.content === "string" && lastMessage.content.includes(RESEARCH_SKIP_QUESTIONS_TEXT);
+
+  if (questionsAlreadyAsked || userSkippedQuestions) {
+    return RESEARCH_PLAN_INSTRUCTIONS;
+  }
+
+  return RESEARCH_QUESTIONS_INSTRUCTIONS;
 }
 
 export function isWebResearchTool(toolName: string): boolean {

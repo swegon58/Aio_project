@@ -1,8 +1,10 @@
 # R15 Execution Checklist — Plan/Research Rebuild + Streaming + Panel Cleanup
 
-**Status:** in progress (2026-07-10). Branch `r15-plan-research-rebuild` from
-`main` (`5961baa`). Scope locked by owner 2026-07-10. Zero deer-flow
-contamination — this phase touches `apps/web` + `apps/harness` of this repo only.
+**Status:** A/B/C/D/E all closed (2026-07-12); ready for commit + owner
+review. Branch `r15-plan-research-rebuild` from `main` (`5961baa`). Scope
+locked by owner 2026-07-10. Zero deer-flow contamination — this phase
+touches `apps/web` + `apps/harness` of this repo only. tsc clean, 348/348
+unit tests, Playwright green across the phase's e2e specs.
 
 ## Goal
 
@@ -137,9 +139,17 @@ wizard (Next/Back) → summary message → plan → approve gate → run.
 
 ## D — Docs / state sync
 
-- [ ] **D1.** `AIO_PROJECT_STATE.md` — add R15 in-progress section; trim if stale
-- [ ] **D2.** `README.md` / `CLAUDE.md` — point active checklist at R15 (no current-run/today refs exist today)
-- [ ] **D3.** Confirm zero `deer-flow` / `deerflow` references introduced in any R15 change
+- [x] **D1.** `AIO_PROJECT_STATE.md` — R15 entry updated (2026-07-12) to reflect
+      A/B/C/E done, D closing; lists the 12-item E backlog and the open
+      Notifications-entry-point gap.
+- [x] **D2.** `README.md` — added `R15 execution checklist (active)` link;
+      `CLAUDE.md` already pointed at the R15 checklist. Confirmed no stale
+      "Current Run"/"Today" references in either file (item B already removed
+      those cards).
+- [x] **D3.** Confirm zero `deer-flow` / `deerflow` references introduced in any
+      R15 change — `git diff` over the full R15 diff (apps/web +
+      apps/harness/hermes-agent/gateway/platforms/api_server.py) plus all new
+      untracked R15 files: zero matches.
 
 ## Open notes
 

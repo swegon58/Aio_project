@@ -29,17 +29,23 @@ export async function readAioChatRequest(req: NextRequest): Promise<AioChatReque
   };
 }
 
-// Coerces an AI SDK image part's `image` field (a data: URL string, a plain
+// Coerces an AI SDK file part's `data` field (a data: URL string, a plain
 // base64 string, or a Uint8Array/ArrayBuffer) into a `data:` URL string for
 // Hermes's OpenAI-vision-shaped `image_url` part.
-function toImageDataUrl(image: unknown, mediaType: string | undefined): string {
-  if (typeof image === "string") {
-    return image.startsWith("data:") ? image : `data:${mediaType ?? "image/png"};base64,${image}`;
+function toImageDataUrl(data: unknown, mediaType: string | undefined): string {
+  if (typeof data === "string") {
+    return data.startsWith("data:") ? data : `data:${mediaType ?? "image/png"};base64,${data}`;
   }
   // Uint8Array / ArrayBuffer fallback — convert bytes to base64.
-  const bytes = image instanceof Uint8Array ? image : new Uint8Array(image as ArrayBuffer);
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
   const base64 = Buffer.from(bytes).toString("base64");
   return `data:${mediaType ?? "image/png"};base64,${base64}`;
+}
+
+function isImageFilePart(part: { type: string; mediaType?: string }): boolean {
+  // `convertToModelMessages` emits image attachments as `{ type: "file", mediaType, data }`,
+  // not `{ type: "image" }` — the latter never appears in practice.
+  return part.type === "file" && Boolean(part.mediaType?.startsWith("image/"));
 }
 
 export async function buildRuntimeMessages(messages: UIMessage[]) {
@@ -48,13 +54,13 @@ export async function buildRuntimeMessages(messages: UIMessage[]) {
     if (!Array.isArray(msg.content)) {
       return { role: msg.role, content: String(msg.content) };
     }
-    const hasImage = msg.content.some((part) => part.type === "image");
+    const hasImage = msg.content.some((part) => isImageFilePart(part));
     const parts: AioRuntimeContentPart[] = msg.content
       .map((part): AioRuntimeContentPart | null => {
         if (part.type === "text") return { type: "text", text: part.text };
-        if (part.type === "image") {
-          const imagePart = part as { image: unknown; mediaType?: string };
-          return { type: "image_url", image_url: { url: toImageDataUrl(imagePart.image, imagePart.mediaType) } };
+        if (isImageFilePart(part)) {
+          const filePart = part as { data: unknown; mediaType?: string };
+          return { type: "image_url", image_url: { url: toImageDataUrl(filePart.data, filePart.mediaType) } };
         }
         return null;
       })

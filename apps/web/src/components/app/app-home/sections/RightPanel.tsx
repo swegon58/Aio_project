@@ -3,8 +3,6 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import {
   CheckCircle2,
-  ChevronRight,
-  Copy,
   Download,
   Eye,
   File,
@@ -12,9 +10,6 @@ import {
   Folder,
   ImageIcon,
   Link2,
-  ListTree,
-  Maximize2,
-  Minimize2,
   Printer,
   TerminalSquare,
   X,
@@ -24,7 +19,7 @@ import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { PreviewPane, ShowcaseErrorDetail, type ActiveFile } from "@/components/app/FilePreview";
 import { MarkdownMessage } from "@/components/app/MarkdownMessage";
 import { RunTimeline, type AgentDisplayState } from "@/components/app/run-timeline";
-import { codeBlockFileName, codeBlockSize, highlightCode } from "@/components/app/app-home-utils";
+import { codeBlockFileName, highlightCode } from "@/components/app/app-home-utils";
 import type { FilesSubTab, WorkspaceEntry } from "@/components/app/app-home-types";
 import type { HermesShowcaseData, HermesUIMessage } from "@/lib/hermes/chat-types";
 import type { AioRunEvent, AioRunStatus } from "@/lib/aio/runs/aio-run-events";
@@ -76,7 +71,6 @@ interface RightPanelProps {
 
 export function RightPanel({
   rightPanelCollapsed,
-  setRightPanelCollapsed,
   rightPanelWidth,
   handleRightPanelResizeStart,
   liveStatusIsProcessing,
@@ -88,14 +82,7 @@ export function RightPanel({
   usagePercentValue,
   resetDateLabel,
   openShowcase,
-  workspaceEntries,
-  isStreaming,
-  lastAssistantMessage,
-  expandedWorkspaceId,
   setExpandedWorkspaceId,
-  copiedMessageId,
-  handleCopyMessage,
-  handleDownloadCodeBlock,
   activeFile,
   latestCodeBlock,
   mobileWorkspaceEntry,
@@ -118,8 +105,6 @@ export function RightPanel({
     filesSubTab,
     setFilesSubTab,
     terminalOpen,
-    terminalScale,
-    setTerminalScale,
     terminalTab,
     setTerminalTab,
     cycleTerminal,
@@ -204,7 +189,7 @@ export function RightPanel({
     <>
       <aside
         className={`right-panel${rightPanelCollapsed ? " collapsed" : ""}${
-          terminalOpen ? ` output-${terminalScale}` : ""
+          terminalOpen ? " output-open" : ""
         }`}
         style={
           !rightPanelCollapsed && rightPanelWidth
@@ -221,31 +206,22 @@ export function RightPanel({
             aria-label="Resize panel"
           />
         )}
-        <div className="panel-header">
-          <h3></h3>
-          <div className="panel-header-actions">
-            <button
-              type="button"
-              className="panel-action-btn"
-              onClick={() => setRightPanelCollapsed(true)}
-              aria-label="Collapse"
-            >
-              <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className={`panel-action-btn--terminal${terminalOpen ? " active" : ""}`}
-          onClick={cycleTerminal}
-          aria-label={!terminalOpen ? "Open Terminal" : "Close Terminal"}
-          aria-pressed={terminalOpen}
-          title={!terminalOpen ? "Open Terminal" : "Close Terminal"}
-        >
-          <TerminalSquare className="w-4 h-4" />
-          <span>Terminal</span>
-        </button>
+        {/* R15: header lives inside .aio-terminal (single unified card) once
+            open, instead of floating as its own bordered pill above it —
+            was reading as a separate box stacked on the tab-bar/body boxes. */}
+        {!terminalOpen && (
+          <button
+            type="button"
+            className="panel-action-btn--terminal"
+            onClick={cycleTerminal}
+            aria-label="Open Terminal"
+            aria-pressed={false}
+            title="Open Terminal"
+          >
+            <TerminalSquare className="w-4 h-4" />
+            <span>Terminal</span>
+          </button>
+        )}
 
         {!terminalOpen && (
         <div className="panel-tab-content">
@@ -487,7 +463,19 @@ export function RightPanel({
         )}
 
         {terminalOpen && (
-          <div className={`aio-terminal aio-terminal--${terminalScale}`}>
+          <div className="aio-terminal">
+            <button
+              type="button"
+              className="aio-terminal-header"
+              onClick={cycleTerminal}
+              aria-label="Close Terminal"
+              aria-pressed
+              title="Close Terminal"
+            >
+              <TerminalSquare className="w-4 h-4" />
+              <span>Terminal</span>
+              <X className="w-4 h-4 aio-terminal-header-close" />
+            </button>
             <div className="aio-terminal-tabs" role="tablist" aria-label="Aio Output views">
               <button
                 type="button"
@@ -496,8 +484,8 @@ export function RightPanel({
                 role="tab"
                 aria-selected={terminalTab === "activity"}
               >
-                <ListTree className="w-4 h-4" />
-                Activity
+                <FileCode className="w-4 h-4" />
+                Code
               </button>
               <button
                 type="button"
@@ -509,85 +497,29 @@ export function RightPanel({
                 <Eye className="w-4 h-4" />
                 Preview
               </button>
-              <button
-                type="button"
-                className="aio-terminal-tab-expand"
-                onClick={() => setTerminalScale(terminalScale === "focus" ? "compact" : "focus")}
-                aria-label={terminalScale === "focus" ? "Use compact output view" : "Focus output"}
-                title={terminalScale === "focus" ? "Compact view" : "Focus view"}
-              >
-                {terminalScale === "focus"
-                  ? <Minimize2 className="w-4 h-4" />
-                  : <Maximize2 className="w-4 h-4" />}
-              </button>
             </div>
 
             {terminalTab === "activity" ? (
               <div className="aio-terminal-body">
-                {workspaceEntries.length === 0 && timelineEvents.length === 0 ? (
-                  <div className="output-empty-state">
-                    <div className="output-empty-icon"><ListTree className="w-5 h-5" /></div>
-                    <h4>No activity yet</h4>
-                    <p>Current task activity will appear here.</p>
+                {openShowcase ? (
+                  <div className="panel-section">
+                    <div className="panel-section-heading">{openShowcase.status === "running" ? "Running" : "Code"}</div>
+                    <div className="panel-section-title">
+                      {openShowcase.taskData.scriptPath?.split("/").pop() ?? "script"}
+                    </div>
+                    <pre className="workspace-code-block">
+                      <code dangerouslySetInnerHTML={{ __html: highlightCode(openShowcase.taskData.code ?? "No source captured.") }} />
+                    </pre>
+                    {openShowcase.status === "error" && (
+                      <ShowcaseErrorDetail stdout={openShowcase.taskData.stdout} />
+                    )}
                   </div>
                 ) : (
-                  <>
-                    {timelineEvents.length > 0 && <RunTimeline events={timelineEvents} compact onResolveApproval={handleTimelineApprovalResolve} />}
-                    {workspaceEntries.map((entry, idx) => {
-                      const isLive = isStreaming && entry.id === lastAssistantMessage?.id;
-                      const isOpen = expandedWorkspaceId === entry.id;
-                      return (
-                        <div key={entry.id} className={`workspace-entry${isOpen ? " open" : ""}`}>
-                          <button
-                            type="button"
-                            className="workspace-entry-header"
-                            onClick={() => setExpandedWorkspaceId(isOpen ? null : entry.id)}
-                          >
-                            <ChevronRight className={`w-3.5 h-3.5 workspace-entry-chevron${isOpen ? " open" : ""}`} />
-                            <span>{isLive ? "Live" : `Turn ${idx + 1}`}</span>
-                            {isLive && <span className="workspace-entry-live-dot" aria-hidden />}
-                          </button>
-                          {isOpen && (
-                            <div className="workspace-entry-body">
-                              {entry.blocks.map((block, i) => {
-                                const blockId = `${entry.id}-${i}`;
-                                return (
-                                  <div key={i} className="code-file-card">
-                                    <div className="code-file-card-header">
-                                      <FileCode className="w-4 h-4 code-file-card-icon" />
-                                      <div className="code-file-card-meta">
-                                        <span className="code-file-card-name">{codeBlockFileName(block.lang)}</span>
-                                        <span className="code-file-card-size">{codeBlockSize(block.code)}</span>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        className="code-file-card-copy"
-                                        onClick={() => handleCopyMessage(blockId, block.code)}
-                                      >
-                                        <Copy className="w-3 h-3" />
-                                        {copiedMessageId === blockId ? "Copied" : "Copy"}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="code-file-card-download"
-                                        onClick={() => handleDownloadCodeBlock(block.lang, block.code)}
-                                      >
-                                        <Download className="w-3 h-3" />
-                                        Download
-                                      </button>
-                                    </div>
-                                    <pre className="workspace-code-block">
-                                      <code dangerouslySetInnerHTML={{ __html: highlightCode(block.code) }} />
-                                    </pre>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </>
+                  <div className="output-empty-state">
+                    <div className="output-empty-icon"><FileCode className="w-5 h-5" /></div>
+                    <h4>No code running</h4>
+                    <p>Live task code will appear here while Aio works.</p>
+                  </div>
                 )}
               </div>
             ) : (

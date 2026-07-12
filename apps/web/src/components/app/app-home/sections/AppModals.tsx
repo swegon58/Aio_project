@@ -43,6 +43,8 @@ export function AppModals({
     setTheme,
     accent,
     setAccent,
+    font,
+    setFont,
     connections,
     connectionsError,
     tokenPlatform,
@@ -164,6 +166,8 @@ export function AppModals({
         onThemeChange={setTheme}
         accent={accent}
         onAccentChange={setAccent}
+        font={font}
+        onFontChange={setFont}
         connections={connections}
         connectionsError={connectionsError}
         tokenPlatform={tokenPlatform}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Inter, IBM_Plex_Sans, Source_Sans_3, Work_Sans } from "next/font/google";
 import "./globals.css";
 import { brand } from "@/lib/brand.config";
 
@@ -12,9 +13,10 @@ const libreBaskerville = localFont({
   display: "swap",
 });
 
-// ponytail: Code New Roman (SIL OFL 1.1, Sam Radian) — monospaced, more
-// readable than NaturalMono. One chokepoint: --font-code feeds --font-sans
-// (body) and --font-mono (code) via globals.css, so this swaps app-wide.
+// ponytail: Code New Roman (SIL OFL 1.1, Sam Radian) — kept for --font-mono
+// (code blocks) only. It used to also feed --font-sans (body text), which
+// made chat prose read as monospace (owner critique 2026-07-11) — body now
+// defaults to Inter below, with a picker in Settings among these 5.
 const codeNewRoman = localFont({
   src: [
     { path: "./fonts/CodeNewRoman-Regular.otf", weight: "400", style: "normal" },
@@ -23,6 +25,11 @@ const codeNewRoman = localFont({
   variable: "--font-code",
   display: "swap",
 });
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const ibmPlexSans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-ibm-plex", display: "swap" });
+const sourceSans3 = Source_Sans_3({ subsets: ["latin"], variable: "--font-source-sans", display: "swap" });
+const workSans = Work_Sans({ subsets: ["latin"], variable: "--font-work-sans", display: "swap" });
 
 export const metadata: Metadata = {
   title: brand.name,
@@ -42,7 +49,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${libreBaskerville.variable} ${codeNewRoman.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${libreBaskerville.variable} ${codeNewRoman.variable} ${inter.variable} ${ibmPlexSans.variable} ${sourceSans3.variable} ${workSans.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

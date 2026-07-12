@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { reportSummary, latestResearchStageEvent } from "./app-home-utils";
+import { reportSummary, latestResearchStageEvent, parsePlanQuestions, parseResearchPlan } from "./app-home-utils";
 import type { AioRunEvent, ResearchStageEvent } from "@/lib/aio/runs/aio-run-events";
 
 // R13.3 item 2: reportSummary() is pure string logic with no e2e-only path
@@ -67,4 +67,38 @@ test("latestResearchStageEvent returns the last research.stage event, ignoring o
 
 test("latestResearchStageEvent returns undefined when there are no research.stage events", () => {
   assert.equal(latestResearchStageEvent([]), undefined);
+});
+
+// R15 C5 — batch aio-questions protocol
+test("parsePlanQuestions parses a fenced aio-questions block with 2-5 questions", () => {
+  const text =
+    '```aio-questions\n{"questions":[{"question":"Q1?","choices":["A","B","C"],"recommended":"B"},{"question":"Q2?","choices":["X","Y","Z"]}]}\n```';
+  const parsed = parsePlanQuestions(text);
+  assert.equal(parsed?.length, 2);
+  assert.equal(parsed?.[0].recommended, "B");
+  assert.equal(parsed?.[1].recommended, undefined);
+});
+
+test("parsePlanQuestions returns null for plain text (no fenced JSON)", () => {
+  assert.equal(parsePlanQuestions("Just a normal chat message."), null);
+});
+
+test("parsePlanQuestions returns null when fewer than 2 questions", () => {
+  const text = '```aio-questions\n{"questions":[{"question":"Only one?","choices":["A","B","C"]}]}\n```';
+  assert.equal(parsePlanQuestions(text), null);
+});
+
+test("parsePlanQuestions returns null on malformed JSON", () => {
+  assert.equal(parsePlanQuestions("```aio-questions\n{not json\n```"), null);
+});
+
+// R15 C5 — research-mode aio-research-plan protocol
+test("parseResearchPlan parses a fenced aio-research-plan block", () => {
+  const text = '```aio-research-plan\n{"title":"Research the thing","steps":["Step one","Step two"]}\n```';
+  const parsed = parseResearchPlan(text);
+  assert.deepEqual(parsed, { title: "Research the thing", steps: ["Step one", "Step two"] });
+});
+
+test("parseResearchPlan returns null for plain text", () => {
+  assert.equal(parseResearchPlan("Here's a normal reply, no plan block."), null);
 });

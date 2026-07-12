@@ -35,13 +35,14 @@ import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import type { HermesShowcaseData, HermesUIMessage } from "@/lib/hermes/chat-types";
 import { buildRuntimeMessages } from "@/lib/aio/chat/chat-route-handler";
 import { ensureConversationRow, persistConversation } from "@/lib/aio/chat/conversation-persistence";
-import { buildPlanInstructions, GUARDRAIL_SYSTEM_PROMPT } from "@/lib/aio/chat/plan-mode";
+import { buildPlanInstructions, GUARDRAIL_SYSTEM_PROMPT, isFinalPlanShape } from "@/lib/aio/chat/plan-mode";
 import { applyPromptVariables } from "@/lib/aio/chat/prompt-variables";
 import {
   buildResearchInstructions,
   isWebResearchTool,
   MIN_RESEARCH_SOURCES,
   RESEARCH_PLAN_INSTRUCTIONS,
+  RESEARCH_QUESTIONS_INSTRUCTIONS,
 } from "@/lib/aio/chat/research-mode";
 import {
   buildResearchStageEvent,
@@ -74,6 +75,7 @@ import {
 import { appendEvent } from "@/lib/aio/runs/run-event-repository";
 import { recordToolCallEvent } from "@/lib/aio/tools/tool-call-writer";
 import { recordApprovalEvent } from "@/lib/aio/tools/approval-writer";
+import { getApproval, requestApproval } from "@/lib/aio/tools/approval-repository";
 import type { AioRunEvent, AioRunStatus, ResearchStage, ResearchStep } from "@/lib/aio/runs/aio-run-events";
 import type { AioRunEventEnvelopeSource } from "@/lib/aio/runs/aio-run-event-schema";
 import { type AioTelemetry, NO_OP_TELEMETRY } from "@/lib/aio/telemetry/telemetry";
@@ -86,6 +88,11 @@ const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === "true";
 // actively driving a run (see startRunLease/heartbeatRunLease).
 const RUN_LEASE_WORKER_ID = `${os.hostname()}:${process.pid}:aio-run-orchestrator`;
 const RUN_LEASE_SECONDS = 90;
+
+// R15 C3: the plan/research-plan HITL approval outlives a single tool-call
+// approval's DEFAULT_APPROVAL_TTL_MS (5 min) — the user reviews the wizard
+// summary before clicking Approve, so give that review a longer window.
+const PLAN_APPROVAL_TTL_MS = 30 * 60 * 1000;
 
 export interface OrchestratorInput {
   /** Request abort signal; firing it aborts the Hermes run (client disconnect). */
@@ -327,6 +334,31 @@ export async function orchestrateAioChatRun(
   const { lastMessage, conversationHistory } = await buildRuntimeMessages(messages);
   const planInstructions = buildPlanInstructions(planMode, conversationHistory, lastMessage);
   const researchInstructions = buildResearchInstructions(mode, conversationHistory, lastMessage);
+  const planPhaseActive = Boolean(planMode);
+  const researchPrePhaseActive =
+    researchInstructions === RESEARCH_PLAN_INSTRUCTIONS || researchInstructions === RESEARCH_QUESTIONS_INSTRUCTIONS;
+
+  // R15 C3: after plan-mode's final plan (or research-mode's research-plan)
+  // has streamed, tools must stay disabled until the user approves it through
+  // the existing HITL approval infra (aio_approvals / resolveApproval — same
+  // repository R13 already wired for tool-call approvals), not just because
+  // the client happens to send planMode:false / a confirm phrase. One
+  // approval per thread (deterministic id), so this is a no-op unless the
+  // plan/research-plan flow was actually used in this thread.
+  const planApprovalId = deterministicUuid(`aio-plan-approval:${threadId}`);
+  let toolsBlockedByPendingApproval = false;
+  if (!planPhaseActive && !researchPrePhaseActive) {
+    const planFlowUsed = conversationHistory.some(
+      (msg) =>
+        msg.role === "assistant" &&
+        typeof msg.content === "string" &&
+        (msg.content.includes("```aio-questions") || msg.content.includes("```aio-research-plan")),
+    );
+    if (planFlowUsed) {
+      const approval = await getApproval(db, planApprovalId, userId);
+      toolsBlockedByPendingApproval = !(approval.ok && approval.data.status === "approved");
+    }
+  }
 
   // ---- wall-clock timeout + client-disconnect abort ----
   const caps = tierConfig(planTier).caps;
@@ -414,7 +446,10 @@ export async function orchestrateAioChatRun(
       // Same infra-level tool gate planMode already gets — the plan phase of
       // research mode must not be able to execute tools either, matching the
       // "wait for confirmation" contract, not just the prompt-level ask.
-      disableTools: Boolean(planMode) || researchInstructions === RESEARCH_PLAN_INSTRUCTIONS,
+      // toolsBlockedByPendingApproval adds the real HITL gate (R15 C3): even
+      // past the plan phase, tools stay off until the durable approval row
+      // is resolved "approved".
+      disableTools: planPhaseActive || researchPrePhaseActive || toolsBlockedByPendingApproval,
       instructions: applyPromptVariables(
         [
           GUARDRAIL_SYSTEM_PROMPT,
@@ -848,6 +883,36 @@ export async function orchestrateAioChatRun(
         }
       } catch (err) {
         console.error(`run closure threw for ${runIdForDurable}:`, err);
+      }
+
+      // R15 C3: this turn just streamed the final plan-mode plan or the
+      // research-mode research-plan (not a batch-questions turn) — request
+      // the durable HITL approval that gates the next turn's tool execution
+      // (see toolsBlockedByPendingApproval above). requestApproval is
+      // idempotent per thread (stable planApprovalId), so a retried/duplicate
+      // turn is a safe no-op.
+      if (succeeded && !budgetExceeded) {
+        const producedPlanArtifact =
+          (planPhaseActive && isFinalPlanShape(assistantText)) ||
+          (researchPrePhaseActive && assistantText.includes("```aio-research-plan"));
+        if (producedPlanArtifact) {
+          try {
+            await requestApproval(db, {
+              aioApprovalId: planApprovalId,
+              runId: runIdForDurable,
+              customerId: userId,
+              toolLabel: mode === "research" ? "Research plan" : "Plan",
+              risk: "guarded",
+              approvalMode: "once",
+              title: mode === "research" ? "Approve research plan" : "Approve plan",
+              requestedInput: assistantText,
+              expiresAt: new Date(Date.now() + PLAN_APPROVAL_TTL_MS).toISOString(),
+              idempotencyKey: `aio-plan-approval:${threadId}`,
+            });
+          } catch (err) {
+            console.error(`requestApproval(plan) for thread ${threadId} threw:`, err);
+          }
+        }
       }
 
       // R10.2: proactive in-app notification for a finished research run.

@@ -3,37 +3,41 @@
 
 .icon-rail-item--compact {
   width: 216px;
-  height: 50px;
-  padding: 0 18px 0 25px;
+  height: 42px;
+  /* left padding centers the icon in the 76px collapsed rail: (76-24)/2 = 26px */
+  padding: 0 14px 0 26px;
   margin: 0;
   border-radius: var(--radius-sm);
-  font-size: 14px;
+  font-size: 13.5px;
   transition: var(--transition-fast);
 }
 
-.icon-rail-item--compact:hover { background: color-mix(in srgb, var(--bg-hover) 70%, transparent); }
-.icon-rail-item--compact.active {
-  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
-  color: var(--accent-secondary);
-}
-.icon-rail-item--compact:disabled { opacity: 0.4; cursor: not-allowed; }
-.icon-rail-item--compact:disabled:hover { background: none; }
+/* ponytail: no persistent "active" highlight — see 01-base.css note; the
+   .active flag is static (Home only, always true), not real nav state. */
+/* disabled ("coming soon") items are filtered out of render entirely
+   (IconRail.tsx) — no :disabled CSS needed here. */
 
 .icon-rail-item--compact .icon-rail-label {
-  min-width: 132px;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   line-height: 1;
   opacity: 0;
   transform: translateX(-6px);
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  /* item #5: hide instantly on collapse (no fade-out lag that reads as a
+     lingering text "sliver") — fade-in transition lives on :hover/:focus-within
+     below instead, so reveal still animates in but hide is immediate. */
+  transition: none;
 }
 
 .icon-rail--compact:hover .icon-rail-label,
 .icon-rail--compact:focus-within .icon-rail-label {
   opacity: 1;
   transform: translateX(0);
+  /* delayed past the rail's 0.2s width-expand (01-base.css) so the label
+     never fades in while the pill is still narrow — that mid-transition
+     overlap was the clipped-letter "lòi chữ" bug */
+  transition: opacity 0.12s ease 0.15s, transform 0.12s ease 0.15s;
 }
 
 .icon-rail--compact .icon-rail-footer {

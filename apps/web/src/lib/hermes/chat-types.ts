@@ -145,6 +145,10 @@ export type HermesUIMessage = UIMessage<
     // Q12: showcase cards persisted with the message so they survive reload
     // (DB-backed, not session/RAM-only) — see route.ts persistConversation.
     showcases?: HermesShowcaseData[];
+    // R15 C-followup — stamped on the wizard's single summary user message so
+    // MessageList can render a clean Q/A recap instead of the raw
+    // "1. Q\nAnswer: A" text that's actually sent to the model.
+    planWizardAnswers?: { question: string; answer: string }[];
   },
   HermesDataTypes
 >;

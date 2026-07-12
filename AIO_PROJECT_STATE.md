@@ -79,17 +79,23 @@ tsc + 317/317 unit + Playwright verified (4 mobile fails pre-existing).
 Checklist archived to `docs/archive/roadmap/R14_CODEBASE_CLEANUP.md`; index
 line in `docs/archive/CLOSED_PHASES.md`.
 
-**R15 (plan/research rebuild + streaming + panel cleanup) — in progress
-(2026-07-10):** branch `r15-plan-research-rebuild` from `main` (`5961baa`).
-Four workstreams, one branch, verified incrementally:
-**A** fix chat-stream jitter (`MessageList.tsx` re-renders whole list per token +
-autoscroll layout thrash — extract memoized `MessageItem`, throttle autoscroll);
-**B** remove "Current Run" + "Today" panel cards (NOT tabs; backend `/api/runs/*`
-shared infra stays); **C** rebuild plan + research into a unified grill → summary →
+**R15 (plan/research rebuild + streaming + panel cleanup) — A/B/C/E done,
+D closing (2026-07-12).** Branch `r15-plan-research-rebuild` from `main`
+(`5961baa`). **A** chat-stream jitter fixed (sticky-bottom + instant
+autoscroll, `393a5cc`); **B** "Current Run" + "Today" panel cards removed
+(`9f799e3`); **C** plan + research rebuilt into a unified grill → summary →
 HITL-approve → run flow (batch `aio-questions`, Next/Back wizard, reuse
-`aio_approvals`); **D** docs/state sync. Locked decisions: batch question gen,
-reuse HITL approval, research shares the grill+approve flow. Detail + per-task
-status: `docs/roadmap/R15_EXECUTION_CHECKLIST.md`. Zero deer-flow contamination.
+`aio_approvals`, `isFinalPlanShape` approval-gate correctness fix) — tsc
+clean, `e2e/plan-wizard.spec.ts` 4/4 green; **E** 12-item Discord UI feedback
+backlog closed (icon-rail hover/dev-unlock/disabled-item cleanup, Terminal
+panel Code/Preview tabs fixed + unified card, vision-attachment bug, glass
+material pass, font picker, e2e regression batch, light-mode shadow
+follow-up) — tsc clean, 348/348 unit, Playwright green. **D** docs/state
+sync closing this pass; zero deer-flow contamination confirmed
+(`docs/roadmap/R15_EXECUTION_CHECKLIST.md` D3). Detail + per-task status:
+`docs/roadmap/R15_EXECUTION_CHECKLIST.md`. Known pre-existing gap (not
+this phase): Notifications feature has no UI entry point since E11 removed
+the icon-rail bell — owner to decide resurface location or permanent removal.
 
 ## Open Decision Gates (owner)
 

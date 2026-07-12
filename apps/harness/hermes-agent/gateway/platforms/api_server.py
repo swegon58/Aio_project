@@ -3870,7 +3870,24 @@ class APIServerAdapter(BasePlatformAdapter):
         if not raw_input:
             return web.json_response(_openai_error("Missing 'input' field"), status=400)
 
-        user_message = raw_input if isinstance(raw_input, str) else (raw_input[-1].get("content", "") if isinstance(raw_input, list) else "")
+        # ``input`` is either a plain string, a list of ``{role, content}``
+        # messages (OpenAI Responses-style, e.g. Open WebUI), or a list of
+        # content parts (``{"type": "text"|"image_url", ...}``) belonging to
+        # a single user message (Aio's web client sends this shape when the
+        # message has an image attachment). Only the former should have its
+        # last element treated as a message to unwrap.
+        raw_input_is_message_array = (
+            isinstance(raw_input, list)
+            and bool(raw_input)
+            and isinstance(raw_input[-1], dict)
+            and "role" in raw_input[-1]
+        )
+        if isinstance(raw_input, str):
+            user_message = raw_input
+        elif isinstance(raw_input, list):
+            user_message = raw_input[-1].get("content", "") if raw_input_is_message_array else raw_input
+        else:
+            user_message = ""
         if not user_message:
             return web.json_response(_openai_error("No user message found in input"), status=400)
         try:
@@ -3922,7 +3939,7 @@ class APIServerAdapter(BasePlatformAdapter):
         # When input is a multi-message array, extract all but the last
         # message as conversation history (the last becomes user_message).
         # Only fires when no explicit history was provided.
-        if not conversation_history and isinstance(raw_input, list) and len(raw_input) > 1:
+        if not conversation_history and raw_input_is_message_array and len(raw_input) > 1:
             for idx, msg in enumerate(raw_input[:-1]):
                 if isinstance(msg, dict) and msg.get("role") and msg.get("content"):
                     try:

@@ -95,6 +95,7 @@
   position: sticky;
   bottom: 4px;
   align-self: center;
+  flex-shrink: 0;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -202,9 +203,14 @@
 }
 
 .message.ai .message-bubble {
-  background: color-mix(in srgb, var(--bg-card) 90%, var(--accent-primary) 10%);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  /* ponytail: 80% opacity (owner critique 2026-07-11) — outer color-mix adds
+     real alpha on top of the existing accent-tint blend, so bg shows through
+     without washing out the tint. */
+  background:
+    linear-gradient(155deg, var(--glass-bg), rgba(255, 255, 255, 0) 60%),
+    color-mix(in srgb, color-mix(in srgb, var(--bg-card) 90%, var(--accent-primary) 10%) 80%, transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
   box-shadow: var(--shadow-sm);
   border-radius: var(--radius-standard);
@@ -227,7 +233,9 @@
   width: 100%;
   max-width: 680px;
   padding: 16px 18px 15px;
-  background: var(--surface-secondary-opaque);
+  background: linear-gradient(var(--glass-bg), var(--glass-bg)), var(--surface-secondary-opaque);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--border-color);
   border-radius: var(--radius-standard);
   box-shadow: var(--shadow-sm);
@@ -316,11 +324,17 @@
 }
 
 .message.user .message-bubble {
-  background: linear-gradient(
-    155deg,
-    color-mix(in srgb, var(--accent-primary) 38%, var(--bg-card)),
-    color-mix(in srgb, var(--accent-primary) 22%, var(--bg-primary))
-  );
+  /* ponytail: 80% opacity (owner critique 2026-07-11) — each gradient stop
+     wrapped in an outer color-mix to add real alpha, matching AI bubble. */
+  background:
+    linear-gradient(155deg, var(--glass-bg), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, color-mix(in srgb, var(--accent-primary) 38%, var(--bg-card)) 80%, transparent),
+      color-mix(in srgb, color-mix(in srgb, var(--accent-primary) 22%, var(--bg-primary)) 80%, transparent)
+    );
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid color-mix(in srgb, var(--accent-primary) 35%, transparent);
   box-shadow: var(--shadow-sm);
   border-radius: var(--radius-standard);

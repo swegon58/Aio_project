@@ -3,11 +3,9 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { FileUIPart } from "ai";
 import {
-  ArrowRight,
   Check,
   CircleAlert,
   Globe,
-  HelpCircle,
   ImageIcon,
   LayoutGrid,
   ListChecks,
@@ -16,13 +14,13 @@ import {
   Play,
   Plus,
   Send,
-  SkipForward,
   Video,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatModeMenu } from "@/components/app/ChatModeMenu";
 import { SavedAgentMenu } from "@/components/app/SavedAgentMenu";
+import { PlanWizard } from "@/components/app/app-home/sections/PlanWizard";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import type { HermesApprovalData } from "@/lib/hermes/chat-types";
 import type { ImageAspectRatio, ImageResolution } from "@/components/app/app-home-types";
@@ -32,7 +30,6 @@ import { useChatRuntime, useWorkspace } from "@/components/app/app-home/context"
 interface ComposerProps {
   pendingApproval: Extract<HermesApprovalData, { kind: "request" }> | null;
   handleApprovalRespond: (requestId: string, targetRunId: string, choice: "session" | "deny") => Promise<void> | void;
-  hasText: boolean;
   insufficientCreditsError: { message?: string } | null;
   setSettingsInitialTab: Dispatch<SetStateAction<"general" | "plan" | "data" | "connections">>;
   setSettingsOpen: Dispatch<SetStateAction<boolean>>;
@@ -59,7 +56,6 @@ interface ComposerProps {
 export function Composer({
   pendingApproval,
   handleApprovalRespond,
-  hasText,
   insufficientCreditsError,
   setSettingsInitialTab,
   setSettingsOpen,
@@ -87,14 +83,14 @@ export function Composer({
     chatError,
     clearError,
     regenerate,
-    planQuestion,
-    planOtherText,
-    setPlanOtherText,
-    handlePlanAnswer,
+    planQuestions,
+    planReady,
+    approvalPending,
+    approvalError,
+    handlePlanWizardSubmit,
     handlePlanSkipToPlan,
-    planAwaitingAction,
-    handlePlanRun,
-    handlePlanAdjust,
+    handlePlanApprove,
+    handlePlanEdit,
     handlePlanCancel,
     handleSubmit,
     handleKeyDown,
@@ -155,58 +151,13 @@ export function Composer({
           </div>
         )}
 
-        {planQuestion && status === "ready" && (
+        {planQuestions && status === "ready" && (
           <div style={{ marginBottom: 10 }}>
-            <div className="plan-question-card" role="group" aria-label="Clarifying question">
-              <div className="plan-card-head">
-                <HelpCircle className="w-4 h-4" />
-                <span className="plan-card-title">Quick question</span>
-              </div>
-              <p className="plan-card-desc">{planQuestion.question}</p>
-              <div className="plan-question-options">
-                {planQuestion.choices.slice(0, 3).map((choice, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className={`plan-question-option${planQuestion.recommended === i ? " recommended" : ""}`}
-                    onClick={() => handlePlanAnswer(choice)}
-                  >
-                    {choice}
-                    {planQuestion.recommended === i && <span className="plan-question-badge">Recommended</span>}
-                  </button>
-                ))}
-                <div className="plan-question-other">
-                  <input
-                    type="text"
-                    value={planOtherText}
-                    onChange={(e) => setPlanOtherText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handlePlanAnswer(planOtherText);
-                      }
-                    }}
-                    placeholder="Other — type your own answer"
-                    className="plan-question-other-input"
-                  />
-                  <button
-                    type="button"
-                    className="plan-btn adjust"
-                    disabled={!planOtherText.trim()}
-                    onClick={() => handlePlanAnswer(planOtherText)}
-                  >
-                    <ArrowRight className="w-3.5 h-3.5" /> Next
-                  </button>
-                </div>
-              </div>
-              <button type="button" className="plan-question-skip" onClick={handlePlanSkipToPlan}>
-                <SkipForward className="w-3.5 h-3.5" /> Skip to plan
-              </button>
-            </div>
+            <PlanWizard questions={planQuestions} onSubmit={handlePlanWizardSubmit} onSkip={handlePlanSkipToPlan} />
           </div>
         )}
 
-        {planAwaitingAction && !planQuestion && status === "ready" && hasText && (
+        {planReady && status === "ready" && (
           <div style={{ marginBottom: 10 }}>
             <div className="plan-card" role="group" aria-label="Plan ready">
               <div className="plan-card-head">
@@ -214,14 +165,24 @@ export function Composer({
                 <span className="plan-card-title">Plan ready</span>
               </div>
               <p className="plan-card-desc">Review the plan above, then choose how to proceed.</p>
+              {approvalError && (
+                <p className="plan-card-desc" style={{ color: "var(--accent-secondary)" }}>
+                  {approvalError}
+                </p>
+              )}
               <div className="plan-card-actions">
-                <button type="button" className="plan-btn run" onClick={handlePlanRun}>
-                  <Play className="w-3.5 h-3.5" /> Run plan
+                <button
+                  type="button"
+                  className="plan-btn run"
+                  disabled={approvalPending}
+                  onClick={() => void handlePlanApprove()}
+                >
+                  <Play className="w-3.5 h-3.5" /> {approvalPending ? "Approving…" : "Approve"}
                 </button>
-                <button type="button" className="plan-btn adjust" onClick={handlePlanAdjust}>
-                  <PenLine className="w-3.5 h-3.5" /> Adjust
+                <button type="button" className="plan-btn adjust" disabled={approvalPending} onClick={handlePlanEdit}>
+                  <PenLine className="w-3.5 h-3.5" /> Edit
                 </button>
-                <button type="button" className="plan-btn cancel" onClick={handlePlanCancel}>
+                <button type="button" className="plan-btn cancel" disabled={approvalPending} onClick={handlePlanCancel}>
                   <X className="w-3.5 h-3.5" /> Cancel
                 </button>
               </div>

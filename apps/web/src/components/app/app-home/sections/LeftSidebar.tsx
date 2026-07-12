@@ -9,13 +9,17 @@ interface LeftSidebarProps {
 }
 
 export function LeftSidebar({ sidebarCollapsed, setSidebarCollapsed }: LeftSidebarProps) {
-  const { terminalOpen, terminalScale } = useWorkspace();
+  const { terminalOpen } = useWorkspace();
   const { mcpServers } = useAccountData();
+  // This panel only ever renders MCP integrations — with none connected it's
+  // an empty 272px box (a dead "gutter" between the icon rail and chat).
+  // Force it collapsed whenever there's nothing to show.
+  const hasContent = Boolean(mcpServers && mcpServers.length > 0);
 
   return (
     <aside
       className={`sidebar${
-        sidebarCollapsed || (terminalOpen && terminalScale === "focus") ? " collapsed" : ""
+        sidebarCollapsed || terminalOpen || !hasContent ? " collapsed" : ""
       }`}
     >
       <div className="sidebar-header">

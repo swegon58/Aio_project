@@ -111,7 +111,8 @@ export function useChatComposer({
     primeOptimisticRunRef.current();
     setShowcases([]);
     setPendingApproval(null);
-    setPlanAwaitingAction(chatMode === "plan");
+    // R15 C9 — research mode now shares the same wizard/approval gate as plan mode.
+    setPlanAwaitingAction(chatMode === "plan" || chatMode === "research");
     setLastRunMode(chatMode);
     if (chatMode === "research") setActiveResearchQuery(submittedText);
     sendMessage(

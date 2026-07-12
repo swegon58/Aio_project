@@ -1,13 +1,11 @@
 /* ===== AIO OUTPUT ===== */
-.app-container.output-focus .main-content { flex: 1 1 48%; min-width: 0; }
-
-.right-panel.output-compact {
-  width: 420px;
-  min-width: 420px;
-  flex: 0 0 420px;
+.app-container.output-open .main-content {
+  flex: 1 1 48%;
+  min-width: 0;
+  transition: var(--transition-slow);
 }
 
-.right-panel.output-focus {
+.right-panel.output-open {
   width: min(52vw, 720px);
   min-width: 520px;
   flex: 0 0 min(52vw, 720px);
@@ -19,9 +17,45 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* ponytail: two-layer design — no solid fill, dot-grid shows through */
-  background: transparent;
+  background: var(--surface-secondary-opaque);
+  border: 1px solid color-mix(in srgb, var(--border-color) 42%, transparent);
+  border-radius: 14px;
 }
+
+/* R15: single unified card — header + tabs + body share the .aio-terminal
+   background/border/radius, divided only by thin borders (owner critique
+   2026-07-11: was reading as 3 stacked boxes). */
+.aio-terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  flex-shrink: 0;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  border-radius: 0;
+  background: transparent;
+  /* Kimo critique 2026-07-11: --accent-secondary is a fixed light pastel per
+     accent (e.g. #ffcc80/#66e8e4), not theme-aware — as text-on-transparent
+     in light mode it fails contrast (~1.4-2.2:1 across all 7 accents vs the
+     required 3:1+ for UI text). text-secondary matches the closed-state
+     "Open Terminal" pill's resting color and stays theme-safe. */
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.aio-terminal-header:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.aio-terminal-header-close {
+  margin-left: auto;
+  opacity: 0.75;
+}
+
+.aio-terminal-header:hover .aio-terminal-header-close { opacity: 1; }
 
 .aio-terminal-tabs {
   display: flex;
@@ -30,7 +64,7 @@
   min-height: 52px;
   padding: 7px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-  background: var(--surface-primary-opaque);
+  background: transparent;
   flex-shrink: 0;
 }
 
@@ -57,24 +91,6 @@
   background: var(--surface-tertiary-opaque);
   border-color: color-mix(in srgb, var(--border-color) 86%, transparent);
 }
-
-.aio-terminal-tab-expand {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  color: var(--text-muted);
-  cursor: pointer;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  transition: var(--transition-fast);
-}
-
-.aio-terminal-tab-expand:hover { color: var(--text-primary); background: var(--bg-hover); }
 
 .code-file-card {
   border: 1px solid var(--border-color);

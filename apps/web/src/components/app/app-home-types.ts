@@ -6,6 +6,19 @@ export interface PlanQuestion {
   recommended?: number;
 }
 
+// R15 C5 — batch protocol: `recommended` is the exact recommended choice
+// text, not an index (unlike the singular PlanQuestion above, kept as-is).
+export interface PlanQuestionItem {
+  question: string;
+  choices: string[];
+  recommended?: string;
+}
+
+export interface PlanWizardAnswer {
+  question: string;
+  answer: string;
+}
+
 export type MessageSegment =
   | { type: "text"; value: string }
   | { type: "code"; lang: string; code: string };
@@ -18,10 +31,6 @@ export interface MetaLogEntry {
   ts: number;
 }
 
-// Aio Output is a human-facing inspector for the current task. Compact
-// keeps the chat primary; focus gives previews more room without turning
-// the product into a developer terminal.
-export type TerminalScale = "compact" | "focus";
 export type TerminalTab = "activity" | "preview";
 
 export interface CronJob {

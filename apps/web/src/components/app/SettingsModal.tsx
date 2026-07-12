@@ -1,29 +1,28 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, Bot, Brain, Calendar, CreditCard, Database, FileText, KeyRound, Lock, Palette, Plug, Server, Shield, Trash2, User, X } from "lucide-react";
+import { Calendar, CreditCard, FileText, KeyRound, Lock, Palette, Plug, Server, Shield, Trash2, User, X } from "lucide-react";
 import { ALL_GATEABLE_TOOLSETS, TIERS, type PlanTier } from "@/lib/hermes/pricing";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
-import { KnowledgeCenterPanel } from "@/components/app/KnowledgeCenterPanel";
-import { SavedAgentsPanel } from "@/components/app/SavedAgentsPanel";
-import { MemoryFactsPanel } from "@/components/app/MemoryFactsPanel";
 import { NotificationPreferencesPanel } from "@/components/app/NotificationPreferencesPanel";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { CREDENTIAL_CATEGORY_LABELS, type CredentialCategory } from "@/lib/hermes/credentials";
+import type { FontKey } from "@/components/app/app-home/hooks/useAccountPrefs";
 
 type Theme = "dark" | "light";
 type AccentKey = "purple" | "green" | "blue" | "pink" | "orange" | "cyan" | "red";
-type SettingsTab = "account" | "general" | "connections" | "credentials" | "knowledge" | "savedAgents" | "memory" | "notifications" | "plan" | "data";
+// ponytail: 10→6 tabs (owner critique 2026-07-11) — Memory tab removed from
+// nav (MemoryFactsPanel/backend data untouched, just unreachable via UI);
+// Notifications folded into Account. Knowledge & Agents tab removed from nav
+// 2026-07-11 (KnowledgeCenterPanel/SavedAgentsPanel/RetrievalValvesPanel
+// backend data untouched, just unreachable via UI — same pattern as Memory).
+type SettingsTab = "account" | "general" | "connections" | "credentials" | "plan" | "data";
 
 const SETTINGS_TABS = [
   { key: "account", label: "Account", icon: User },
   { key: "general", label: "Personalization", icon: Palette },
   { key: "connections", label: "Connected Apps", icon: Plug },
   { key: "credentials", label: "Model Providers", icon: KeyRound },
-  { key: "knowledge", label: "Knowledge", icon: Database },
-  { key: "savedAgents", label: "Saved Agents", icon: Bot },
-  { key: "memory", label: "Memory", icon: Brain },
-  { key: "notifications", label: "Notifications", icon: Bell },
   { key: "plan", label: "Plan", icon: CreditCard },
   { key: "data", label: "Data & Privacy", icon: Shield },
 ] satisfies { key: SettingsTab; label: string; icon: typeof Palette }[];
@@ -57,6 +56,14 @@ const TOOLSET_LABELS: Record<string, string> = {
   tts: "Text-to-Speech",
   skills: "Skills",
 };
+
+const FONTS: { key: FontKey; label: string }[] = [
+  { key: "inter", label: "Inter" },
+  { key: "ibm-plex", label: "IBM Plex Sans" },
+  { key: "source-sans", label: "Source Sans 3" },
+  { key: "work-sans", label: "Work Sans" },
+  { key: "system", label: "System UI" },
+];
 
 const ACCENTS: { key: AccentKey; hex: string }[] = [
   { key: "purple", hex: "#6c5ce7" },
@@ -101,6 +108,8 @@ interface SettingsModalProps {
   onThemeChange: (theme: Theme) => void;
   accent: AccentKey;
   onAccentChange: (accent: AccentKey) => void;
+  font: FontKey;
+  onFontChange: (font: FontKey) => void;
 
   connections: ConnectionStatus[] | null;
   connectionsError: string | null;
@@ -154,6 +163,8 @@ export function SettingsModal({
   onThemeChange,
   accent,
   onAccentChange,
+  font,
+  onFontChange,
   connections,
   connectionsError,
   tokenPlatform,
@@ -290,6 +301,8 @@ export function SettingsModal({
                 <div className="mcp-server-url">{email}</div>
               </div>
             </div>
+            <div className="panel-section-title" style={{ marginTop: 24 }}>Notifications</div>
+            <NotificationPreferencesPanel />
           </div>
         )}
 
@@ -327,6 +340,23 @@ export function SettingsModal({
                     onClick={() => onAccentChange(a.key)}
                     aria-label={a.key}
                   />
+                ))}
+              </div>
+            </div>
+
+            <div className="setting-group" style={{ borderBottom: "none" }}>
+              <div className="setting-label">Font</div>
+              <div className="setting-desc">Choose the typeface used for chat and UI text.</div>
+              <div className="font-selector">
+                {FONTS.map((f) => (
+                  <button
+                    key={f.key}
+                    className={`font-option${font === f.key ? " active" : ""}`}
+                    onClick={() => onFontChange(f.key)}
+                    aria-label={f.label}
+                  >
+                    {f.label}
+                  </button>
                 ))}
               </div>
             </div>
@@ -541,31 +571,6 @@ export function SettingsModal({
               </button>
               {credentialMessage && <div className="memory-text">{credentialMessage}</div>}
             </form>
-          </div>
-        )}
-
-        {tab === "knowledge" && (
-          <div className="setting-group" style={{ borderBottom: "none" }}>
-            <RetrievalValvesPanel />
-            <KnowledgeCenterPanel />
-          </div>
-        )}
-
-        {tab === "savedAgents" && (
-          <div className="setting-group" style={{ borderBottom: "none" }}>
-            <SavedAgentsPanel />
-          </div>
-        )}
-
-        {tab === "memory" && (
-          <div className="setting-group" style={{ borderBottom: "none" }}>
-            <MemoryFactsPanel />
-          </div>
-        )}
-
-        {tab === "notifications" && (
-          <div className="setting-group" style={{ borderBottom: "none" }}>
-            <NotificationPreferencesPanel />
           </div>
         )}
 

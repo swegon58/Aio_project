@@ -8,6 +8,7 @@ import {
   MIN_RESEARCH_SOURCES,
   RESEARCH_CONFIRM_TEXT,
   RESEARCH_PLAN_INSTRUCTIONS,
+  RESEARCH_QUESTIONS_INSTRUCTIONS,
 } from "./research-mode.js";
 
 describe("buildResearchInstructions", () => {
@@ -16,8 +17,17 @@ describe("buildResearchInstructions", () => {
     assert.equal(result, null);
   });
 
-  it("returns plan-phase instructions on the first research turn (no plan produced yet)", () => {
+  it("returns the batch clarifying-questions instructions on the first research turn", () => {
     const result = buildResearchInstructions("research", [], { role: "user", content: "research X" });
+    assert.equal(result, RESEARCH_QUESTIONS_INSTRUCTIONS);
+  });
+
+  it("returns plan-phase instructions once a batch aio-questions block has been asked", () => {
+    const history = [
+      { role: "user", content: "research X" },
+      { role: "assistant", content: '```aio-questions\n{"questions":[{"question":"q","choices":["a","b","c"],"recommended":"a"}]}\n```' },
+    ];
+    const result = buildResearchInstructions("research", history, { role: "user", content: "a" });
     assert.equal(result, RESEARCH_PLAN_INSTRUCTIONS);
   });
 

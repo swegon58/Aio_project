@@ -41,7 +41,8 @@
   width: 76px;
   background: var(--bg-primary);
   border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
-  border-radius: var(--radius-lg);
+  /* match the composer .input-wrapper's pill roundness (04-input-area.css) */
+  border-radius: 28px;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
@@ -60,7 +61,7 @@
   width: 216px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   /* ponytail: Inter font from Google Fonts for cleaner, more legible labels */
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
@@ -91,19 +92,27 @@
   font-weight: 700;
 }
 
-.icon-rail:hover {
-  width: 348px;
+/* ponytail: 232px = 216px content (.icon-rail-main) + 16px breathing room —
+   was 348px, leaving ~130px of dead blank space past the labels (owner
+   critique 2026-07-11). :focus-within mirrors :hover so keyboard focus
+   (and any lingering click focus) expands the rail in sync with the label
+   becoming visible below — previously only opacity followed focus, not
+   width, so a focused-but-unhovered item showed a clipped text sliver
+   spilling past the still-collapsed 76px edge. */
+.icon-rail:hover,
+.icon-rail:focus-within {
+  width: 232px;
   background: var(--bg-primary);
   border-color: color-mix(in srgb, var(--border-color) 72%, transparent);
-  box-shadow: 18px 0 32px rgba(0, 0, 0, 0.22);
 }
 
 .icon-rail-item {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 18px;
-  padding: 0 18px 0 25px;
+  gap: 14px;
+  /* left padding centers the icon in the 76px collapsed rail: (76-24)/2 = 26px */
+  padding: 0 14px 0 26px;
   color: var(--text-muted);
   background: none;
   border: none;
@@ -112,7 +121,7 @@
   font-size: 14px;
   font-weight: 600;
   width: 216px;
-  height: 50px;
+  height: 42px;
   border-radius: var(--radius-sm);
   text-align: left;
   flex-shrink: 0;
@@ -121,6 +130,11 @@
 }
 
 .icon-rail-item svg { flex-shrink: 0; }
+
+/* ponytail: dev-only WIP nav items (Agents/Tasks/Knowledge/Analytics) —
+   shown so devs can see roadmap slots, dimmed since clicking is a no-op. */
+.icon-rail-item--wip { opacity: 0.45; cursor: default; }
+.icon-rail-item--wip:hover { background: none; color: var(--text-muted); }
 
 .icon-rail-badge {
   position: absolute;
@@ -138,28 +152,24 @@
   text-align: center;
 }
 
-.icon-rail-item { font-size: 14px; font-weight: 500; }
+.icon-rail-item { font-size: 13.5px; font-weight: 500; }
 
-/* ponytail: hover highlight only on text content, not full row */
-.icon-rail-item:hover { background: none; color: var(--text-primary); }
-.icon-rail-item:hover .icon-rail-label-inner { background: color-mix(in srgb, var(--accent-primary) 8%, transparent); padding: 2px 6px; border-radius: var(--radius-sm); }
-.icon-rail-item.active { color: var(--accent-secondary); }
-.icon-rail-item:disabled { opacity: 0.4; cursor: not-allowed; }
-.icon-rail-item:disabled:hover { background: none; color: var(--text-muted); }
+/* ponytail: reverted to single full-row highlight (owner critique
+   2026-07-11 round 2) — split icon+label pills read as an asymmetric
+   "leftover chunk" once the rail width was tightened. */
+.icon-rail-item:hover {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  color: var(--text-primary);
+}
+.icon-rail-icon-inner { display: flex; align-items: center; justify-content: center; padding: 4px; margin: -4px; }
+/* ponytail: no persistent "active" highlight — ICON_RAIL_ITEMS.active is a
+   static flag (only Home === true, always), not real current-page state, so
+   styling it permanently highlighted Home even when idle. Highlight now
+   comes only from :hover above. */
 
 /* Desktop icon rail polish */
 @media (min-width: 641px) {
   .icon-rail-main { gap: 12px; }
-
-  .icon-rail-item.active {
-    border-left: 3px solid var(--accent-primary);
-    background: color-mix(in srgb, var(--accent-primary) 7%, transparent);
-    box-shadow: inset -4px 0 8px rgba(124, 108, 240, 0.06);
-  }
-
-  .icon-rail-item.active svg {
-    filter: brightness(0.9) saturate(0.95);
-  }
 
   .icon-rail-label {
     opacity: 0;
@@ -190,13 +200,6 @@
     border-radius: var(--radius-sm);
     width: auto;
     min-width: auto;
-  }
-
-  .icon-rail-item.active {
-    background: var(--accent-primary);
-    color: white;
-    box-shadow: none;
-    border-left: none;
   }
 
   .icon-rail-label {

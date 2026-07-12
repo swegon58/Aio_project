@@ -10,15 +10,20 @@ interface UseAccountPrefsParams {
 // export/delete, and plan upgrade checkout — extracted verbatim from
 // AppHome.tsx. prefsHydrated gates localStorage writes so the client's first
 // render doesn't diverge from SSR output (hydration mismatch).
+export type FontKey = "inter" | "ibm-plex" | "source-sans" | "work-sans" | "system";
+
 export function useAccountPrefs({ logMeta }: UseAccountPrefsParams) {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [accent, setAccent] = useState<AccentKey>("blue");
+  const [font, setFont] = useState<FontKey>("inter");
   const [prefsHydrated, setPrefsHydrated] = useState(false);
   useEffect(() => {
     const storedTheme = localStorage.getItem("aio-theme");
     if (storedTheme === "light") setTheme("light");
     const storedAccent = localStorage.getItem("aio-accent") as AccentKey | null;
     if (storedAccent) setAccent(storedAccent);
+    const storedFont = localStorage.getItem("aio-font") as FontKey | null;
+    if (storedFont) setFont(storedFont);
     setPrefsHydrated(true);
   }, []);
 
@@ -29,6 +34,10 @@ export function useAccountPrefs({ logMeta }: UseAccountPrefsParams) {
   useEffect(() => {
     if (prefsHydrated) localStorage.setItem("aio-accent", accent);
   }, [accent, prefsHydrated]);
+
+  useEffect(() => {
+    if (prefsHydrated) localStorage.setItem("aio-font", font);
+  }, [font, prefsHydrated]);
 
   const [onboardedAt, setOnboardedAt] = useState<string | null | undefined>(undefined);
   useEffect(() => {
@@ -115,6 +124,8 @@ export function useAccountPrefs({ logMeta }: UseAccountPrefsParams) {
     setTheme,
     accent,
     setAccent,
+    font,
+    setFont,
     prefsHydrated,
     onboardedAt,
     setOnboardedAt,

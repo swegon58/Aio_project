@@ -82,6 +82,9 @@ async function installApiMocks(
 }
 
 async function openConnectedAppsTab(page: Page) {
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
   const settingsButton = page.getByRole("button", { name: "Settings" }).first();
   await settingsButton.click();
   const dialog = page.getByRole("dialog").filter({ has: page.locator("#settings-dialog-title") });

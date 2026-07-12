@@ -12,6 +12,7 @@ interface FloatingChromeProps {
   iconRailMobileOpen: boolean;
   setIconRailMobileOpen: Dispatch<SetStateAction<boolean>>;
   handleRailItemClick: (key: (typeof ICON_RAIL_ITEMS)[number]["key"]) => void;
+  notificationsUnread?: number;
   userAvatarUrl?: string | null;
   userInitial: string;
   username: string;
@@ -24,6 +25,7 @@ export function FloatingChrome({
   iconRailMobileOpen,
   setIconRailMobileOpen,
   handleRailItemClick,
+  notificationsUnread,
   userAvatarUrl,
   userInitial,
   username,
@@ -71,7 +73,11 @@ export function FloatingChrome({
           onClick={() => setIconRailMobileOpen(false)}
         />
         <nav className="icon-rail" style={{ width: "80vw", maxWidth: 320 }}>
-          <IconRail variant="mobile" onItemClick={(key) => { setIconRailMobileOpen(false); handleRailItemClick(key); }} />
+          <IconRail
+            variant="mobile"
+            onItemClick={(key) => { setIconRailMobileOpen(false); handleRailItemClick(key); }}
+            notificationsUnread={notificationsUnread}
+          />
           <div className="icon-rail-footer">
             <div className="icon-rail-footer-avatar">
               {userAvatarUrl ? (
