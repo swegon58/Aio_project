@@ -377,6 +377,63 @@ test("#6 Vision: composer enforces the 8MB per-file guardrail", async ({ page })
   await expect(page.locator(".composer-attachments-row")).toHaveCount(0);
 });
 
+test("R15: Settings modal mobile drill-down — list -> tab -> back -> close", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium", "drill-down layout only applies below the 768px breakpoint");
+  await installApiMocks(page);
+  await page.goto("/app");
+
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
+  await page.getByRole("button", { name: "Settings" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  await expect(dialog).toBeVisible();
+
+  // Plain open (no deep link): lands on the tab list, all 4 rows visible.
+  await expect(dialog).not.toHaveClass(/mobile-tab-open/);
+  await expect(dialog.getByRole("button", { name: "Account" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Personalization" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Connected Apps" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Data & Privacy" })).toBeVisible();
+
+  // Tapping a row drills into that tab's full-screen content.
+  await dialog.getByRole("button", { name: "Account" }).click();
+  await expect(dialog).toHaveClass(/mobile-tab-open/);
+  await expect(dialog.getByText("Profile")).toBeVisible();
+
+  // Back returns to the list (doesn't close the modal).
+  await dialog.getByRole("button", { name: "Back to settings list" }).click();
+  await expect(dialog).not.toHaveClass(/mobile-tab-open/);
+  await expect(dialog.getByRole("button", { name: "Account" })).toBeVisible();
+
+  // The separate close control on a tab screen exits Settings entirely.
+  await dialog.getByRole("button", { name: "Personalization" }).click();
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+});
+
+test("R15: composer hides the saved-agent pill at narrow width, keeps the chat-mode pill", async ({ page }) => {
+  await installApiMocks(page);
+  // Registered after the catch-all so it wins (Playwright runs the most
+  // recently registered matching route first).
+  await page.route("**/api/saved-agents", (route) =>
+    route.fulfill({ json: { savedAgents: [{ id: "agent-1", name: "Researcher" }] } }));
+  await page.goto("/app");
+
+  const chatModeTrigger = page.getByRole("button", { name: /Response mode:/ });
+  const savedAgentTrigger = page.getByRole("button", { name: /Saved agent:/ });
+  // Both configured project viewports (390px, 1440px) are above the 380px
+  // hide-breakpoint, so the pill starts out present.
+  await expect(savedAgentTrigger).toHaveCount(1);
+
+  // Narrowing past the breakpoint sets display:none on the saved-agent pill,
+  // which drops it from the accessibility tree entirely (not just visually
+  // hidden) — assert it disappears from the role query, chat mode stays put.
+  await page.setViewportSize({ width: 375, height: 800 });
+  await expect(savedAgentTrigger).toHaveCount(0);
+  await expect(chatModeTrigger).toBeVisible();
+});
+
 test("#6 Vision: composer enforces the 4-image cap", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/app");

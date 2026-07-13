@@ -4,14 +4,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ponytail: app-wide +10% scale. Font-sizes are hardcoded px throughout
-   .aio-mockup, so zoom (≈ browser Ctrl++) is the only one-line lever that
-   actually enlarges text. Ceiling: also scales layout; drop to 1.05 or remove
-   if tuned components overflow. */
-html {
-  zoom: 1.1;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -239,6 +231,7 @@ html {
   }
   html, body {
     overscroll-behavior: none;
+    overflow-x: hidden;
   }
   [contenteditable][data-placeholder]:empty:before {
     content: attr(data-placeholder);

@@ -24,15 +24,13 @@ import { PlanWizard } from "@/components/app/app-home/sections/PlanWizard";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
 import type { HermesApprovalData } from "@/lib/hermes/chat-types";
 import type { ImageAspectRatio, ImageResolution } from "@/components/app/app-home-types";
-import { IMAGE_ASPECT_RATIOS, IMAGE_COST_USD } from "@/components/app/app-home-utils";
+import { IMAGE_ASPECT_RATIOS } from "@/components/app/app-home-utils";
 import { useChatRuntime, useWorkspace } from "@/components/app/app-home/context";
 
 interface ComposerProps {
   pendingApproval: Extract<HermesApprovalData, { kind: "request" }> | null;
   handleApprovalRespond: (requestId: string, targetRunId: string, choice: "session" | "deny") => Promise<void> | void;
   insufficientCreditsError: { message?: string } | null;
-  setSettingsInitialTab: Dispatch<SetStateAction<"general" | "plan" | "data" | "connections">>;
-  setSettingsOpen: Dispatch<SetStateAction<boolean>>;
   isMobileViewport: boolean;
   input: string;
   setInput: Dispatch<SetStateAction<string>>;
@@ -57,8 +55,6 @@ export function Composer({
   pendingApproval,
   handleApprovalRespond,
   insufficientCreditsError,
-  setSettingsInitialTab,
-  setSettingsOpen,
   isMobileViewport,
   input,
   setInput,
@@ -198,18 +194,6 @@ export function Composer({
             <span>{insufficientCreditsError.message || "Not enough credits for this task. Top up your balance to continue."}</span>
             <button
               type="button"
-              className="approval-btn approve"
-              style={{ padding: "2px 10px", fontSize: 12 }}
-              onClick={() => {
-                clearError();
-                setSettingsInitialTab("plan");
-                setSettingsOpen(true);
-              }}
-            >
-              View plans
-            </button>
-            <button
-              type="button"
               className="approval-btn deny"
               style={{ padding: "2px 10px", fontSize: 12 }}
               onClick={() => clearError()}
@@ -326,9 +310,6 @@ export function Composer({
                   </button>
                 ))}
               </div>
-              <span className="image-cost">
-                ${IMAGE_COST_USD[imageResolution].toFixed(2)} est.
-              </span>
               <button
                 type="button"
                 className="image-composer-close"

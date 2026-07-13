@@ -14,8 +14,8 @@ interface AppModalsProps {
   confirmDeleteId: string | null;
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
-  settingsInitialTab: "general" | "plan" | "data" | "connections";
-  setSettingsInitialTab: (tab: "general" | "plan" | "data" | "connections") => void;
+  settingsInitialTab: "general" | "data" | "connections";
+  setSettingsInitialTab: (tab: "general" | "data" | "connections") => void;
   scheduledTasksOpen: boolean;
   setScheduledTasksOpen: (open: boolean) => void;
   chatsPopoverOpen: boolean;

@@ -39,7 +39,6 @@
   gap: 8px;
 }
 
-.floating-actions--left { left: 16px; }
 .floating-actions--right { right: 16px; }
 .floating-actions > * { flex-shrink: 0; }
 
@@ -123,7 +122,7 @@
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  overflow-x: hidden;
+  overflow: hidden;
   padding: 40px 20px;
 }
 
@@ -371,6 +370,7 @@
   overflow-x: auto;
 }
 .markdown-message pre code { background: none; padding: 0; font-size: 13px; line-height: 1.5; }
+.markdown-table-wrap { overflow-x: auto; }
 .markdown-message table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
 .markdown-message th, .markdown-message td { border: 1px solid var(--border-color); padding: 6px 10px; text-align: left; }
 .markdown-message hr { border: none; border-top: 1px solid var(--border-color); margin: 4px 0; }

@@ -8,7 +8,7 @@ and UI independent from the underlying runtime.
 ## What Aio Includes
 
 - Streaming chat with Auto, Plan, and Deep Research modes.
-- Chat-native GPT Image 2 creation and editing through Kie.ai.
+- Chat-native GPT Image 2 creation and editing through fal.ai.
 - Tool execution, run timelines, approvals, and downloadable artifacts.
 - Persistent conversations, memory, knowledge, files, and image gallery.
 - Scheduled tasks and task-oriented workspace views.
@@ -126,7 +126,7 @@ The default Aio profile is stored under
 `apps/harness/aio-home/profiles/aio`. Configure its model and memory providers
 locally without committing secrets or generated runtime state.
 
-For image creation, set `KIE_API_KEY` in the selected profile's ignored
+For image creation, set `FAL_API_KEY` in the selected profile's ignored
 `.env` file or add it from **Settings → Model Providers**. Aio sends the key
 only from server-side code, copies completed images into private Supabase
 Storage, and serves durable authenticated image URLs from its own API.
@@ -236,6 +236,9 @@ See [Aio Model Supply and Gateway Strategy](docs/research/2026-06-27_model_suppl
 - [R7 execution checklist](docs/roadmap/R7_EXECUTION_CHECKLIST.md)
 - [R10 execution checklist](docs/roadmap/R10_EXECUTION_CHECKLIST.md)
 - [R11 execution checklist](docs/roadmap/R11_EXECUTION_CHECKLIST.md)
+- [R12 execution checklist](docs/roadmap/R12_EXECUTION_CHECKLIST.md)
+- [R13 execution checklist](docs/roadmap/R13_EXECUTION_CHECKLIST.md)
+- [R14 codebase cleanup (archived)](docs/archive/roadmap/R14_CODEBASE_CLEANUP.md)
 - [R15 execution checklist (active)](docs/roadmap/R15_EXECUTION_CHECKLIST.md)
 - [Product-ready master plan](docs/roadmap/PRODUCT_READY_MASTER_PLAN.md)
 - [Owner close-out checklist](docs/operations/OWNER_CLOSEOUT_CHECKLIST.md)

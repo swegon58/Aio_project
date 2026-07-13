@@ -87,7 +87,9 @@
   width: min(860px, calc(100vw - 32px));
   max-width: 860px;
   height: min(690px, calc(100vh - 48px));
+  height: min(690px, calc(100dvh - 48px));
   max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
   overflow: hidden;
   padding: 0;
 }
@@ -131,6 +133,16 @@
   font-weight: 500;
   text-align: left;
   transition: var(--transition-fast);
+}
+
+/* Drill-down row chevron (decision 1) — desktop 2-col sidebar doesn't
+   drill down, so no affordance needed there. Shown only at the mobile
+   breakpoint below. */
+.settings-nav-item-chevron {
+  display: none;
+  margin-left: auto;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .settings-nav-item:hover {
@@ -191,6 +203,32 @@
 
 .modal-close:hover { background: color-mix(in srgb, var(--bg-hover) 58%, transparent); color: var(--text-primary); }
 
+/* Mobile drill-down detail-screen controls (decision 1) — hidden on the
+   desktop 2-col layout, shown by the @media (max-width: 768px) block
+   below. .settings-content-close reuses .modal-close's look via the
+   shared class in SettingsModal.tsx markup. */
+.settings-back-btn {
+  display: none;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+
+.settings-back-btn:hover { background: color-mix(in srgb, var(--bg-hover) 58%, transparent); color: var(--text-primary); }
+.settings-back-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+
+.settings-content-close {
+  display: none;
+}
+
 .setting-group {
   margin: 0;
   padding: 14px 0;
@@ -220,7 +258,7 @@
 
 .theme-option {
   width: 72px;
-  height: 34px;
+  height: 44px;
   border-radius: var(--radius-sm);
   border: 2px solid var(--border-color);
   cursor: pointer;
@@ -307,49 +345,153 @@
   background: var(--surface-hover-opaque) !important;
 }
 
-@media (max-width: 640px) {
+/* R15: Connected Apps reduced to icon + name + connect button per card
+   (owner critique 2026-07-12: strip status dots/env-var text/inline forms). */
+.settings-connections-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.settings-connection-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--surface-secondary-opaque);
+  border: 1px solid color-mix(in srgb, var(--border-color) 42%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.settings-connection-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-connection-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.settings-connection-btn:hover {
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  color: var(--text-primary);
+}
+
+/* Decision 4 (owner, 2026-07-12): 1 column at all mobile widths — 2-up
+   was cramping connection-name text. Same breakpoint as the drill-down
+   nav below, not a separate one. */
+@media (max-width: 768px) {
+  .settings-connections-grid { grid-template-columns: 1fr; }
+}
+
+/* Decision 1 (owner, 2026-07-12): mobile Settings full-screen drill-down,
+   replacing the old horizontal tab-strip (4 tabs @ 569px total width
+   didn't fit a ~312px viewport — "Data & Privacy" was scrolled fully
+   off-screen with zero affordance). Breakpoint matches the sidebar's
+   mobile drawer (08-responsive.css `@media (max-width: 768px)`) so both
+   mobile nav surfaces switch at the same width.
+   List screen (.settings-sidebar) and detail screen (.settings-content)
+   are mutually exclusive here, toggled by `.mobile-tab-open` on
+   .settings-modal (SettingsModal.tsx state) — not two separate DOM
+   overlays, since the whole modal is already a full-screen takeover. */
+@media (max-width: 768px) {
   .settings-modal {
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
-    width: calc(100vw - 24px);
-    height: min(680px, calc(100vh - 32px));
+    grid-template-rows: minmax(0, 1fr);
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .settings-sidebar {
-    position: relative;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 40px 10px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 14px 10px;
     border-right: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    border-bottom: none;
   }
 
-  .settings-sidebar-title {
+  .settings-modal.mobile-tab-open .settings-sidebar {
     display: none;
-  }
-
-  .settings-nav {
-    flex-direction: row;
-    gap: 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .settings-nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .settings-nav-item {
-    width: auto;
-    flex-shrink: 0;
-    padding: 0 10px;
   }
 
   .settings-sidebar .modal-close {
-    position: absolute;
-    top: 6px;
-    right: 6px;
+    align-self: flex-end;
+  }
+
+  .settings-nav {
+    flex-direction: column;
+    gap: 2px;
+    overflow-x: visible;
+  }
+
+  .settings-nav-item {
+    width: 100%;
+    min-height: 48px;
+    flex-shrink: 0;
+    padding: 0 12px;
+    font-size: 15px;
+  }
+
+  .settings-nav-item-chevron {
+    display: block;
+  }
+
+  .settings-content {
+    display: none;
+  }
+
+  .settings-modal.mobile-tab-open .settings-content {
+    display: flex;
+  }
+
+  .settings-content-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 8px 12px 4px;
+  }
+
+  .settings-content-header h2 {
+    flex: 1;
+    min-width: 0;
+    font-size: 17px;
+  }
+
+  .settings-back-btn {
+    display: flex;
+  }
+
+  .settings-content-close {
+    display: flex;
   }
 }
 

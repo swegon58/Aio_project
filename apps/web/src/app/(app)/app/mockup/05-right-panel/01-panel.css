@@ -10,8 +10,9 @@
   overflow: hidden;
   position: relative;
   /* ponytail: clears the fixed floating credit chip + panel toggle (top:16,
-     38px tall) now that the top bar they used to live in is gone. */
-  padding-top: 54px;
+     38px tall = 54px) plus a 14px breathing gap so the Terminal button
+     doesn't touch the chip directly above it. */
+  padding-top: 68px;
 }
 
 /* Free drag-resize handle (R11.3) — thin strip on the panel's left edge;

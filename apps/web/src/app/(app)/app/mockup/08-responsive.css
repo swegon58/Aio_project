@@ -125,9 +125,6 @@
   }
   .sidebar.collapsed { transform: translateX(-100%); width: 100%; min-width: 0; }
   .sidebar-close-btn { display: flex; }
-  /* ponytail: icon-rail-mobile-toggle already owns the top-left 14/14/40px
-     corner on mobile — stack the sidebar toggle group below it instead of on it. */
-  .floating-actions--left { top: 64px; left: 14px; }
   .quick-actions { grid-template-columns: 1fr; }
 
   .quick-actions {

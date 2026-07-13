@@ -15,7 +15,7 @@ export type AioToolOwner =
   | "hermes-gateway"
   | "lmstudio"
   | "honcho"
-  | "kie";
+  | "fal";
 
 export type AioToolDataClass =
   | "conversation_context"
@@ -157,6 +157,33 @@ export const AIO_TOOL_MANIFEST: AioToolManifestEntry[] = [
     },
     planAvailability: ALL_PLANS,
     notes: "Enabled explicitly for api_server because Aio uses plan-confirmation flows.",
+  },
+  {
+    canonicalName: "research_complete",
+    version: AIO_TOOL_MANIFEST_VERSION,
+    displayLabel: "Research Depth Gate",
+    category: "toolset",
+    owner: "aio-web",
+    inputSchema: "distinct source URLs retrieved, summary, optional insufficient-sources justification",
+    outputSchema: "ok flag, distinct source count, error message when rejected",
+    sideEffects: {
+      reads: ["local"],
+      writes: [],
+      externalWrites: false,
+    },
+    dataClasses: ["conversation_context"],
+    networkScope: "none",
+    timeoutMs: 10_000,
+    retryPolicy: { maxAttempts: 1, backoff: "none" },
+    risk: "safe",
+    approvalPolicy: {
+      defaultMode: "none",
+      sessionScopeAllowed: false,
+      alwaysScopeAllowed: false,
+      rationale: "Self-validation checkpoint before Deep Research writes its final report; no external effect.",
+    },
+    planAvailability: ALL_PLANS,
+    notes: "Enabled explicitly for api_server, same pattern as clarify. Base-infra-like safety gate, not tier-gated (not in ALL_GATEABLE_TOOLSETS), so it stays available on every plan.",
   },
   {
     canonicalName: "todo",
@@ -379,7 +406,7 @@ export const AIO_TOOL_MANIFEST: AioToolManifestEntry[] = [
     version: AIO_TOOL_MANIFEST_VERSION,
     displayLabel: "Image Generation",
     category: "toolset",
-    owner: "kie",
+    owner: "fal",
     inputSchema: "prompt, aspect ratio, optional reference inputs",
     outputSchema: "generated image artifact and provider job metadata",
     sideEffects: {

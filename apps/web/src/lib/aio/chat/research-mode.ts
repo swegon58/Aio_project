@@ -26,8 +26,10 @@ const RESEARCH_INSTRUCTIONS = [
   "You are running an Aio Deep Research task.",
   "Break the request into a focused research plan and execute it with the available web, browser, and knowledge tools.",
   "Do not use delegate_task or spawn background sub-agents for this research — run every step yourself in this conversation; background delegation results cannot be delivered back to this chat.",
+  "For academic, scientific, or technical topics, also use the arxiv skill to search and cite arXiv papers as a primary source.",
   "Prefer primary and authoritative sources. Cross-check consequential claims across independent sources when possible.",
   `Non-negotiable minimum depth: consult at least ${MIN_RESEARCH_SOURCES} distinct sources before writing your final synthesis or report. Do not move to synthesis after only one or two searches. If the topic is narrow enough that fewer credible sources genuinely exist, say so explicitly in the report instead of silently skipping this minimum.`,
+  "Before writing your final report, you MUST call the research_complete tool with the distinct source URLs you retrieved and a short summary of what you found. If it returns ok:false, you have not met the minimum source depth — keep researching and call it again before writing anything. Only start the final report after research_complete returns ok:true.",
   "Keep the research moving without asking for confirmation when the request is sufficiently clear.",
   "Ask one concise clarifying question only when a missing constraint would materially change the result.",
   "In the final report, include a numbered Sources list (each source on its own line as: [N] <URL>) and cite claims inline as [N] pointing at that list, one citation per discrete claim.",
@@ -119,4 +121,37 @@ export function buildResearchInstructions(
 export function isWebResearchTool(toolName: string): boolean {
   const normalized = toolName.toLowerCase();
   return ["search", "browser", "crawl", "fetch", "web"].some((token) => normalized.includes(token));
+}
+
+function normalizeSourceUrlKey(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.hostname}${parsed.pathname}`.replace(/\/$/, "").toLowerCase();
+  } catch {
+    return url.trim().toLowerCase();
+  }
+}
+
+// R15 gap 3A — the model's own Sources list / [N] citations are self-reported
+// and can drift from what was actually retrieved (run-orchestrator's
+// `researchSourceIds`, populated only from real tool.completed URLs). Strip
+// the citation marker for any [N] whose Sources-list URL isn't in the real,
+// server-observed set, rather than flagging it or blocking synthesis — the
+// underlying prose claim stays, only the false "this is sourced" marker goes.
+export function stripUngroundedCitations(text: string, groundedUrls: Iterable<string>): string {
+  const grounded = new Set(Array.from(groundedUrls, normalizeSourceUrlKey));
+  const sourceLineRe = /^\[(\d+)\]\s+(\S+)\s*$/gm;
+  const ungroundedIds = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = sourceLineRe.exec(text))) {
+    const [, id, url] = match;
+    if (!grounded.has(normalizeSourceUrlKey(url))) ungroundedIds.add(id);
+  }
+  if (ungroundedIds.size === 0) return text;
+
+  let result = text.replace(/^\[(\d+)\]\s+\S+\s*$/gm, (line, id) => (ungroundedIds.has(id) ? "" : line));
+  for (const id of ungroundedIds) {
+    result = result.replace(new RegExp(`\\[${id}\\]`, "g"), "");
+  }
+  return result.replace(/\n{3,}/g, "\n\n");
 }

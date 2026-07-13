@@ -25,13 +25,13 @@
   --accent-on-accent: #0a0a0a;
   --border-color: rgba(255, 255, 255, 0.06);
   --border-active: rgba(0, 129, 242, 0.45);
-  /* ponytail: shadows removed app-wide (owner critique 2026-07-11) — bubbles/
-     cards/panels lean on --border-color for separation instead. Single
-     token edit covers all 14 call sites (bubbles, cards, icon-rail, modal,
-     input area, right panel). */
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
+  /* ponytail: shadows restored app-wide (owner call 2026-07-12, reverses
+     2026-07-11 removal — cards were reading as flat again). Single token
+     edit covers all 14 call sites (bubbles, cards, icon-rail, modal, input
+     area, right panel) so elevation stays one language, not per-card patches. */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4);
   --radius-sm: 12px;
   --radius-md: 16px;
   --radius-lg: 20px;
@@ -68,18 +68,11 @@
   background: var(--bg-primary);
   color: var(--text-primary);
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   position: relative;
-  /* ponytail: cancel the app-wide html{zoom:1.1} (globals.css) here — this
-     shell is pixel-tuned to 100vh; inheriting the 1.1x zoom makes it render
-     taller than the real viewport, so overflow:hidden above stops working
-     and the whole page scrolls. Chromium's zoom compounds multiplicatively
-     down the tree (child zoom:1 does NOT cancel an ancestor's zoom), so the
-     inverse factor is needed here to net out to 1x for this shell only —
-     everything outside .aio-mockup keeps the 1.1x scale-up. */
-  zoom: calc(1 / 1.1);
 }
 
 .aio-mockup *,
@@ -135,6 +128,7 @@
 .app-container {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   position: relative;
   z-index: 1;
 }

@@ -6,7 +6,7 @@ interface UseConnectionsParams {
   settingsOpen: boolean;
   scheduledTasksOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
-  setSettingsInitialTab: (tab: "general" | "plan" | "data" | "connections") => void;
+  setSettingsInitialTab: (tab: "general" | "data" | "connections") => void;
   logMeta: (text: string) => void;
 }
 

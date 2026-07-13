@@ -53,6 +53,13 @@
   align-items: flex-start;
   padding: 18px 0;
   overflow: hidden;
+  /* contain: paint hard-guarantees nothing paints outside this box — without
+     it, Chromium can desync the border-radius clip from the box for a frame
+     during the width transition below, letting label text leak past the
+     rounded edge ("lòi chữ"). The earlier fix (delayed label-opacity in
+     02-compact-variant.css) only retimed *when* the label appears; it never
+     addressed this paint-clip desync, which is why the bug kept recurring. */
+  contain: paint;
   transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
   z-index: 110;
 }

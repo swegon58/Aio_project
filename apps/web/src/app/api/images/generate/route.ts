@@ -1,9 +1,9 @@
 import type { HermesUIMessage, AioGeneratedImage } from "@/lib/hermes/chat-types";
 import { persistConversation } from "@/lib/aio/chat/conversation-persistence";
 import {
-  generateKieImage,
+  generateFalImage,
   validateImageOptions,
-} from "@/lib/aio/images/kie-client";
+} from "@/lib/aio/images/fal-client";
 import {
   createGalleryImageSignedUrl,
   persistGeneratedImage,
@@ -63,17 +63,17 @@ export async function POST(req: Request) {
     ? (body.messages.slice(-100) as HermesUIMessage[])
     : [];
 
-  let apiKey = await resolveProfileSecret(row.profile_name, "KIE_API_KEY");
+  let apiKey = await resolveProfileSecret(row.profile_name, "FAL_API_KEY");
   if (!apiKey) {
     try {
-      apiKey = await readCredentialFromVault(db, userId, "KIE_API_KEY");
+      apiKey = await readCredentialFromVault(db, userId, "FAL_API_KEY");
     } catch {
       apiKey = null;
     }
   }
   if (!apiKey) {
     return errorResponse(
-      new Error("KIE_API_KEY is not configured for this Aio profile."),
+      new Error("FAL_API_KEY is not configured for this Aio profile."),
       503,
     );
   }
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
               }),
             ]
           : [];
-        const generated = await generateKieImage({
+        const generated = await generateFalImage({
           apiKey,
           prompt,
           aspectRatio: options.aspectRatio,
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
           aspectRatio: options.aspectRatio,
           resolution: options.resolution,
           model: generated.model,
-          provider: "kie",
+          provider: "fal",
           estimatedCostUsd: ESTIMATED_COST_USD[options.resolution],
         };
 

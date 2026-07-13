@@ -175,8 +175,10 @@ test("chat, research, approval, settings, and image controls work", async ({ pag
   await page.getByRole("button", { name: "Settings" }).first().click();
   const settingsDialog = page.getByRole("dialog");
   await expect(settingsDialog).toBeVisible();
-  await page.getByRole("button", { name: "Model Providers" }).click();
-  await expect(settingsDialog.locator(".mcp-server-name", { hasText: "Kie.ai Image API Key" })).toBeVisible();
+  // ponytail: "Model Providers" tab was removed from SETTINGS_TABS ahead of
+  // this task (2026-07-12 nav trim) — swapped to a tab that still exists.
+  await settingsDialog.getByRole("button", { name: "Connected Apps" }).click();
+  await expect(settingsDialog.locator(".settings-connections-grid")).toBeVisible();
   await settingsDialog.getByRole("button", { name: "Close", exact: true }).click();
 
   await page.getByRole("button", { name: "More options" }).click();
@@ -185,6 +187,25 @@ test("chat, research, approval, settings, and image controls work", async ({ pag
   await expect(composer).toHaveAttribute("placeholder", /Describe/);
   expect(await page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true);
   expect(unexpectedPaths).toEqual([]);
+});
+
+test("R15: welcome screen has no stray scroll axis", async ({ page }) => {
+  await installApiMocks(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/app");
+
+  const welcomeOverflow = await page.evaluate(() => {
+    const el = document.querySelector(".welcome-screen");
+    if (!el) return null;
+    const style = window.getComputedStyle(el);
+    return { x: style.overflowX, y: style.overflowY };
+  });
+  // Both axes must be explicitly "hidden" — leaving overflow-y unset let the
+  // browser auto-promote it to "auto", creating a hidden nested scrollport
+  // that clipped the last welcome card.
+  expect(welcomeOverflow).toEqual({ x: "hidden", y: "hidden" });
+
+  expect(await page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test("restores the durable run timeline after a refresh", async ({ page }) => {

@@ -214,7 +214,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     handleCronCreate,
   } = useCronJobs({ confirmDeleteId, setConfirmDeleteId, confirmDeleteTimeoutRef });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "plan" | "data" | "connections">("general");
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "data" | "connections">("general");
   const [scheduledTasksOpen, setScheduledTasksOpen] = useState(false);
   const {
     connections,
@@ -1129,8 +1129,6 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
             pendingApproval={pendingApproval}
             handleApprovalRespond={handleApprovalRespond}
             insufficientCreditsError={insufficientCreditsError}
-            setSettingsInitialTab={setSettingsInitialTab}
-            setSettingsOpen={setSettingsOpen}
             isMobileViewport={isMobileViewport}
             input={input}
             setInput={setInput}

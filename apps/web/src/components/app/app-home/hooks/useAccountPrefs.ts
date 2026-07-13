@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { friendlyFetchError } from "@/lib/aio/friendly-fetch-error";
 import type { AccentKey } from "@/components/app/SettingsModal";
 
@@ -17,7 +17,11 @@ export function useAccountPrefs({ logMeta }: UseAccountPrefsParams) {
   const [accent, setAccent] = useState<AccentKey>("blue");
   const [font, setFont] = useState<FontKey>("inter");
   const [prefsHydrated, setPrefsHydrated] = useState(false);
-  useEffect(() => {
+  // ponytail: useLayoutEffect (not useEffect) — reads localStorage and
+  // applies the stored theme/accent/font before the browser paints, so a
+  // saved non-default font (e.g. work-sans) doesn't flash as Inter for a
+  // frame first (owner-reported "font jump", R15 2026-07-12).
+  useLayoutEffect(() => {
     const storedTheme = localStorage.getItem("aio-theme");
     if (storedTheme === "light") setTheme("light");
     const storedAccent = localStorage.getItem("aio-accent") as AccentKey | null;

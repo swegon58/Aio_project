@@ -92,7 +92,7 @@ export interface AioGeneratedImage {
   aspectRatio: string;
   resolution: string;
   model: string;
-  provider: "kie";
+  provider: "fal";
   createdAt: string;
   estimatedCostUsd: number;
 }

@@ -10,6 +10,7 @@ import {
   RESEARCH_CONFIRM_TEXT,
   RESEARCH_PLAN_INSTRUCTIONS,
   RESEARCH_QUESTIONS_INSTRUCTIONS,
+  stripUngroundedCitations,
 } from "./research-mode.js";
 
 describe("execute-phase instructions", () => {
@@ -66,5 +67,33 @@ describe("EXPORT_DOCX_INSTRUCTION", () => {
   it("asks the model to use the docx skill to export the report", () => {
     assert.ok(EXPORT_DOCX_INSTRUCTION.includes("docx"));
     assert.ok(EXPORT_DOCX_INSTRUCTION.toLowerCase().includes("export"));
+  });
+});
+
+describe("stripUngroundedCitations", () => {
+  it("leaves text untouched when every cited source is grounded", () => {
+    const text = "Claim one [1]. Claim two [2].\n\nSources:\n[1] https://a.example/x\n[2] https://b.example/y";
+    const grounded = ["https://a.example/x", "https://b.example/y"];
+    assert.equal(stripUngroundedCitations(text, grounded), text);
+  });
+
+  it("strips inline markers and the source line for an ungrounded citation", () => {
+    const text = "Claim one [1]. Claim two [2].\n\nSources:\n[1] https://a.example/x\n[2] https://fake.example/made-up";
+    const grounded = ["https://a.example/x"];
+    const result = stripUngroundedCitations(text, grounded);
+    assert.ok(result.includes("Claim one [1]."));
+    assert.ok(!result.includes("[2]"));
+    assert.ok(!result.includes("fake.example"));
+  });
+
+  it("matches grounded URLs ignoring trailing slash and case", () => {
+    const text = "Claim [1].\n\nSources:\n[1] HTTPS://A.example/x/";
+    const grounded = ["https://a.example/x"];
+    assert.equal(stripUngroundedCitations(text, grounded), text);
+  });
+
+  it("is a no-op when there is no Sources list", () => {
+    const text = "Just a plain report with no citations at all.";
+    assert.equal(stripUngroundedCitations(text, ["https://a.example/x"]), text);
   });
 });

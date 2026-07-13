@@ -2,7 +2,9 @@
 
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import {
+  Check,
   CheckCircle2,
+  Copy,
   Download,
   Eye,
   File,
@@ -85,6 +87,9 @@ export function RightPanel({
   resetDateLabel,
   openShowcase,
   setExpandedWorkspaceId,
+  copiedMessageId,
+  handleCopyMessage,
+  handleDownloadCodeBlock,
   activeFile,
   latestCodeBlock,
   mobileWorkspaceEntry,
@@ -519,12 +524,73 @@ export function RightPanel({
                     <div className="panel-section-title">
                       {openShowcase.taskData.scriptPath?.split("/").pop() ?? "script"}
                     </div>
+                    <div className="message-meta" style={{ marginBottom: 8 }}>
+                      <button
+                        type="button"
+                        className="copy-btn"
+                        onClick={() => handleCopyMessage("terminal-code", openShowcase.taskData.code ?? "")}
+                        aria-label="Copy code"
+                        title="Copy code"
+                      >
+                        {copiedMessageId === "terminal-code" ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="copy-btn"
+                        onClick={() =>
+                          handleDownloadCodeBlock(
+                            openShowcase.taskData.scriptPath?.split(".").pop() ?? "txt",
+                            openShowcase.taskData.code ?? "",
+                          )
+                        }
+                        aria-label="Download code"
+                        title="Download code"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     <pre className="workspace-code-block">
                       <code dangerouslySetInnerHTML={{ __html: highlightCode(openShowcase.taskData.code ?? "No source captured.") }} />
                     </pre>
                     {openShowcase.status === "error" && (
                       <ShowcaseErrorDetail stdout={openShowcase.taskData.stdout} />
                     )}
+                  </div>
+                ) : latestCodeBlock ? (
+                  <div className="panel-section">
+                    <div className="panel-section-heading">Code</div>
+                    <div className="panel-section-title">{codeBlockFileName(latestCodeBlock.lang)}</div>
+                    <div className="message-meta" style={{ marginBottom: 8 }}>
+                      <button
+                        type="button"
+                        className="copy-btn"
+                        onClick={() => handleCopyMessage("terminal-code", latestCodeBlock.code)}
+                        aria-label="Copy code"
+                        title="Copy code"
+                      >
+                        {copiedMessageId === "terminal-code" ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="copy-btn"
+                        onClick={() => handleDownloadCodeBlock(latestCodeBlock.lang, latestCodeBlock.code)}
+                        aria-label="Download code"
+                        title="Download code"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <pre className="workspace-code-block">
+                      <code dangerouslySetInnerHTML={{ __html: highlightCode(latestCodeBlock.code) }} />
+                    </pre>
                   </div>
                 ) : (
                   <div className="output-empty-state">
@@ -547,15 +613,8 @@ export function RightPanel({
                     sandbox="allow-scripts"
                     title="Preview"
                   />
-                ) : latestCodeBlock ? (
-                  <div className="terminal-preview-pane">
-                    <div className="terminal-preview-filename">{codeBlockFileName(latestCodeBlock.lang)}</div>
-                    <pre className="workspace-code-block">
-                      <code dangerouslySetInnerHTML={{ __html: highlightCode(latestCodeBlock.code) }} />
-                    </pre>
-                  </div>
                 ) : (
-                  <PreviewPane file={activeFile} />
+                  <PreviewPane file={null} />
                 )}
               </div>
             )}
