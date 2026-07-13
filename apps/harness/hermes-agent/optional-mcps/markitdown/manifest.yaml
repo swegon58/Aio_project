@@ -1,0 +1,46 @@
+# Nous-approved MCP catalog entry.
+# Presence in this directory = approval. Merged via PR review.
+manifest_version: 1
+
+name: markitdown
+description: Convert documents, PDFs, Office files, images, and audio to Markdown for knowledge-base ingestion and general document reading (Microsoft's markitdown library).
+source: https://github.com/microsoft/markitdown/tree/main/packages/markitdown-mcp
+
+# Official Microsoft package (part of the microsoft/markitdown monorepo,
+# 165k+ stars, actively maintained — pushed within the last month as of
+# 2026-07-13). Published to PyPI as `markitdown-mcp`. Ships a lightweight
+# STDIO/HTTP/SSE MCP server; we use STDIO here, matching the other local
+# catalog entries.
+#
+# No git clone step needed: `uvx` fetches and runs the pinned version
+# on-demand (same "npm/uvx servers where transport.command is the install"
+# carve-out documented in optional-mcps/n8n/manifest.yaml and
+# hermes_cli/mcp_catalog.py's InstallSpec docstring).
+transport:
+  type: stdio
+  command: "uvx"
+  args:
+    - "markitdown-mcp==0.0.1a4"
+
+# No credentials — the server only touches whatever http:/https:/file:/data:
+# URI the caller passes it.
+auth:
+  type: none
+
+# Single tool (`convert_to_markdown(uri)`), nothing to curate — leave
+# `tools.default_enabled` unset so the install-time checklist pre-checks it.
+
+post_install: |
+  markitdown exposes one tool: convert_to_markdown(uri). uri can be an
+  http:, https:, file:, or data: URI. It converts PDFs, Office files
+  (docx/pptx/xlsx), images (with OCR/EXIF), audio (transcription metadata),
+  HTML, CSV/JSON/XML, and zip archives to Markdown text.
+
+  Security note (from upstream): the server runs with the privileges of the
+  user running it and has no auth of its own — convert_to_markdown(uri) can
+  read any local file: URI the process can access, or fetch any http(s)
+  URI. This is expected for a local, agent-invoked conversion tool (same
+  trust model as every other stdio MCP in this catalog), but don't expose
+  this server over a non-localhost network binding.
+
+  Start a new Hermes session to load the markitdown tool.

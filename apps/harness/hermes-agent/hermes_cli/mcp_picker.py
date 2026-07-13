@@ -111,15 +111,11 @@ def _format_row(row: _Row) -> str:
 
 
 def _enable_disable(name: str, *, enable: bool) -> None:
-    cfg = load_config()
-    servers = cfg.get("mcp_servers") or {}
-    server = servers.get(name)
-    if not server:
+    from hermes_cli.mcp_config import _set_mcp_enabled
+
+    if not _set_mcp_enabled(name, enable=enable):
         print(color(f"  '{name}' is not installed.", Colors.RED))
         return
-    server["enabled"] = enable
-    cfg["mcp_servers"] = servers
-    save_config(cfg)
     print(color(
         f"  ✓ '{name}' {'enabled' if enable else 'disabled'}. "
         "Start a new Hermes session for changes to take effect.",
@@ -298,8 +294,13 @@ def run_picker() -> None:
         _handle_row(rows[idx])
 
 
-def install_by_name(identifier: str) -> int:
+def install_by_name(identifier: str, *, env: Optional[dict] = None) -> int:
     """`hermes mcp install <name>` — non-interactive entry-point.
+
+    ``env`` optionally pre-seeds credentials declared by the manifest's
+    ``auth.env`` (see :func:`hermes_cli.mcp_catalog.install_entry`) so a
+    scripted caller can supply them upfront instead of hitting a blocking
+    prompt.
 
     Returns 0 on success, non-zero on failure (so the CLI can propagate
     exit codes).
@@ -315,7 +316,7 @@ def install_by_name(identifier: str) -> int:
         ))
         return 1
     try:
-        install_entry(entry, enable=True)
+        install_entry(entry, enable=True, env=env)
     except CatalogError as exc:
         print(color(f"  ✗ install failed: {exc}", Colors.RED))
         return 1

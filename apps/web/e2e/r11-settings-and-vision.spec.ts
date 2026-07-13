@@ -18,6 +18,10 @@ async function installApiMocks(page: Page) {
   let preferences = { notifyDiscordGlobal: true, dataTrainingOptOut: false };
   const facts: Array<{ id: string; label: string; value: string; source: string; createdAt: string; updatedAt: string }> = [];
   let nextFactId = 1;
+  const skills: Array<{ name: string; category: string; description: string; source: string; trust: string; enabled: boolean }> = [
+    { name: "weather", category: "utility", description: "Look up current weather.", source: "hub", trust: "trusted", enabled: true },
+  ];
+  const mcpServers: Array<{ name: string; transport: string; enabled: boolean }> = [];
 
   await page.route("**/api/**", async (route: Route) => {
     const request = route.request();
@@ -76,6 +80,57 @@ async function installApiMocks(page: Page) {
       return;
     }
 
+    if (path === "/api/integrations/skills" && method === "GET") {
+      await route.fulfill({ json: { skills } });
+      return;
+    }
+    if (path === "/api/integrations/skills" && method === "POST") {
+      const { identifier } = body as { identifier?: string };
+      if (identifier === "bad/skill") {
+        await route.fulfill({ status: 400, json: { error: "install_failed", message: "blocked by scan" } });
+        return;
+      }
+      skills.push({ name: identifier ?? "new-skill", category: "utility", description: "Freshly installed.", source: "hub", trust: "community", enabled: true });
+      await route.fulfill({ json: { ok: true, identifier } });
+      return;
+    }
+    if (path === "/api/integrations/skills" && method === "PATCH") {
+      const { name, enabled } = body as { name: string; enabled: boolean };
+      const skill = skills.find((s) => s.name === name);
+      if (skill) skill.enabled = enabled;
+      await route.fulfill({ json: { ok: true, name, enabled } });
+      return;
+    }
+
+    if (path === "/api/integrations/mcp" && method === "GET") {
+      await route.fulfill({ json: { servers: mcpServers } });
+      return;
+    }
+    if (path === "/api/integrations/mcp" && method === "POST") {
+      const { name, env } = body as { name?: string; env?: Record<string, string> };
+      if (name === "n8n" && !env?.N8N_API_KEY) {
+        await route.fulfill({ status: 400, json: { error: "install_failed", message: "N8N_API_KEY is required but no value was provided" } });
+        return;
+      }
+      mcpServers.push({ name: name ?? "unknown", transport: name === "linear" ? "https://mcp.linear.app/mcp" : "stdio", enabled: true });
+      await route.fulfill({ json: { ok: true, name } });
+      return;
+    }
+    if (path === "/api/integrations/mcp" && method === "PATCH") {
+      const { name, enabled } = body as { name: string; enabled: boolean };
+      const server = mcpServers.find((s) => s.name === name);
+      if (server) server.enabled = enabled;
+      await route.fulfill({ json: { ok: true, name, enabled } });
+      return;
+    }
+    if (path === "/api/integrations/mcp" && method === "DELETE") {
+      const { name } = body as { name: string };
+      const idx = mcpServers.findIndex((s) => s.name === name);
+      if (idx >= 0) mcpServers.splice(idx, 1);
+      await route.fulfill({ json: { ok: true, name } });
+      return;
+    }
+
     const responses: Record<string, unknown> = {
       "/api/credits": { balance: 9_999, usedPercent: 0, resetAt: "2026-07-01T00:00:00.000Z", planTier: "pro" },
       "/api/conversations": { conversations: [] },
@@ -86,7 +141,6 @@ async function installApiMocks(page: Page) {
       "/api/credentials": { credentials: [] },
       "/api/knowledge": { files: [] },
       "/api/cron": { jobs: [] },
-      "/api/integrations/mcp": { servers: [] },
       "/api/onboarding": { onboardedAt: "2026-06-01T00:00:00.000Z" },
       "/api/saved-agents": { savedAgents: [] },
       "/api/notifications": { notifications: [], unreadCount: 0 },
@@ -138,6 +192,141 @@ test("R11.1: Settings modal Account tab shows signed-in identity, read-only", as
   const dialog = page.getByRole("dialog", { name: "Settings" });
   await dialog.getByRole("button", { name: "Account" }).click();
   await expect(dialog.getByText("Profile")).toBeVisible();
+});
+
+test("R16-A5: Settings modal Skills tab lists installed skills and toggles enable/disable", async ({ page }) => {
+  const { requests } = await installApiMocks(page);
+  await page.goto("/app");
+
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
+  await page.getByRole("button", { name: "Settings" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  await dialog.getByRole("button", { name: "Skills" }).click();
+
+  await expect(dialog.getByText("weather", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Look up current weather.")).toBeVisible();
+  await expect(dialog.getByText("trusted")).toBeVisible();
+
+  const disableBtn = dialog.getByRole("button", { name: "Disable" });
+  await disableBtn.click();
+  await expect.poll(() =>
+    requests.some(
+      (r) => r.path === "/api/integrations/skills" && r.method === "PATCH" && (r.body as { enabled?: boolean })?.enabled === false,
+    ),
+  ).toBe(true);
+  await expect(dialog.getByRole("button", { name: "Enable" })).toBeVisible();
+});
+
+test("R16-A5: Settings modal Skills tab installs a new skill and surfaces install failures", async ({ page }) => {
+  const { requests } = await installApiMocks(page);
+  await page.goto("/app");
+
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
+  await page.getByRole("button", { name: "Settings" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  await dialog.getByRole("button", { name: "Skills" }).click();
+
+  const input = dialog.getByPlaceholder("Skill identifier or SKILL.md URL");
+  await input.fill("bad/skill");
+  await dialog.getByRole("button", { name: "Install skill" }).click();
+  await expect(dialog.getByText("blocked by scan")).toBeVisible();
+
+  await input.fill("good/skill");
+  await dialog.getByRole("button", { name: "Install skill" }).click();
+  await expect.poll(() =>
+    requests.some((r) => r.path === "/api/integrations/skills" && r.method === "POST" && (r.body as { identifier?: string })?.identifier === "good/skill"),
+  ).toBe(true);
+  await expect(dialog.getByText("good/skill", { exact: true })).toBeVisible();
+});
+
+test("R16-A6: Connected Apps tab connects n8n with a valid URL + API key", async ({ page }) => {
+  const { requests } = await installApiMocks(page);
+  await page.goto("/app");
+
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
+  await page.getByRole("button", { name: "Settings" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  await dialog.getByRole("button", { name: "Connected Apps" }).click();
+
+  await expect(dialog.getByText("Automation tools")).toBeVisible();
+  await dialog.getByPlaceholder("n8n instance URL").fill("https://n8n.example.com");
+  await dialog.getByPlaceholder("n8n API key (Settings → API in n8n)").fill("secret-key-123");
+  await dialog.getByRole("button", { name: "Connect n8n" }).click();
+
+  await expect.poll(() =>
+    requests.some((r) => {
+      if (r.path !== "/api/integrations/mcp" || r.method !== "POST") return false;
+      const b = r.body as { name?: string; env?: Record<string, string> };
+      return b.name === "n8n" && b.env?.N8N_BASE_URL === "https://n8n.example.com" && b.env?.N8N_API_KEY === "secret-key-123";
+    }),
+  ).toBe(true);
+  await expect(dialog.getByText("Connected", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Disable" })).toBeVisible();
+});
+
+test("R16-A6: Connected Apps tab rejects an n8n submit with no API key, without calling the API", async ({ page }) => {
+  const { requests } = await installApiMocks(page);
+  await page.goto("/app");
+
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
+  await page.getByRole("button", { name: "Settings" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  await dialog.getByRole("button", { name: "Connected Apps" }).click();
+
+  await dialog.getByPlaceholder("n8n instance URL").fill("https://n8n.example.com");
+  await dialog.getByRole("button", { name: "Connect n8n" }).click();
+
+  await expect(dialog.getByText("API key is required.")).toBeVisible();
+  expect(requests.some((r) => r.path === "/api/integrations/mcp" && r.method === "POST")).toBe(false);
+});
+
+test("R16-A6: Connected Apps tab rejects a malformed n8n URL, without calling the API", async ({ page }) => {
+  const { requests } = await installApiMocks(page);
+  await page.goto("/app");
+
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
+  await page.getByRole("button", { name: "Settings" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  await dialog.getByRole("button", { name: "Connected Apps" }).click();
+
+  await dialog.getByPlaceholder("n8n instance URL").fill("not-a-url");
+  await dialog.getByPlaceholder("n8n API key (Settings → API in n8n)").fill("secret-key-123");
+  await dialog.getByRole("button", { name: "Connect n8n" }).click();
+
+  await expect(dialog.getByText("Enter a valid n8n URL (starting with http:// or https://).")).toBeVisible();
+  expect(requests.some((r) => r.path === "/api/integrations/mcp" && r.method === "POST")).toBe(false);
+});
+
+test("R16-A6: Connected Apps tab Linear connect installs but honestly does not claim Connected", async ({ page }) => {
+  const { requests } = await installApiMocks(page);
+  await page.goto("/app");
+
+  if (await page.getByRole("button", { name: "Open nav" }).isVisible()) {
+    await page.getByRole("button", { name: "Open nav" }).click();
+  }
+  await page.getByRole("button", { name: "Settings" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  await dialog.getByRole("button", { name: "Connected Apps" }).click();
+
+  await dialog.getByRole("button", { name: "Connect Linear" }).click();
+
+  await expect.poll(() =>
+    requests.some((r) => r.path === "/api/integrations/mcp" && r.method === "POST" && (r.body as { name?: string })?.name === "linear"),
+  ).toBe(true);
+  await expect(dialog.getByText("Added — sign-in still needed")).toBeVisible();
+  await expect(dialog.getByText(/sign-in can't finish automatically/)).toBeVisible();
+  // Reused enable/disable/remove controls appear once installed — no fake "Connected" status.
+  await expect(dialog.getByRole("button", { name: "Disable" })).toBeVisible();
 });
 
 test("#6 Vision: attaching an image via the composer file input shows a thumbnail chip and is sent with the message", async ({ page }) => {

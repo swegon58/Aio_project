@@ -478,7 +478,7 @@ def do_browse(page: int = 1, page_size: int = 20, source: str = "all",
 def do_install(identifier: str, category: str = "", force: bool = False,
                console: Optional[Console] = None, skip_confirm: bool = False,
                invalidate_cache: bool = True,
-               name_override: str = "") -> None:
+               name_override: str = "") -> bool:
     """Fetch, quarantine, scan, confirm, and install a skill.
 
     ``name_override`` lets non-interactive callers (slash commands, gateway,
@@ -487,6 +487,11 @@ def do_install(identifier: str, category: str = "", force: bool = False,
     triggers a prompt instead; ``skip_confirm=True`` means "non-interactive"
     (so pair it with ``name_override`` when installing from a URL that has
     no frontmatter).
+
+    Returns True on a completed install, False on any cancelled/blocked/
+    failed path — so a scripted caller (``hermes skills install``, the API
+    bridge) can propagate a non-zero exit code instead of always reporting
+    success.
     """
     from tools.skills_hub import (
         GitHubAuth, create_source_router, ensure_hub_dirs,
@@ -505,7 +510,7 @@ def do_install(identifier: str, category: str = "", force: bool = False,
     if "/" not in identifier:
         identifier = _resolve_short_name(identifier, sources, c)
         if not identifier:
-            return
+            return False
 
     c.print(f"\n[bold]Fetching:[/] {identifier}")
 
@@ -529,7 +534,7 @@ def do_install(identifier: str, category: str = "", force: bool = False,
             )
         else:
             c.print()
-        return
+        return False
 
     # URL-sourced skills may arrive with an empty name when SKILL.md has no
     # ``name:`` in frontmatter AND the URL path doesn't yield a valid
@@ -546,7 +551,7 @@ def do_install(identifier: str, category: str = "", force: bool = False,
                 "Must be a lowercase identifier (letters, digits, hyphens, "
                 "underscores; starts with a letter).\n"
             )
-            return
+            return False
         elif skip_confirm:
             # Non-interactive surface (slash command / TUI / gateway). Can't
             # prompt — emit an actionable error.
@@ -561,14 +566,14 @@ def do_install(identifier: str, category: str = "", force: bool = False,
                 "[dim]Or ask the SKILL.md's author to add a `name:` field to "
                 "its YAML frontmatter.[/]\n"
             )
-            return
+            return False
         else:
             # Interactive TTY — prompt.
             url = bundle_meta.get("url") or identifier
             chosen = _prompt_for_skill_name(c, url)
             if not chosen:
                 c.print("[dim]Installation cancelled.[/]\n")
-                return
+                return False
             bundle.name = chosen
             bundle_meta["awaiting_name"] = False
         # Keep SkillMeta in sync so downstream "already installed" checks,
@@ -598,7 +603,7 @@ def do_install(identifier: str, category: str = "", force: bool = False,
         c.print(f"[yellow]Warning:[/] '{bundle.name}' is already installed at {existing['install_path']}")
         if not force:
             c.print("Use --force to reinstall.\n")
-            return
+            return False
 
     extra_metadata = dict(getattr(meta, "extra", {}) or {})
     extra_metadata.update(getattr(bundle, "metadata", {}) or {})
@@ -611,7 +616,7 @@ def do_install(identifier: str, category: str = "", force: bool = False,
         from tools.skills_hub import append_audit_log
         append_audit_log("BLOCKED", bundle.name, bundle.source,
                          bundle.trust_level, "invalid_path", str(exc))
-        return
+        return False
     c.print(f"[dim]Quarantined to {q_path.relative_to(q_path.parent.parent.parent)}[/]")
 
     # Scan
@@ -637,7 +642,7 @@ def do_install(identifier: str, category: str = "", force: bool = False,
         append_audit_log("BLOCKED", bundle.name, bundle.source,
                          bundle.trust_level, result.verdict,
                          f"{len(result.findings)}_findings")
-        return
+        return False
 
     if extra_metadata:
         metadata_lines = _format_extra_metadata_lines(extra_metadata)
@@ -675,7 +680,7 @@ def do_install(identifier: str, category: str = "", force: bool = False,
         if answer not in {"y", "yes"}:
             c.print("[dim]Installation cancelled.[/]\n")
             shutil.rmtree(q_path, ignore_errors=True)
-            return
+            return False
 
     # Install
     try:
@@ -686,7 +691,7 @@ def do_install(identifier: str, category: str = "", force: bool = False,
         from tools.skills_hub import append_audit_log
         append_audit_log("BLOCKED", bundle.name, bundle.source,
                          bundle.trust_level, "invalid_path", str(exc))
-        return
+        return False
     from tools.skills_hub import SKILLS_DIR
     c.print(f"[bold green]Installed:[/] {install_dir.relative_to(SKILLS_DIR)}")
     c.print(f"[dim]Files: {', '.join(bundle.files.keys())}[/]\n")
@@ -742,6 +747,8 @@ def do_install(identifier: str, category: str = "", force: bool = False,
     else:
         c.print("[dim]Skill will be available in your next session.[/]")
         c.print("[dim]Use /reset to start a new session now, or --now to activate immediately (invalidates prompt cache).[/]\n")
+
+    return True
 
 
 def do_inspect(identifier: str, console: Optional[Console] = None) -> None:
@@ -883,12 +890,16 @@ def inspect_skill(identifier: str) -> Optional[dict]:
 
 def do_list(source_filter: str = "all",
             enabled_only: bool = False,
-            console: Optional[Console] = None) -> None:
+            console: Optional[Console] = None,
+            as_json: bool = False) -> None:
     """List installed skills, distinguishing hub, builtin, and local skills.
 
     Args:
         source_filter: ``all`` | ``hub`` | ``builtin`` | ``local``.
         enabled_only: If True, hide disabled skills from the output.
+        as_json: If True, print ``{"skills": [...]}`` (one dict per skill:
+            name/category/source/trust/enabled) instead of a Rich table —
+            for non-interactive callers (the Aio skills API bridge).
 
     Enabled/disabled state is resolved against the currently active profile's
     config — ``hermes -p <profile> skills list`` reads that profile's
@@ -909,6 +920,36 @@ def do_list(source_filter: str = "all",
     # Pull ALL skills (including disabled ones) so we can annotate status.
     all_skills = _find_all_skills(skip_disabled=True)
     disabled_names = get_disabled_skill_names()
+
+    if as_json:
+        rows = []
+        for skill in sorted(all_skills, key=lambda s: (s.get("category") or "", s["name"])):
+            name = skill["name"]
+            hub_entry = hub_installed.get(name)
+            if hub_entry:
+                source_type = "hub"
+                trust = hub_entry.get("trust_level", "community")
+            elif name in builtin_names:
+                source_type = "builtin"
+                trust = "builtin"
+            else:
+                source_type = "local"
+                trust = "local"
+            if source_filter != "all" and source_filter != source_type:
+                continue
+            is_enabled = name not in disabled_names
+            if enabled_only and not is_enabled:
+                continue
+            rows.append({
+                "name": name,
+                "category": skill.get("category", ""),
+                "description": skill.get("description", ""),
+                "source": source_type,
+                "trust": trust,
+                "enabled": is_enabled,
+            })
+        print(json.dumps({"skills": rows}, ensure_ascii=False))
+        return
 
     title = "Installed Skills"
     if enabled_only:
@@ -978,6 +1019,52 @@ def do_list(source_filter: str = "all",
         summary += f" — {enabled_count} enabled, {disabled_count} disabled"
     summary += "[/]\n"
     c.print(summary)
+
+
+def _set_skill_enabled(name: str, *, enable: bool) -> bool:
+    """Toggle a skill's global ``skills.disabled`` membership.
+
+    Returns False if no installed skill has this name. Pure config read/write
+    on top of the existing ``skills_config`` primitives (same shape as
+    ``hermes mcp enable/disable``'s ``_set_mcp_enabled``) — no re-validation
+    needed, install already scanned/approved this skill.
+    """
+    from hermes_cli.config import load_config
+    from hermes_cli.skills_config import get_disabled_skills, save_disabled_skills
+    from tools.skills_tool import _find_all_skills
+
+    if name not in {s["name"] for s in _find_all_skills(skip_disabled=True)}:
+        return False
+    config = load_config()
+    disabled = get_disabled_skills(config)
+    if enable:
+        disabled.discard(name)
+    else:
+        disabled.add(name)
+    save_disabled_skills(config, disabled)
+    return True
+
+
+def do_enable(name: str, console: Optional[Console] = None) -> bool:
+    """`hermes skills enable <name>` — non-interactive counterpart to the
+    curses-based `hermes skills config` toggle UI."""
+    c = console or _console
+    if not _set_skill_enabled(name, enable=True):
+        c.print(f"[bold red]'{name}' is not an installed skill.[/]")
+        return False
+    c.print(f"[bold green]✓[/] '{name}' enabled.")
+    return True
+
+
+def do_disable(name: str, console: Optional[Console] = None) -> bool:
+    """`hermes skills disable <name>` — non-interactive counterpart to the
+    curses-based `hermes skills config` toggle UI."""
+    c = console or _console
+    if not _set_skill_enabled(name, enable=False):
+        c.print(f"[bold red]'{name}' is not an installed skill.[/]")
+        return False
+    c.print(f"[bold green]✓[/] '{name}' disabled.")
+    return True
 
 
 def do_check(name: Optional[str] = None, console: Optional[Console] = None) -> None:
@@ -1669,16 +1756,28 @@ def skills_command(args) -> None:
         do_search(args.query, source=args.source, limit=args.limit,
                   as_json=getattr(args, "json", False))
     elif action == "install":
-        do_install(args.identifier, category=args.category, force=args.force,
-                   skip_confirm=getattr(args, "yes", False),
-                   name_override=getattr(args, "name", "") or "")
+        import sys as _sys
+        ok = do_install(args.identifier, category=args.category, force=args.force,
+                        skip_confirm=getattr(args, "yes", False),
+                        name_override=getattr(args, "name", "") or "")
+        if not ok:
+            _sys.exit(1)
     elif action == "inspect":
         do_inspect(args.identifier)
     elif action == "list":
         do_list(
             source_filter=args.source,
             enabled_only=getattr(args, "enabled_only", False),
+            as_json=getattr(args, "json", False),
         )
+    elif action == "enable":
+        import sys as _sys
+        if not do_enable(args.name):
+            _sys.exit(1)
+    elif action == "disable":
+        import sys as _sys
+        if not do_disable(args.name):
+            _sys.exit(1)
     elif action == "check":
         do_check(name=getattr(args, "name", None))
     elif action == "update":
@@ -1725,7 +1824,7 @@ def skills_command(args) -> None:
             return
         do_tap(tap_action, repo=repo)
     else:
-        _console.print("Usage: hermes skills [browse|search|install|inspect|list|list-modified|diff|check|update|audit|uninstall|reset|opt-out|opt-in|publish|snapshot|tap]\n")
+        _console.print("Usage: hermes skills [browse|search|install|inspect|list|enable|disable|list-modified|diff|check|update|audit|uninstall|reset|opt-out|opt-in|publish|snapshot|tap]\n")
         _console.print("Run 'hermes skills <command> --help' for details.\n")
 
 

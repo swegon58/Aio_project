@@ -70,6 +70,12 @@ def build_mcp_parser(subparsers, *, cmd_mcp: Callable) -> None:
     mcp_rm_p = mcp_sub.add_parser("remove", aliases=["rm"], help="Remove an MCP server")
     mcp_rm_p.add_argument("name", help="Server name to remove")
 
+    mcp_enable_p = mcp_sub.add_parser("enable", help="Enable an installed MCP server")
+    mcp_enable_p.add_argument("name", help="Server name to enable")
+
+    mcp_disable_p = mcp_sub.add_parser("disable", help="Disable an installed MCP server")
+    mcp_disable_p.add_argument("name", help="Server name to disable")
+
     mcp_sub.add_parser("list", aliases=["ls"], help="List configured MCP servers")
 
     mcp_test_p = mcp_sub.add_parser("test", help="Test MCP server connection")
@@ -102,6 +108,13 @@ def build_mcp_parser(subparsers, *, cmd_mcp: Callable) -> None:
     mcp_install_p.add_argument(
         "identifier",
         help="Catalog entry name (or `official/<name>`)",
+    )
+    mcp_install_p.add_argument(
+        "--env",
+        nargs="*",
+        default=[],
+        help="Pre-fill required credentials for this entry (KEY=VALUE), "
+        "skipping the interactive prompt",
     )
 
     add_accept_hooks_flag(mcp_parser)

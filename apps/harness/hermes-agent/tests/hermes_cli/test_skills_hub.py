@@ -312,9 +312,10 @@ def test_do_install_scans_with_resolved_identifier(monkeypatch, tmp_path, hub_en
     sink = StringIO()
     console = Console(file=sink, force_terminal=False, color_system=None)
 
-    do_install("skils-sh/anthropics/skills/frontend-design", console=console, skip_confirm=True)
+    result = do_install("skils-sh/anthropics/skills/frontend-design", console=console, skip_confirm=True)
 
     assert scanned["source"] == canonical_identifier
+    assert result is False  # blocked by should_allow_install → scripted callers see failure
 
 
 def test_do_install_scans_official_bundles_with_source_provenance(
@@ -781,3 +782,80 @@ def test_do_search_json_flag_emits_full_identifiers(capsys):
     # Table render must be suppressed — sink should be empty (no "Searching for:" header).
     assert "Searching for:" not in sink.getvalue()
 
+
+
+# ---------------------------------------------------------------------------
+# do_list(as_json=True) — non-interactive listing for the Aio skills API
+# ---------------------------------------------------------------------------
+
+def test_do_list_json_reports_enabled_state(monkeypatch, capsys, three_source_env):
+    import agent.skill_utils as skill_utils
+
+    monkeypatch.setattr(skill_utils, "get_disabled_skill_names", lambda: {"local-skill"})
+
+    do_list(as_json=True)
+
+    import json as _json
+    payload = _json.loads(capsys.readouterr().out)
+    by_name = {row["name"]: row for row in payload["skills"]}
+    assert by_name["hub-skill"]["source"] == "hub"
+    assert by_name["hub-skill"]["enabled"] is True
+    assert by_name["builtin-skill"]["source"] == "builtin"
+    assert by_name["local-skill"]["source"] == "local"
+    assert by_name["local-skill"]["enabled"] is False
+
+
+def test_do_list_json_respects_enabled_only(monkeypatch, capsys, three_source_env):
+    import agent.skill_utils as skill_utils
+
+    monkeypatch.setattr(skill_utils, "get_disabled_skill_names", lambda: {"local-skill"})
+
+    do_list(as_json=True, enabled_only=True)
+
+    import json as _json
+    payload = _json.loads(capsys.readouterr().out)
+    names = {row["name"] for row in payload["skills"]}
+    assert "local-skill" not in names
+    assert {"hub-skill", "builtin-skill"} <= names
+
+
+# ---------------------------------------------------------------------------
+# do_enable / do_disable — non-interactive counterpart to `skills config`
+# ---------------------------------------------------------------------------
+
+def test_do_enable_disable_roundtrip(monkeypatch):
+    from hermes_cli.skills_hub import do_disable, do_enable
+    import hermes_cli.config as cli_config
+    import hermes_cli.skills_config as skills_config
+    import tools.skills_tool as skills_tool
+
+    saved = {}
+    monkeypatch.setattr(cli_config, "load_config", lambda: {})
+    monkeypatch.setattr(skills_config, "save_config", lambda cfg: saved.update(cfg))
+    monkeypatch.setattr(
+        skills_tool, "_find_all_skills",
+        lambda **_kwargs: [{"name": "my-skill", "category": "", "description": ""}],
+    )
+
+    sink = StringIO()
+    console = Console(file=sink, force_terminal=False, color_system=None)
+
+    assert do_disable("my-skill", console=console) is True
+    assert saved["skills"]["disabled"] == ["my-skill"]
+
+    # Re-run enable against the config produced by the disable above.
+    monkeypatch.setattr(cli_config, "load_config", lambda: dict(saved))
+    assert do_enable("my-skill", console=console) is True
+    assert saved["skills"]["disabled"] == []
+
+
+def test_do_enable_unknown_skill_returns_false(monkeypatch):
+    from hermes_cli.skills_hub import do_enable
+    import tools.skills_tool as skills_tool
+
+    monkeypatch.setattr(skills_tool, "_find_all_skills", lambda **_kwargs: [])
+
+    sink = StringIO()
+    console = Console(file=sink, force_terminal=False, color_system=None)
+
+    assert do_enable("ghost-skill", console=console) is False

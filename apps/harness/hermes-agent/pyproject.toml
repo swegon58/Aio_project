@@ -181,6 +181,10 @@ pty = [
   # without pulling in extra packages.
 ]
 honcho = ["honcho-ai==2.0.1"]
+# psycopg is only exercised by the mem0 provider's self_hosted (pgvector)
+# mode; platform mode needs mem0ai alone. Bundled together since both are
+# small and self_hosted is the mode the R16 eval track exists to exercise.
+mem0 = ["mem0ai==2.0.11", "psycopg[binary,pool]==3.3.4"]
 # Image resize recovery for the vision tools. Pillow is now a CORE dependency
 # (see the main `dependencies` list) since the byte/pixel shrink paths are on
 # the default vision-embed path and the mid-session lazy install deadlocked the

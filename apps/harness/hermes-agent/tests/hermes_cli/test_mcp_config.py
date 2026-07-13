@@ -149,9 +149,10 @@ class TestMcpRemove:
         _seed_config(tmp_path, {})
         from hermes_cli.mcp_config import cmd_mcp_remove
 
-        cmd_mcp_remove(_make_args(name="ghost"))
+        result = cmd_mcp_remove(_make_args(name="ghost"))
         out = capsys.readouterr().out
         assert "not found" in out
+        assert result is False
 
     def test_remove_cleans_oauth_tokens(self, tmp_path, capsys, monkeypatch):
         _seed_config(tmp_path, {
@@ -173,6 +174,51 @@ class TestMcpRemove:
 
         cmd_mcp_remove(_make_args(name="oauth-srv"))
         assert not token_file.exists()
+
+
+# ---------------------------------------------------------------------------
+# Tests: cmd_mcp_enable / cmd_mcp_disable
+# ---------------------------------------------------------------------------
+
+class TestMcpEnableDisable:
+    def test_enable_existing_server(self, tmp_path, capsys):
+        _seed_config(tmp_path, {
+            "myserver": {"url": "https://example.com/mcp", "enabled": False},
+        })
+        from hermes_cli.mcp_config import cmd_mcp_enable
+        from hermes_cli.config import load_config
+
+        result = cmd_mcp_enable(_make_args(name="myserver"))
+        assert result is True
+        assert "enabled" in capsys.readouterr().out
+        assert load_config()["mcp_servers"]["myserver"]["enabled"] is True
+
+    def test_disable_existing_server(self, tmp_path, capsys):
+        _seed_config(tmp_path, {
+            "myserver": {"url": "https://example.com/mcp", "enabled": True},
+        })
+        from hermes_cli.mcp_config import cmd_mcp_disable
+        from hermes_cli.config import load_config
+
+        result = cmd_mcp_disable(_make_args(name="myserver"))
+        assert result is True
+        assert load_config()["mcp_servers"]["myserver"]["enabled"] is False
+
+    def test_enable_nonexistent_returns_false(self, tmp_path, capsys):
+        _seed_config(tmp_path, {})
+        from hermes_cli.mcp_config import cmd_mcp_enable
+
+        result = cmd_mcp_enable(_make_args(name="ghost"))
+        assert result is False
+        assert "not found" in capsys.readouterr().out
+
+    def test_disable_nonexistent_returns_false(self, tmp_path, capsys):
+        _seed_config(tmp_path, {})
+        from hermes_cli.mcp_config import cmd_mcp_disable
+
+        result = cmd_mcp_disable(_make_args(name="ghost"))
+        assert result is False
+        assert "not found" in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------
@@ -638,6 +684,23 @@ class TestDispatcher:
         mcp_command(_make_args(mcp_action=None))
         out = capsys.readouterr().out
         assert "Commands:" in out or "No MCP servers" in out
+
+    def test_handler_returning_false_exits_nonzero(self, tmp_path, capsys):
+        """A scripted caller (e.g. Aio's web API) needs a non-zero exit code
+        to detect failure — `hermes mcp enable <missing>` must not exit 0."""
+        from hermes_cli.mcp_config import mcp_command
+
+        _seed_config(tmp_path, {})
+        with pytest.raises(SystemExit) as exc_info:
+            mcp_command(_make_args(mcp_action="enable", name="ghost"))
+        assert exc_info.value.code == 1
+
+    def test_handler_returning_true_does_not_exit(self, tmp_path, capsys):
+        _seed_config(tmp_path, {"myserver": {"url": "https://example.com/mcp"}})
+        from hermes_cli.mcp_config import mcp_command
+
+        # Should not raise SystemExit.
+        mcp_command(_make_args(mcp_action="enable", name="myserver"))
 
 
 # ---------------------------------------------------------------------------

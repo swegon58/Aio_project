@@ -325,6 +325,40 @@ class TestInstall:
         with pytest.raises(CatalogError):
             install_entry(_entry("demo"), enable=True)
 
+    def test_install_env_override_prefilled_skips_prompt(self, catalog_dir, monkeypatch):
+        body = _basic_manifest(
+            auth={
+                "type": "api_key",
+                "env": [{"name": "DEMO_KEY", "prompt": "key", "secret": True}],
+            }
+        )
+        _write_manifest(catalog_dir, "demo", body)
+
+        from hermes_cli import mcp_catalog
+
+        def _fail_prompt(*a, **kw):
+            raise AssertionError("should not prompt when env is pre-seeded")
+
+        monkeypatch.setattr(mcp_catalog, "_prompt_input", _fail_prompt)
+
+        from hermes_cli.mcp_catalog import install_entry
+        from hermes_cli.config import get_env_value, load_config
+
+        install_entry(_entry("demo"), enable=True, env={"DEMO_KEY": "pre-seeded-val"})
+
+        assert get_env_value("DEMO_KEY") == "pre-seeded-val"
+        assert "demo" in load_config()["mcp_servers"]
+
+    def test_install_env_override_ignores_undeclared_key(self, catalog_dir):
+        _write_manifest(catalog_dir, "demo", _basic_manifest())  # auth.type == "none"
+
+        from hermes_cli.mcp_catalog import install_entry
+        from hermes_cli.config import get_env_value
+
+        install_entry(_entry("demo"), enable=True, env={"UNRELATED_KEY": "nope"})
+
+        assert get_env_value("UNRELATED_KEY") is None
+
 
 # ---------------------------------------------------------------------------
 # Uninstall
@@ -386,6 +420,29 @@ class TestPicker:
         rc = install_by_name("demo")
         assert rc == 0
         assert "demo" in load_config().get("mcp_servers", {})
+
+    def test_install_by_name_with_env_prefills(self, catalog_dir, monkeypatch):
+        body = _basic_manifest(
+            auth={
+                "type": "api_key",
+                "env": [{"name": "DEMO_KEY", "prompt": "key", "secret": True}],
+            }
+        )
+        _write_manifest(catalog_dir, "demo", body)
+
+        from hermes_cli import mcp_catalog
+
+        def _fail_prompt(*a, **kw):
+            raise AssertionError("should not prompt when env is pre-seeded")
+
+        monkeypatch.setattr(mcp_catalog, "_prompt_input", _fail_prompt)
+
+        from hermes_cli.mcp_picker import install_by_name
+        from hermes_cli.config import get_env_value
+
+        rc = install_by_name("demo", env={"DEMO_KEY": "pre-seeded-val"})
+        assert rc == 0
+        assert get_env_value("DEMO_KEY") == "pre-seeded-val"
 
     def test_run_picker_non_tty_falls_back(self, catalog_dir, capsys, monkeypatch):
         _write_manifest(catalog_dir, "demo", _basic_manifest())

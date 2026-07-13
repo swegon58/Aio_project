@@ -6,6 +6,7 @@ import {
   DEV_PROFILE_NAME,
   HEALTH_CHECK_INTERVAL_MS,
   HEALTH_CHECK_TIMEOUT_MS,
+  HERMES_BIN,
   HERMES_COMMIT_PIN,
   hermesSpawnEnv,
   profileDir,
@@ -21,8 +22,6 @@ import {
 import { allocateFreePort, isPidAlive, isPortFree } from "./process";
 import { ALL_GATEABLE_TOOLSETS, type PlanTier, tierConfig } from "./pricing";
 import { provisionOpenRouterKey } from "./openrouter";
-
-const HERMES_BIN = "/home/swegon/.local/bin/hermes";
 
 function run(
   cmd: string,

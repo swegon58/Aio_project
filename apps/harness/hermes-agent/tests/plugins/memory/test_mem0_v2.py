@@ -239,3 +239,144 @@ class TestMem0Defaults:
         provider.initialize("test")
 
         assert provider._agent_id == "hermes"
+
+    def test_default_mode_is_platform(self, monkeypatch, tmp_path):
+        """R16 eval track: self_hosted is opt-in, platform stays the default."""
+        monkeypatch.setenv("MEM0_API_KEY", "test-key")
+        monkeypatch.delenv("MEM0_MODE", raising=False)
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+        provider = Mem0MemoryProvider()
+        provider.initialize("test")
+
+        assert provider._mode == "platform"
+
+
+# ---------------------------------------------------------------------------
+# Self-hosted mode (R16 eval track — Mem0 OSS + Postgres/pgvector,
+# no replacement of the platform path or the Honcho default).
+# ---------------------------------------------------------------------------
+
+
+class TestMem0SelfHostedMode:
+    def test_is_available_requires_pg_dsn(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("MEM0_MODE", "self_hosted")
+        monkeypatch.delenv("MEM0_PG_DSN", raising=False)
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+        provider = Mem0MemoryProvider()
+        assert provider.is_available() is False
+
+    def test_is_available_true_with_pg_dsn(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("MEM0_MODE", "self_hosted")
+        monkeypatch.setenv("MEM0_PG_DSN", "postgresql://user:pass@localhost:5432/mem0test")
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+        provider = Mem0MemoryProvider()
+        assert provider.is_available() is True
+
+    def test_is_available_ignores_pg_dsn_in_platform_mode(self, monkeypatch, tmp_path):
+        """A stray MEM0_PG_DSN must not make platform mode report available
+        without an api_key — the two modes' availability checks stay separate."""
+        monkeypatch.delenv("MEM0_MODE", raising=False)
+        monkeypatch.delenv("MEM0_API_KEY", raising=False)
+        monkeypatch.setenv("MEM0_PG_DSN", "postgresql://user:pass@localhost:5432/mem0test")
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+        provider = Mem0MemoryProvider()
+        assert provider.is_available() is False
+
+    def test_initialize_reads_self_hosted_config(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("MEM0_MODE", "self_hosted")
+        monkeypatch.setenv("MEM0_PG_DSN", "postgresql://user:pass@localhost:5432/mem0test")
+        monkeypatch.setenv("MEM0_PG_COLLECTION", "hermes_memories")
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+        provider = Mem0MemoryProvider()
+        provider.initialize("test-session")
+
+        assert provider._mode == "self_hosted"
+        assert provider._pg_dsn == "postgresql://user:pass@localhost:5432/mem0test"
+        assert provider._pg_collection == "hermes_memories"
+
+    def test_get_client_builds_pgvector_config(self, monkeypatch, tmp_path):
+        """_get_client() must hand mem0's OSS Memory class a pgvector
+        vector_store pointed at the configured Postgres DSN — never touches
+        a real database, from_config is monkeypatched to capture the call."""
+        monkeypatch.setenv("MEM0_MODE", "self_hosted")
+        monkeypatch.setenv("MEM0_PG_DSN", "postgresql://user:pass@localhost:5432/mem0test")
+        monkeypatch.setenv("MEM0_PG_COLLECTION", "hermes_memories")
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+        captured = {}
+
+        def fake_from_config(config_dict):
+            captured["config"] = config_dict
+            return object()
+
+        mem0_module = pytest.importorskip("mem0", reason="mem0ai not installed in this environment")
+        monkeypatch.setattr(mem0_module.Memory, "from_config", staticmethod(fake_from_config))
+
+        provider = Mem0MemoryProvider()
+        provider.initialize("test-session")
+        client = provider._get_client()
+
+        assert client is not None
+        vector_store = captured["config"]["vector_store"]
+        assert vector_store["provider"] == "pgvector"
+        assert vector_store["config"]["connection_string"] == "postgresql://user:pass@localhost:5432/mem0test"
+        assert vector_store["config"]["collection_name"] == "hermes_memories"
+
+    def test_get_client_self_hosted_missing_dsn_raises(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("MEM0_MODE", "self_hosted")
+        monkeypatch.delenv("MEM0_PG_DSN", raising=False)
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+        provider = Mem0MemoryProvider()
+        provider.initialize("test-session")
+
+        with pytest.raises(RuntimeError, match="Postgres connection string"):
+            provider._get_client()
+
+    def test_platform_mode_still_uses_memory_client(self, monkeypatch, tmp_path):
+        """Regression guard: self_hosted mode must not change the platform
+        code path — same class, same call shape as before this feature."""
+        monkeypatch.delenv("MEM0_MODE", raising=False)
+        monkeypatch.setenv("MEM0_API_KEY", "test-key")
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+        mem0_module = pytest.importorskip("mem0", reason="mem0ai not installed in this environment")
+        captured = {}
+
+        class FakeMemoryClient:
+            def __init__(self, api_key=None):
+                captured["api_key"] = api_key
+
+        monkeypatch.setattr(mem0_module, "MemoryClient", FakeMemoryClient)
+
+        provider = Mem0MemoryProvider()
+        provider.initialize("test-session")
+        client = provider._get_client()
+
+        assert isinstance(client, FakeMemoryClient)
+        assert captured["api_key"] == "test-key"
+
+    def test_search_and_conclude_work_unchanged_in_self_hosted_mode(self, monkeypatch, tmp_path):
+        """The OSS Memory client is API-compatible with MemoryClient for the
+        calls this provider makes, so handle_tool_call needs zero branching
+        on mode — this exercises that end to end against a fake client."""
+        monkeypatch.setenv("MEM0_MODE", "self_hosted")
+        monkeypatch.setenv("MEM0_PG_DSN", "postgresql://user:pass@localhost:5432/mem0test")
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+        client = FakeClientV2(search_results={"results": [{"memory": "self-hosted fact", "score": 0.99}]})
+        provider = Mem0MemoryProvider()
+        provider.initialize("test-session")
+        monkeypatch.setattr(provider, "_get_client", lambda: client)
+
+        result = json.loads(provider.handle_tool_call("mem0_search", {"query": "test"}))
+        assert result["count"] == 1
+        assert result["results"][0]["memory"] == "self-hosted fact"
+
+        provider.handle_tool_call("mem0_conclude", {"conclusion": "runs on self-hosted pgvector"})
+        assert len(client.captured_add) == 1

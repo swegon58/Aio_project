@@ -10,9 +10,22 @@ import type { AioChatMode } from "./chat-mode";
 // message.delta handler).
 export const MIN_RESEARCH_SOURCES = 4;
 
+// R16 A2 — do NOT tell the model to use delegate_task/background subagents
+// here. hermes-agent forces every top-level (depth 0) delegate_task call
+// into background mode (tools/delegate_tool.py _model_background_value,
+// run_agent.py _dispatch_delegate_task: `background=(not is_subagent)`),
+// delivered by re-injecting a message on the platform adapter once the
+// subagent finishes (gateway/run.py _async_delegation_watcher ->
+// adapter.handle_message). Aio's web chat runs on APIServerAdapter, whose
+// send() is a permanent no-op stub (gateway/platforms/api_server.py) — so a
+// background delegation would finish with nowhere to deliver its result,
+// silently dropping it (no REST polling path exists either). Until
+// hermes-agent ships a delivery channel for the API_SERVER adapter (or a
+// synchronous top-level delegate mode), keep research sequential.
 const RESEARCH_INSTRUCTIONS = [
   "You are running an Aio Deep Research task.",
   "Break the request into a focused research plan and execute it with the available web, browser, and knowledge tools.",
+  "Do not use delegate_task or spawn background sub-agents for this research — run every step yourself in this conversation; background delegation results cannot be delivered back to this chat.",
   "Prefer primary and authoritative sources. Cross-check consequential claims across independent sources when possible.",
   `Non-negotiable minimum depth: consult at least ${MIN_RESEARCH_SOURCES} distinct sources before writing your final synthesis or report. Do not move to synthesis after only one or two searches. If the topic is narrow enough that fewer credible sources genuinely exist, say so explicitly in the report instead of silently skipping this minimum.`,
   "Keep the research moving without asking for confirmation when the request is sufficiently clear.",
@@ -45,6 +58,20 @@ export const RESEARCH_QUESTIONS_INSTRUCTIONS = [
 
 /** Sent by the frontend's "Start research" button (mirrors plan-mode.ts's SKIP_TO_PLAN_TEXT). */
 export const RESEARCH_CONFIRM_TEXT = "Proceed with the research plan above, step by step.";
+
+// R16 A7 — sent by the Workspace report panel's "Export as Word doc" button
+// on a finished research report. Unlike the Markdown/PDF export buttons
+// (client-only, see reportFileBaseName/buildReportHtmlDocument in
+// app-home-utils.ts), this is agent-driven: the model already has the report
+// in this thread's context and uses the `docx` skill (aio-home/profiles/aio/
+// skills/productivity/docx) to author a real .docx via write_file. The
+// resulting file surfaces automatically as a downloadable message artifact —
+// api_server.py's `_extract_artifact_path` already matches `.docx` in
+// `_ARTIFACT_EXTENSIONS`, no new backend plumbing needed for the download
+// itself. Sent with mode "auto" (not the current chat mode) since this is a
+// one-off action on an already-finished report, not a new research query.
+export const EXPORT_DOCX_INSTRUCTION =
+  "Export the research report above as a polished Word document (.docx) using the docx skill, then confirm the saved file path.";
 
 /** Skip straight to the research plan, mirroring plan-mode.ts's SKIP_TO_PLAN_TEXT. */
 const RESEARCH_SKIP_QUESTIONS_TEXT = "Skip the clarifying questions and write the research plan now";

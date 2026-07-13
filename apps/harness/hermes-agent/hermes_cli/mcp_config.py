@@ -501,7 +501,8 @@ def cmd_mcp_add(args):
 # ─── hermes mcp remove ───────────────────────────────────────────────────────
 
 def cmd_mcp_remove(args):
-    """Remove an MCP server from config."""
+    """Remove an MCP server from config. Returns False on failure/cancel so
+    the dispatcher can propagate a non-zero exit code to scripted callers."""
     name = args.name
     existing = _get_mcp_servers()
 
@@ -510,11 +511,11 @@ def cmd_mcp_remove(args):
         servers = list(existing.keys())
         if servers:
             _info(f"Available servers: {', '.join(servers)}")
-        return
+        return False
 
     if not _confirm(f"Remove server '{name}'?", default=True):
         _info("Cancelled.")
-        return
+        return False
 
     _remove_mcp_server(name)
     _success(f"Removed '{name}' from config")
@@ -528,6 +529,8 @@ def cmd_mcp_remove(args):
         _success("Cleaned up OAuth tokens")
     except Exception:
         pass
+
+    return True
 
 
 # ─── hermes mcp list ──────────────────────────────────────────────────────────
@@ -750,6 +753,49 @@ def cmd_mcp_login(args):
         _error(f"Authentication failed: {exc}")
 
 
+# ─── hermes mcp enable / disable ─────────────────────────────────────────────
+
+def _set_mcp_enabled(name: str, *, enable: bool) -> bool:
+    """Toggle the ``enabled`` flag on an existing server entry.
+
+    Returns False if the server isn't configured. Pure config read/write —
+    no re-validation needed since the command/args were already validated
+    when the entry was first saved (`_save_mcp_server`).
+    """
+    config = load_config()
+    servers = config.get("mcp_servers") or {}
+    server = servers.get(name)
+    if not server:
+        return False
+    server["enabled"] = enable
+    config["mcp_servers"] = servers
+    save_config(config)
+    return True
+
+
+def cmd_mcp_enable(args):
+    """Enable a previously-installed MCP server. Returns False on failure so
+    the dispatcher can propagate a non-zero exit code to scripted callers."""
+    name = args.name
+    if not _set_mcp_enabled(name, enable=True):
+        _error(f"Server '{name}' not found in config.")
+        return False
+    _success(f"'{name}' enabled. Start a new Hermes session for changes to take effect.")
+    return True
+
+
+def cmd_mcp_disable(args):
+    """Disable a previously-installed MCP server (config kept, stops loading).
+    Returns False on failure so the dispatcher can propagate a non-zero exit
+    code to scripted callers."""
+    name = args.name
+    if not _set_mcp_enabled(name, enable=False):
+        _error(f"Server '{name}' not found in config.")
+        return False
+    _success(f"'{name}' disabled. Start a new Hermes session for changes to take effect.")
+    return True
+
+
 # ─── hermes mcp configure ────────────────────────────────────────────────────
 
 def cmd_mcp_configure(args):
@@ -873,7 +919,13 @@ def mcp_command(args):
     if action == "install":
         from hermes_cli.mcp_picker import install_by_name
         import sys as _sys
-        rc = install_by_name(getattr(args, "identifier", "") or "")
+        raw_env = getattr(args, "env", None) or []
+        try:
+            env = _parse_env_assignments(raw_env) or None
+        except ValueError as exc:
+            _error(str(exc))
+            _sys.exit(1)
+        rc = install_by_name(getattr(args, "identifier", "") or "", env=env)
         if rc:
             _sys.exit(rc)
         return
@@ -888,11 +940,18 @@ def mcp_command(args):
         "configure": cmd_mcp_configure,
         "config": cmd_mcp_configure,
         "login": cmd_mcp_login,
+        "enable": cmd_mcp_enable,
+        "disable": cmd_mcp_disable,
     }
 
     handler = handlers.get(action)
     if handler:
-        handler(args)
+        # A handler returning False (add/list/test/configure/login return
+        # None, unaffected) signals failure to a scripted caller — propagate
+        # as a non-zero exit code rather than silently exiting 0.
+        if handler(args) is False:
+            import sys as _sys
+            _sys.exit(1)
     else:
         # No subcommand — drop the user into the catalog picker. This is the
         # "try enabling and it flows you into setup" UX matching `hermes plugin`.
@@ -907,6 +966,8 @@ def mcp_command(args):
         _info("hermes mcp add <name> --command <cmd>         Add a stdio server")
         _info("hermes mcp add <name> --preset <preset>       Add from a known preset")
         _info("hermes mcp remove <name>                      Remove a server")
+        _info("hermes mcp enable <name>                      Enable an installed server")
+        _info("hermes mcp disable <name>                     Disable an installed server")
         _info("hermes mcp list                               List configured servers")
         _info("hermes mcp test <name>                        Test connection")
         _info("hermes mcp configure <name>                   Toggle tools")

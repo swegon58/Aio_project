@@ -8,6 +8,7 @@ import { legacyFrontendEventsToAioRunEvents } from "@/components/app/run-timelin
 import type { ActiveFile } from "@/components/app/FilePreview";
 import { brand } from "@/lib/brand.config";
 import type { AioChatMode } from "@/lib/aio/chat/chat-mode";
+import { EXPORT_DOCX_INSTRUCTION } from "@/lib/aio/chat/research-mode";
 import {
   fetchRunSources,
   isRunTerminal,
@@ -383,6 +384,15 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
+  };
+
+  // R16 A7 — agent-driven export (see EXPORT_DOCX_INSTRUCTION comment):
+  // sends a follow-up turn asking the model to author a .docx via the docx
+  // skill, rather than generating the file client-side like the two buttons
+  // above. Mode forced to "auto" regardless of the current chatMode so this
+  // one-off action never re-triggers the research plan/questions wizard.
+  const handleExportReportDocx = () => {
+    sendMessage({ text: EXPORT_DOCX_INSTRUCTION }, { body: { mode: "auto" } });
   };
 
   // R9.3: sources disclosure panel, keyed by runId so both the live message
@@ -1175,6 +1185,7 @@ export function AppHome({ email, userName, userAvatarUrl }: AppHomeProps) {
           openReport={openReport}
           handleDownloadReportMarkdown={handleDownloadReportMarkdown}
           handleExportReportPdf={handleExportReportPdf}
+          handleExportReportDocx={handleExportReportDocx}
           handleToggleSources={handleToggleSources}
           openSourcesRunId={openSourcesRunId}
           sourcesByRunId={sourcesByRunId}

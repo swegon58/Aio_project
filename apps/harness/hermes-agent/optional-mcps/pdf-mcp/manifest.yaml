@@ -1,0 +1,59 @@
+# Nous-approved MCP catalog entry.
+# Presence in this directory = approval. Merged via PR review.
+manifest_version: 1
+
+name: pdf-mcp
+description: Search, paginate, and extract structured content (tables, images, OCR text, TOC) from PDFs without flooding the agent's context window.
+source: https://github.com/jztan/pdf-mcp
+
+# Community server (jztan/pdf-mcp), picked over ~15 other "pdf table mcp"
+# candidates found in a 2026-07-13 GitHub search: highest star count by a
+# wide margin (75 vs next-best 11), MIT-licensed, CI + codecov badges, a
+# real docs/ tree, and a commit within days of this search (v1.20.0,
+# 2026-07-10) — genuinely maintained, not abandoned after an initial
+# release. markitdown (above) does whole-document-to-markdown conversion
+# but has no dedicated table/structured-extraction or paginated-reading
+# tool; pdf-mcp covers that gap specifically (`pdf_read_pages`/`pdf_read_all`
+# return tables as structured data with source bbox/clip coordinates, not
+# flattened text).
+#
+# Published to PyPI as `pdf-mcp`. No git clone step needed — `uvx` fetches
+# and runs the pinned version on-demand, same carve-out as the markitdown
+# entry above and documented in optional-mcps/n8n/manifest.yaml.
+transport:
+  type: stdio
+  command: "uvx"
+  args:
+    - "pdf-mcp==1.20.0"
+
+# No credentials — reads local file: paths or fetches https: URLs directly
+# (server has its own SSRF protection: HTTPS-only, local network ranges
+# blocked).
+auth:
+  type: none
+
+# Tool selection at install time:
+# All 9 tools are read-only against the PDF (or a local SQLite cache the
+# server manages itself) — nothing mutates external state. Leave
+# `tools.default_enabled` unset so the install-time checklist starts with
+# everything pre-checked, same as the linear/unreal-engine entries.
+
+post_install: |
+  pdf-mcp works out of the box, no configuration required. Core tools:
+  pdf_info (call first — page count, TOC, scanned-page detection),
+  pdf_search (hybrid keyword+semantic search so the agent reads only
+  relevant pages), pdf_read_pages / pdf_read_all (paginated text + tables +
+  images, each table returned as structured data with source coordinates),
+  pdf_render_pages (render a page as PNG for vision models), pdf_get_toc,
+  pdf_cache_stats / pdf_cache_clear, and server_info.
+
+  Optional extras (OCR needs system Tesseract; semantic search and
+  multi-column reading order pull extra Python deps) are NOT enabled by
+  this manifest — the base `pdf-mcp` package covers keyword search, paginated
+  reading, and table/image extraction without them. If you need OCR on
+  scanned PDFs or better multi-column reading order, install Tesseract
+  yourself and switch the pinned package to `pdf-mcp[semantic,multicolumn]`
+  (see https://github.com/jztan/pdf-mcp#installation) — not done here to
+  keep the default install dependency-light.
+
+  Start a new Hermes session to load the pdf-mcp tools.

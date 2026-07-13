@@ -31,6 +31,10 @@ export const PREVIEW_PORT_RANGE: readonly [number, number] = [8800, 8830];
 // Hermes commit pin (Q26) — must match apps/harness/hermes-agent HEAD.
 export const HERMES_COMMIT_PIN = "4373e802a1b90150b131b459c52e84ada2e70d06";
 
+// hermes CLI binary — every web->Hermes write (provisioning, MCP lifecycle)
+// spawns this as a subprocess scoped to a profile via `-p <profileName>`.
+export const HERMES_BIN = "/home/swegon/.local/bin/hermes";
+
 // Idle-kill threshold (Q14).
 export const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
 

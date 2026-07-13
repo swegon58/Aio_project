@@ -7,6 +7,7 @@ import {
   Eye,
   File,
   FileCode,
+  FileText,
   Folder,
   ImageIcon,
   Link2,
@@ -60,6 +61,7 @@ interface RightPanelProps {
   openReport: { query: string; reportText: string; runId: string | null } | null;
   handleDownloadReportMarkdown: (query: string, reportText: string) => void;
   handleExportReportPdf: (query: string, reportText: string) => void;
+  handleExportReportDocx: () => void;
   handleToggleSources: (runId: string) => void;
   openSourcesRunId: string | null;
   sourcesByRunId: Record<string, AioPublicResearchSource[]>;
@@ -93,6 +95,7 @@ export function RightPanel({
   openReport,
   handleDownloadReportMarkdown,
   handleExportReportPdf,
+  handleExportReportDocx,
   handleToggleSources,
   openSourcesRunId,
   sourcesByRunId,
@@ -146,6 +149,15 @@ export function RightPanel({
           title="Export report as PDF"
         >
           <Printer className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          className="copy-btn"
+          onClick={() => handleExportReportDocx()}
+          aria-label="Export report as Word document"
+          title="Export report as Word document (.docx)"
+        >
+          <FileText className="w-3.5 h-3.5" />
         </button>
         {report.runId && (
           <button

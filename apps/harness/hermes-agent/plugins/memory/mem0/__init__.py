@@ -1,12 +1,23 @@
 """Mem0 memory plugin — MemoryProvider interface.
 
 Server-side LLM fact extraction, semantic search with reranking, and
-automatic deduplication via the Mem0 Platform API.
+automatic deduplication. Two deployment modes (see MEM0_MODE):
+
+  platform     (default) — Mem0 Platform API, needs MEM0_API_KEY.
+  self_hosted  — Mem0 OSS running against your own Postgres + pgvector,
+                 needs MEM0_PG_DSN. Evaluation track alongside Honcho —
+                 free, no vendor lock-in, no new vector DB to stand up.
 
 Original PR #2933 by kartik-mem0, adapted to MemoryProvider ABC.
 
 Config via environment variables:
-  MEM0_API_KEY       — Mem0 Platform API key (required)
+  MEM0_MODE          — "platform" (default) or "self_hosted"
+  MEM0_API_KEY       — Mem0 Platform API key (platform mode)
+  MEM0_PG_DSN        — Postgres connection string, e.g.
+                        postgresql://user:pass@host:5432/dbname
+                        (self_hosted mode; DB must have the pgvector
+                        extension enabled)
+  MEM0_PG_COLLECTION — pgvector collection/table name (default: mem0)
   MEM0_USER_ID       — User identifier (default: hermes-user)
   MEM0_AGENT_ID      — Agent identifier (default: hermes)
 
@@ -47,7 +58,10 @@ def _load_config() -> dict:
     from hermes_constants import get_hermes_home
 
     config = {
+        "mode": os.environ.get("MEM0_MODE", "platform"),
         "api_key": os.environ.get("MEM0_API_KEY", ""),
+        "pg_connection_string": os.environ.get("MEM0_PG_DSN", ""),
+        "pg_collection": os.environ.get("MEM0_PG_COLLECTION", "mem0"),
         "user_id": os.environ.get("MEM0_USER_ID", "hermes-user"),
         "agent_id": os.environ.get("MEM0_AGENT_ID", "hermes"),
         "rerank": True,
@@ -123,7 +137,10 @@ class Mem0MemoryProvider(MemoryProvider):
         self._config = None
         self._client = None
         self._client_lock = threading.Lock()
+        self._mode = "platform"
         self._api_key = ""
+        self._pg_dsn = ""
+        self._pg_collection = "mem0"
         self._user_id = "hermes-user"
         self._agent_id = "hermes"
         self._rerank = True
@@ -141,6 +158,8 @@ class Mem0MemoryProvider(MemoryProvider):
 
     def is_available(self) -> bool:
         cfg = _load_config()
+        if cfg.get("mode") == "self_hosted":
+            return bool(cfg.get("pg_connection_string"))
         return bool(cfg.get("api_key"))
 
     def save_config(self, values, hermes_home):
@@ -160,16 +179,54 @@ class Mem0MemoryProvider(MemoryProvider):
 
     def get_config_schema(self):
         return [
-            {"key": "api_key", "description": "Mem0 Platform API key", "secret": True, "required": True, "env_var": "MEM0_API_KEY", "url": "https://app.mem0.ai"},
+            {"key": "mode", "description": "Deployment mode", "default": "platform", "choices": ["platform", "self_hosted"]},
+            {"key": "api_key", "description": "Mem0 Platform API key", "secret": True, "required": True, "env_var": "MEM0_API_KEY", "url": "https://app.mem0.ai", "when": {"mode": "platform"}},
+            {"key": "pg_connection_string", "description": "Postgres connection string (pgvector extension required), e.g. postgresql://user:pass@host:5432/dbname", "secret": True, "required": True, "env_var": "MEM0_PG_DSN", "when": {"mode": "self_hosted"}},
+            {"key": "pg_collection", "description": "pgvector collection/table name", "default": "mem0", "when": {"mode": "self_hosted"}},
             {"key": "user_id", "description": "User identifier", "default": "hermes-user"},
             {"key": "agent_id", "description": "Agent identifier", "default": "hermes"},
             {"key": "rerank", "description": "Enable reranking for recall", "default": "true", "choices": ["true", "false"]},
         ]
 
     def _get_client(self):
-        """Thread-safe client accessor with lazy initialization."""
+        """Thread-safe client accessor with lazy initialization.
+
+        ``self._mode == "self_hosted"`` builds a Mem0 OSS ``Memory`` client
+        against a pgvector-backed Postgres instance instead of the hosted
+        Platform API. The OSS ``Memory.add/search/get_all`` signatures are
+        kept API-compatible with ``MemoryClient`` by mem0 upstream (both
+        accept ``filters=``, ``rerank=``, ``top_k=``), so every call site
+        below works unchanged regardless of which client is active.
+        """
         with self._client_lock:
             if self._client is not None:
+                return self._client
+            if self._mode == "self_hosted":
+                if not self._pg_dsn:
+                    raise RuntimeError(
+                        "Mem0 self-hosted mode requires a Postgres connection "
+                        "string. Set MEM0_PG_DSN or run: hermes memory setup mem0"
+                    )
+                try:
+                    from mem0 import Memory
+                except ImportError:
+                    raise RuntimeError("mem0 package not installed. Run: pip install mem0ai")
+                try:
+                    self._client = Memory.from_config({
+                        "vector_store": {
+                            "provider": "pgvector",
+                            "config": {
+                                "connection_string": self._pg_dsn,
+                                "collection_name": self._pg_collection,
+                            },
+                        },
+                    })
+                except ImportError as e:
+                    # pgvector backend needs psycopg, a separate package from mem0ai itself.
+                    raise RuntimeError(
+                        f"Mem0 self-hosted pgvector backend needs psycopg: {e}. "
+                        "Run: pip install 'psycopg[binary,pool]'"
+                    ) from e
                 return self._client
             try:
                 from mem0 import MemoryClient
@@ -203,7 +260,10 @@ class Mem0MemoryProvider(MemoryProvider):
 
     def initialize(self, session_id: str, **kwargs) -> None:
         self._config = _load_config()
+        self._mode = self._config.get("mode") or "platform"
         self._api_key = self._config.get("api_key", "")
+        self._pg_dsn = self._config.get("pg_connection_string", "")
+        self._pg_collection = self._config.get("pg_collection") or "mem0"
         # Prefer gateway-provided user_id for per-user memory scoping;
         # fall back to config/env default for CLI (single-user) sessions.
         self._user_id = kwargs.get("user_id") or self._config.get("user_id", "hermes-user")

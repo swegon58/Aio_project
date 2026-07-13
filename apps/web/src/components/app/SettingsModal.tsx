@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Calendar, CreditCard, FileText, KeyRound, Lock, Palette, Plug, Server, Shield, Trash2, User, X } from "lucide-react";
+import { Calendar, CreditCard, FileText, KeyRound, Lock, Palette, Plug, Puzzle, Server, Shield, Trash2, User, X } from "lucide-react";
 import { ALL_GATEABLE_TOOLSETS, TIERS, type PlanTier } from "@/lib/hermes/pricing";
 import { PanelEmpty, PanelLoading } from "@/components/ui/panel-state";
 import { NotificationPreferencesPanel } from "@/components/app/NotificationPreferencesPanel";
@@ -16,12 +16,13 @@ type AccentKey = "purple" | "green" | "blue" | "pink" | "orange" | "cyan" | "red
 // Notifications folded into Account. Knowledge & Agents tab removed from nav
 // 2026-07-11 (KnowledgeCenterPanel/SavedAgentsPanel/RetrievalValvesPanel
 // backend data untouched, just unreachable via UI — same pattern as Memory).
-type SettingsTab = "account" | "general" | "connections" | "credentials" | "plan" | "data";
+type SettingsTab = "account" | "general" | "connections" | "skills" | "credentials" | "plan" | "data";
 
 const SETTINGS_TABS = [
   { key: "account", label: "Account", icon: User },
   { key: "general", label: "Personalization", icon: Palette },
   { key: "connections", label: "Connected Apps", icon: Plug },
+  { key: "skills", label: "Skills", icon: Puzzle },
   { key: "credentials", label: "Model Providers", icon: KeyRound },
   { key: "plan", label: "Plan", icon: CreditCard },
   { key: "data", label: "Data & Privacy", icon: Shield },
@@ -37,6 +38,21 @@ const destructiveFilledStyle: React.CSSProperties = {
   width: "auto",
   color: "var(--accent-on-accent)",
   background: "var(--accent-red)",
+};
+
+// Small pill used by SkillsMarketplacePanel for category/source/trust tags.
+const skillBadgeStyle: React.CSSProperties = {
+  fontSize: 11,
+  padding: "1px 7px",
+  borderRadius: "var(--radius-sm)",
+  border: "1px solid color-mix(in srgb, var(--border-color) 55%, transparent)",
+  color: "var(--text-muted)",
+  whiteSpace: "nowrap",
+};
+const skillBadgeTrustedStyle: React.CSSProperties = {
+  ...skillBadgeStyle,
+  color: "var(--accent-green)",
+  border: "1px solid color-mix(in srgb, var(--accent-green) 40%, transparent)",
 };
 
 // Human-readable labels for the gateable Hermes toolset IDs (Q2 of the
@@ -503,6 +519,14 @@ export function SettingsModal({
               </button>
               {tokenMessage && <div className="memory-text">{tokenMessage}</div>}
             </form>
+
+            <McpConnectionsPanel />
+          </div>
+        )}
+
+        {tab === "skills" && (
+          <div className="setting-group" style={{ borderBottom: "none" }}>
+            <SkillsMarketplacePanel />
           </div>
         )}
 
@@ -902,5 +926,426 @@ function RetrievalValvesPanel() {
         </>
       )}
     </form>
+  );
+}
+
+interface SkillRow {
+  name: string;
+  category: string;
+  description: string;
+  source: "hub" | "builtin" | "local";
+  trust: string;
+  enabled: boolean;
+}
+
+// R16-A5: Skills tab. Wraps /api/integrations/skills (GET list, POST
+// install, PATCH enable/disable). GET only returns already-installed skills
+// (`hermes skills list --json`) — hub browse/search isn't wired to any API
+// route yet, so "install" here is identifier-entry only, not a browsable
+// catalog. ponytail: no category/name/force install overrides in the form,
+// add inputs for those if users need them.
+function SkillsMarketplacePanel() {
+  const [skills, setSkills] = useState<SkillRow[] | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+  const [togglingName, setTogglingName] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+  const [identifier, setIdentifier] = useState("");
+  const [installing, setInstalling] = useState(false);
+  const [installMessage, setInstallMessage] = useState<string | null>(null);
+
+  const loadSkills = async () => {
+    try {
+      const res = await fetch("/api/integrations/skills");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Failed to load");
+      setSkills(json.skills ?? []);
+      setListError(null);
+    } catch (e) {
+      setListError((e as Error).message);
+    }
+  };
+
+  useEffect(() => {
+    loadSkills();
+  }, []);
+
+  const toggleSkill = async (name: string, enabled: boolean) => {
+    setTogglingName(name);
+    setToggleError(null);
+    setSkills((cur) => cur?.map((s) => (s.name === name ? { ...s, enabled } : s)) ?? cur);
+    try {
+      const res = await fetch("/api/integrations/skills", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, enabled }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Failed to update");
+    } catch (e) {
+      setSkills((cur) => cur?.map((s) => (s.name === name ? { ...s, enabled: !enabled } : s)) ?? cur);
+      setToggleError((e as Error).message);
+    } finally {
+      setTogglingName(null);
+    }
+  };
+
+  const installSkill = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!identifier.trim()) return;
+    setInstalling(true);
+    setInstallMessage(null);
+    try {
+      const res = await fetch("/api/integrations/skills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: identifier.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Install failed");
+      setIdentifier("");
+      setInstallMessage("Installed.");
+      await loadSkills();
+    } catch (e) {
+      setInstallMessage((e as Error).message);
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="panel-section-title" style={{ marginTop: 0 }}>Installed skills</div>
+      {listError && (
+        <div className="memory-text" style={{ color: "var(--accent-red)", marginBottom: 8 }}>
+          Failed to load: {listError}
+        </div>
+      )}
+      {skills === null && !listError && <PanelLoading />}
+      {skills !== null && skills.length === 0 && !listError && (
+        <PanelEmpty icon={<Puzzle className="w-5 h-5" />}>No skills installed yet.</PanelEmpty>
+      )}
+      {toggleError && (
+        <div className="memory-text" style={{ color: "var(--accent-red)", marginBottom: 8 }}>{toggleError}</div>
+      )}
+
+      {skills?.map((s) => (
+        <div key={s.name} className="mcp-server-item" style={{ opacity: s.enabled ? 1 : 0.65 }}>
+          <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
+            <Puzzle className="w-3.5 h-3.5" />
+          </div>
+          <div className="mcp-server-info">
+            <div className="mcp-server-name">{s.name}</div>
+            <div className="mcp-server-url">{s.description || "No description"}</div>
+            <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+              <span style={skillBadgeStyle}>{s.category}</span>
+              <span style={s.trust === "community" ? skillBadgeStyle : skillBadgeTrustedStyle}>{s.trust}</span>
+              <span style={skillBadgeStyle}>{s.source}</span>
+            </div>
+          </div>
+          <div className={`mcp-server-status ${s.enabled ? "connected" : "disconnected"}`} />
+          <button
+            type="button"
+            className="mcp-add-btn"
+            style={{ width: "auto", flexShrink: 0, padding: "4px 8px", fontSize: 12 }}
+            disabled={togglingName === s.name}
+            onClick={() => toggleSkill(s.name, !s.enabled)}
+          >
+            {togglingName === s.name ? "…" : s.enabled ? "Disable" : "Enable"}
+          </button>
+        </div>
+      ))}
+
+      <div className="panel-section-title" style={{ marginTop: 20 }}>Install a skill</div>
+      <div className="setting-desc" style={{ marginBottom: 12 }}>
+        Enter a skill identifier from the hub (e.g. openai/skills/skill-creator) or a direct SKILL.md URL.
+      </div>
+      <form onSubmit={installSkill} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <input
+          type="text"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder="Skill identifier or SKILL.md URL"
+          className="message-input"
+          style={{ height: 32 }}
+        />
+        <button type="submit" className="mcp-add-btn" disabled={installing || !identifier.trim()}>
+          {installing ? "Installing…" : "Install skill"}
+        </button>
+        {installMessage && <div className="memory-text">{installMessage}</div>}
+      </form>
+    </>
+  );
+}
+
+interface McpServerRow {
+  name: string;
+  transport: string;
+  enabled: boolean;
+}
+
+const N8N_DEFAULT_BASE_URL = "http://127.0.0.1:5678";
+
+// R16-A6: one-click Linear/n8n connect. Reuses A1's generic
+// /api/integrations/mcp (GET/POST/PATCH/DELETE) as-is — no new API route.
+//
+// Linear (auth.type: oauth, no provider) does NOT get an honest "Connected"
+// state here on purpose. Verified: `hermes mcp install linear` succeeds
+// (writes the config entry, no crash) because
+// tools/mcp_oauth_manager.py's `MCPOAuthManager._build_provider` only
+// *raises* `OAuthNonInteractiveError` when the caller is non-interactive
+// with no cached tokens — it never opens a browser. Aio's `runHermesMcp`
+// (lib/hermes/mcp-cli.ts) always spawns non-interactively (closed stdin),
+// and that same guard fires again at the *next* MCP connect too (live
+// session tool-load, `tools/mcp_tool.py:1974-1982`), which also runs
+// server-side, headless — same class of gap as A2's `APIServerAdapter`
+// finding. Even if that guard didn't fire, the OAuth redirect callback
+// listens on `127.0.0.1:<port>` on whichever machine runs the Hermes
+// process (`tools/mcp_oauth.py:_wait_for_callback`) — the server, not the
+// connecting user's browser — so the redirect could never reach it anyway.
+// So: the button is real (it does install), the status is honest (never
+// claims connected), the message is a placeholder pending Product/UX
+// copy sign-off. See docs/roadmap/R16_EXECUTION_CHECKLIST.md A6.
+function McpConnectionsPanel() {
+  const [servers, setServers] = useState<McpServerRow[] | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+  const [togglingName, setTogglingName] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+  const [confirmRemoveName, setConfirmRemoveName] = useState<string | null>(null);
+
+  const [linearBusy, setLinearBusy] = useState(false);
+  const [linearMessage, setLinearMessage] = useState<string | null>(null);
+
+  const [n8nBaseUrl, setN8nBaseUrl] = useState(N8N_DEFAULT_BASE_URL);
+  const [n8nApiKey, setN8nApiKey] = useState("");
+  const [n8nBusy, setN8nBusy] = useState(false);
+  const [n8nError, setN8nError] = useState<string | null>(null);
+  const [n8nMessage, setN8nMessage] = useState<string | null>(null);
+
+  const loadServers = async () => {
+    try {
+      const res = await fetch("/api/integrations/mcp");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Failed to load");
+      setServers(json.servers ?? []);
+      setListError(null);
+    } catch (e) {
+      setListError((e as Error).message);
+    }
+  };
+
+  useEffect(() => {
+    loadServers();
+  }, []);
+
+  const toggleServer = async (name: string, enabled: boolean) => {
+    setTogglingName(name);
+    setToggleError(null);
+    setServers((cur) => cur?.map((s) => (s.name === name ? { ...s, enabled } : s)) ?? cur);
+    try {
+      const res = await fetch("/api/integrations/mcp", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, enabled }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Failed to update");
+    } catch (e) {
+      setServers((cur) => cur?.map((s) => (s.name === name ? { ...s, enabled: !enabled } : s)) ?? cur);
+      setToggleError((e as Error).message);
+    } finally {
+      setTogglingName(null);
+    }
+  };
+
+  const removeServer = async (name: string) => {
+    if (confirmRemoveName !== name) {
+      setConfirmRemoveName(name);
+      return;
+    }
+    setConfirmRemoveName(null);
+    setTogglingName(name);
+    setToggleError(null);
+    try {
+      const res = await fetch("/api/integrations/mcp", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Failed to remove");
+      await loadServers();
+    } catch (e) {
+      setToggleError((e as Error).message);
+    } finally {
+      setTogglingName(null);
+    }
+  };
+
+  const connectLinear = async () => {
+    setLinearBusy(true);
+    setLinearMessage(null);
+    try {
+      const res = await fetch("/api/integrations/mcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "linear" }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Connect failed");
+      // ponytail: placeholder copy — Product/UX owns final consumer wording.
+      setLinearMessage(
+        "Added, but sign-in can't finish automatically from here yet — Linear needs a one-time setup step Aio can't complete on its own today.",
+      );
+      await loadServers();
+    } catch (e) {
+      setLinearMessage((e as Error).message);
+    } finally {
+      setLinearBusy(false);
+    }
+  };
+
+  const connectN8n = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setN8nError(null);
+    setN8nMessage(null);
+    if (!/^https?:\/\/\S+/i.test(n8nBaseUrl.trim())) {
+      setN8nError("Enter a valid n8n URL (starting with http:// or https://).");
+      return;
+    }
+    if (!n8nApiKey.trim()) {
+      setN8nError("API key is required.");
+      return;
+    }
+    setN8nBusy(true);
+    try {
+      const res = await fetch("/api/integrations/mcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "n8n",
+          env: { N8N_BASE_URL: n8nBaseUrl.trim(), N8N_API_KEY: n8nApiKey.trim() },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Connect failed");
+      setN8nApiKey("");
+      setN8nMessage("Connected.");
+      await loadServers();
+    } catch (e) {
+      setN8nError((e as Error).message);
+    } finally {
+      setN8nBusy(false);
+    }
+  };
+
+  const renderControls = (name: string, enabled: boolean) => (
+    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+      <button
+        type="button"
+        className="mcp-add-btn"
+        style={{ width: "auto", padding: "4px 8px", fontSize: 12 }}
+        disabled={togglingName === name}
+        onClick={() => toggleServer(name, !enabled)}
+      >
+        {togglingName === name ? "…" : enabled ? "Disable" : "Enable"}
+      </button>
+      <button
+        type="button"
+        className="mcp-add-btn"
+        style={
+          confirmRemoveName === name
+            ? { ...destructiveFilledStyle, padding: "4px 8px", fontSize: 12 }
+            : { width: "auto", padding: "4px 8px", fontSize: 12 }
+        }
+        disabled={togglingName === name}
+        onClick={() => removeServer(name)}
+      >
+        {confirmRemoveName === name ? "Confirm?" : "Remove"}
+      </button>
+    </div>
+  );
+
+  const linearRow = servers?.find((s) => s.name === "linear");
+  const n8nRow = servers?.find((s) => s.name === "n8n");
+
+  return (
+    <>
+      <div className="panel-section-title" style={{ marginTop: 20 }}>Automation tools</div>
+      {listError && (
+        <div className="memory-text" style={{ color: "var(--accent-red)", marginBottom: 8 }}>
+          Failed to load: {listError}
+        </div>
+      )}
+      {servers === null && !listError && <PanelLoading />}
+      {toggleError && (
+        <div className="memory-text" style={{ color: "var(--accent-red)", marginBottom: 8 }}>{toggleError}</div>
+      )}
+
+      <div className="mcp-server-item">
+        <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
+          <Server className="w-3.5 h-3.5" />
+        </div>
+        <div className="mcp-server-info">
+          <div className="mcp-server-name">Linear</div>
+          <div className="mcp-server-url">
+            {linearRow ? "Added — sign-in still needed" : "Find, create, and update Linear issues"}
+          </div>
+        </div>
+        <div className="mcp-server-status disconnected" />
+        {linearRow ? (
+          renderControls("linear", linearRow.enabled)
+        ) : (
+          <button
+            type="button"
+            className="mcp-add-btn"
+            style={{ width: "auto", flexShrink: 0, padding: "4px 8px", fontSize: 12 }}
+            disabled={linearBusy}
+            onClick={connectLinear}
+          >
+            {linearBusy ? "Connecting…" : "Connect Linear"}
+          </button>
+        )}
+      </div>
+      {linearMessage && <div className="memory-text" style={{ marginBottom: 12 }}>{linearMessage}</div>}
+
+      <div className="mcp-server-item">
+        <div className="mcp-server-icon" style={{ background: "var(--bg-hover)" }}>
+          <Server className="w-3.5 h-3.5" />
+        </div>
+        <div className="mcp-server-info">
+          <div className="mcp-server-name">n8n</div>
+          <div className="mcp-server-url">
+            {n8nRow ? "Connected" : "Manage and inspect n8n workflows"}
+          </div>
+        </div>
+        <div className={`mcp-server-status ${n8nRow?.enabled ? "connected" : "disconnected"}`} />
+        {n8nRow && renderControls("n8n", n8nRow.enabled)}
+      </div>
+      {!n8nRow && (
+        <form onSubmit={connectN8n} style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+          <input
+            type="text"
+            value={n8nBaseUrl}
+            onChange={(e) => setN8nBaseUrl(e.target.value)}
+            placeholder="n8n instance URL"
+            className="message-input"
+            style={{ height: 32 }}
+          />
+          <input
+            type="password"
+            value={n8nApiKey}
+            onChange={(e) => setN8nApiKey(e.target.value)}
+            placeholder="n8n API key (Settings → API in n8n)"
+            className="message-input"
+            style={{ height: 32 }}
+          />
+          <button type="submit" className="mcp-add-btn" disabled={n8nBusy}>
+            {n8nBusy ? "Connecting…" : "Connect n8n"}
+          </button>
+          {n8nError && <div className="memory-text" style={{ color: "var(--accent-red)" }}>{n8nError}</div>}
+          {n8nMessage && <div className="memory-text">{n8nMessage}</div>}
+        </form>
+      )}
+    </>
   );
 }

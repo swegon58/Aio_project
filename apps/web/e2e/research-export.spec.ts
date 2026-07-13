@@ -145,3 +145,70 @@ test("R9.2/R9.3: research report export buttons and sources panel work after a c
   await sourcesBtn.click();
   await expect(panel).toHaveCount(0);
 });
+
+test("R16-A7: 'Export report as Word document' sends an agent-driven follow-up turn", async ({ page }) => {
+  const runId = "66666666-6666-4666-8666-666666666666";
+  const reportText = "## Findings\n\nThe sky is blue because of Rayleigh scattering.";
+  const chatRequests: Array<{ text?: string; mode?: string }> = [];
+
+  await installApiMocks(page, {
+    handler: async ({ route, path, method, url: _url }) => {
+      if (path === "/api/chat" && method === "POST") {
+        const json = route.request().postDataJSON() as {
+          messages?: Array<{ role: string; parts?: Array<{ type: string; text?: string }> }>;
+          mode?: string;
+        };
+        const lastMessage = json.messages?.at(-1);
+        const lastText = lastMessage?.parts?.find((p) => p.type === "text")?.text;
+        chatRequests.push({ text: lastText, mode: json.mode });
+
+        const isExportTurn = lastText?.includes("docx skill");
+        await route.fulfill({
+          status: 200,
+          headers: streamHeaders,
+          body: streamBody(
+            isExportTurn
+              ? [
+                  { type: "text-start", id: "text-2" },
+                  { type: "text-delta", id: "text-2", delta: "Saved report.docx." },
+                  { type: "text-end", id: "text-2" },
+                ]
+              : [
+                  { type: "data-aio-run", id: "run-part", data: { runId, threadId: "thread-1" } },
+                  { type: "text-start", id: "text-1" },
+                  { type: "text-delta", id: "text-1", delta: reportText },
+                  { type: "text-end", id: "text-1" },
+                ],
+          ),
+        });
+        return true;
+      }
+      if (path === `/api/runs/${runId}/sources` && method === "GET") {
+        await route.fulfill({ json: { sources: [] } });
+        return true;
+      }
+      return false;
+    },
+  });
+
+  await page.goto("/app");
+  const composer = page.locator("textarea.message-input");
+  await expect(composer).toBeVisible();
+
+  await page.getByRole("button", { name: /Response mode:/ }).click();
+  await page.getByRole("menuitemradio", { name: "Research" }).click();
+  await composer.fill("Why is the sky blue?");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  await expect(page.getByText("The sky is blue because of Rayleigh scattering.")).toBeVisible();
+  await page.getByRole("button", { name: "Open report" }).click();
+
+  const docxBtn = page.getByRole("button", { name: "Export report as Word document" });
+  await expect(docxBtn).toBeVisible();
+  await docxBtn.click();
+
+  await expect.poll(() => chatRequests.some((r) => r.text?.includes("docx skill"))).toBe(true);
+  const exportRequest = chatRequests.find((r) => r.text?.includes("docx skill"));
+  expect(exportRequest?.mode).toBe("auto");
+  await expect(page.getByText("Saved report.docx.")).toBeVisible();
+});

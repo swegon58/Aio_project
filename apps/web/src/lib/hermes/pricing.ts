@@ -72,6 +72,7 @@ export const ALL_GATEABLE_TOOLSETS = [
   "cronjob",
   "tts",
   "skills",
+  "moa",
 ] as const;
 
 export const TIERS: Record<PlanTier, TierConfig> = {
@@ -125,7 +126,7 @@ export const TIERS: Record<PlanTier, TierConfig> = {
       wallClockTimeoutMs: 20 * 60 * 1000, // 🔢 20 min
       creditBudget: 8000, // 🔢 ~$8 raw cost per task
     },
-    toolsets: [...ALL_GATEABLE_TOOLSETS], // 🔢 locked grill-me 2026-06-20 — everything unlocked
+    toolsets: [...ALL_GATEABLE_TOOLSETS], // 🔢 locked grill-me 2026-06-20 — everything unlocked; "moa" added R16-A3, business-only like image_gen/video_gen/tts (highest per-call cost: 5 OpenRouter calls/invocation)
   },
 };
 

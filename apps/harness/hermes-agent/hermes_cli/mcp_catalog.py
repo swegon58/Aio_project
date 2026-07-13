@@ -666,12 +666,32 @@ def _apply_tool_selection(
     ))
 
 
-def install_entry(entry: CatalogEntry, *, enable: bool = True) -> None:
+def _apply_env_overrides(entry: CatalogEntry, env: Dict[str, str]) -> None:
+    """Pre-seed ``~/.hermes/.env`` for a subset of *env* before the auth step.
+
+    Only keys the manifest actually declares under ``auth.env`` are written —
+    an unknown key is silently ignored rather than letting a caller stash
+    arbitrary secrets via an install call. ``_prompt_env_vars`` already skips
+    prompting when ``get_env_value()`` returns a value, so pre-seeding here is
+    enough to make non-interactive installs (e.g. from a headless caller)
+    work for entries whose manifest requires credentials.
+    """
+    declared = {spec.name for spec in entry.auth.env}
+    for name, value in env.items():
+        if name in declared and value:
+            save_env_value(name, value)
+
+
+def install_entry(
+    entry: CatalogEntry, *, enable: bool = True, env: Optional[Dict[str, str]] = None
+) -> None:
     """Install a catalog entry end-to-end.
 
     Steps:
         1. If ``install.type == git``, clone + run bootstrap commands.
         2. If ``auth.type == api_key``, prompt for env vars, save to .env.
+           (``env`` pre-seeds these values so a non-interactive caller can
+           supply them upfront instead of hitting a blocking prompt.)
         3. If ``auth.type == oauth`` (remote MCP / case 1), write the
            ``auth: oauth`` marker (MCP client handles browser on first connect
            in the non-pre-authenticated case).
@@ -694,6 +714,9 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True) -> None:
     install_dir: Optional[Path] = None
     if entry.install is not None:
         install_dir = _do_git_install(entry)
+
+    if env:
+        _apply_env_overrides(entry, env)
 
     # Auth
     if entry.auth.type == "api_key":

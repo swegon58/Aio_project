@@ -5,11 +5,19 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildResearchInstructions,
+  EXPORT_DOCX_INSTRUCTION,
   MIN_RESEARCH_SOURCES,
   RESEARCH_CONFIRM_TEXT,
   RESEARCH_PLAN_INSTRUCTIONS,
   RESEARCH_QUESTIONS_INSTRUCTIONS,
 } from "./research-mode.js";
+
+describe("execute-phase instructions", () => {
+  it("steers the model away from delegate_task (no delivery channel on the API_SERVER adapter)", () => {
+    const result = buildResearchInstructions("research", [], { role: "user", content: RESEARCH_CONFIRM_TEXT });
+    assert.ok(result?.includes("Do not use delegate_task"));
+  });
+});
 
 describe("buildResearchInstructions", () => {
   it("returns null when mode is not research", () => {
@@ -51,5 +59,12 @@ describe("buildResearchInstructions", () => {
 describe("MIN_RESEARCH_SOURCES", () => {
   it("is a positive floor consistent with the 3-5 range noted in the prompt", () => {
     assert.ok(MIN_RESEARCH_SOURCES >= 3 && MIN_RESEARCH_SOURCES <= 5);
+  });
+});
+
+describe("EXPORT_DOCX_INSTRUCTION", () => {
+  it("asks the model to use the docx skill to export the report", () => {
+    assert.ok(EXPORT_DOCX_INSTRUCTION.includes("docx"));
+    assert.ok(EXPORT_DOCX_INSTRUCTION.toLowerCase().includes("export"));
   });
 });

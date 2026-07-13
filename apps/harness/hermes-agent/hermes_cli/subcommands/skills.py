@@ -106,6 +106,21 @@ def build_skills_parser(subparsers, *, cmd_skills: Callable) -> None:
         help="Hide disabled skills. Use with -p <profile> to see exactly "
         "which skills will load for that profile.",
     )
+    skills_list.add_argument(
+        "--json",
+        action="store_true",
+        help="Output JSON instead of a table (scripting-friendly)",
+    )
+
+    skills_enable = skills_subparsers.add_parser(
+        "enable", help="Enable an installed skill (non-interactive)"
+    )
+    skills_enable.add_argument("name", help="Skill name to enable")
+
+    skills_disable = skills_subparsers.add_parser(
+        "disable", help="Disable an installed skill (non-interactive)"
+    )
+    skills_disable.add_argument("name", help="Skill name to disable")
 
     skills_check = skills_subparsers.add_parser(
         "check", help="Check installed hub skills for updates"
